@@ -11253,6 +11253,7 @@ function renderHome(){
           <div class="profileInlineActions">
             <button class="profileInlineBtn" onclick="go('profile')">Profile</button>
             ${showSuperAdmin ? `<button class="profileSuperAdminBtn" onclick="openSuperAdminFromProfileBar()" aria-label="Open Super Admin Dashboard">🛡 Super Admin</button>` : ``}
+            ${showSuperAdmin ? `<button class="profileSuperAdminBtn" style="background:#0a1e3d;border-color:#0a1e3d;" onclick="window.open('/admin','_blank')" aria-label="Open Executive Dashboard">📊 Executive Dashboard</button>` : ``}
             <button class="profileFeedbackBtn ${feedbackSubmitted ? "submitted" : ""}" onclick="openHomeFeedbackFromProfileBar()" aria-label="Give feedback">
               ${escapeHTML(feedbackButtonLabel(feedbackStatus))}
             </button>
