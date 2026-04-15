@@ -11127,7 +11127,7 @@ function renderHome(){
 
   // ── Home Dashboard: Profile & Plan bar + My Teams ──
   const user = authState.user;
-  const userName = user?.user_metadata?.full_name || user?.email || "Coach";
+  const userName = user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : "My Account");
   const userEmail = getCurrentUserEmail();
   const currentPlan = getCurrentPlan();
   const limits = getPlanLimits();
@@ -21462,7 +21462,7 @@ async function sendTeamBroadcast(){
   const sendBtn = document.getElementById("broadcastSendBtn");
   if(sendBtn) sendBtn.disabled = true;
 
-  const coachName = escapeHTML(authState.user?.user_metadata?.full_name || authState.user?.email || "Coach");
+  const coachName = escapeHTML(authState.user?.user_metadata?.full_name || authState.user?.email || "Lead Assessor");
   const fromName = "Tryout \u2014 Athlete Assessment Systems";
 
   let sentCount = 0;
