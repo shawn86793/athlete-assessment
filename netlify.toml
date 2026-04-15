@@ -37,8 +37,6 @@ NPM_FLAGS = "--include=dev"
   to     = "/admin.html"
   status = 200
 
-[[plugins]]
-package = "netlify-plugin-cypress"
-
-  [plugins.inputs]
-  enable = true
+# Cypress plugin disabled — runs locally only
+# [[plugins]]
+# package = "netlify-plugin-cypress"
