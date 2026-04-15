@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tryout Enterprise</title>
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --navy:#0a1e3d;
+  --orange:#f97316;
+  --orange-light:rgba(249,115,22,0.1);
+  --bg:#f1f5f9;
+  --card:#fff;
+  --border:#e2e8f0;
+  --ink:#0f172a;
+  --muted:#64748b;
+  --green:#16a34a;
+  --green-bg:rgba(22,163,74,0.1);
+  --red:#dc2626;
+  --red-bg:rgba(220,38,38,0.1);
+  --amber:#d97706;
+  --amber-bg:rgba(217,119,6,0.1);
+  --blue:#0057b8;
+  --blue-bg:rgba(0,87,184,0.1);
+  --sidebar-w:220px;
+  --topnav-h:56px;
+  --radius:10px;
+  --shadow:0 1px 4px rgba(0,0,0,0.08);
+}
+[data-theme="dark"]{
+  --bg:#0f172a;
+  --card:#1e293b;
+  --border:#334155;
+  --ink:#f1f5f9;
+  --muted:#94a3b8;
+}
+body{font-family:Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;min-height:100vh;}
+
+/* ── Top Nav ── */
+#topnav{
+  position:fixed;top:0;left:0;right:0;height:var(--topnav-h);
+  background:var(--navy);color:#fff;
+  display:flex;align-items:center;gap:12px;padding:0 16px;z-index:200;
+  border-bottom:2px solid var(--orange);
+}
+#topnav .logo{font-size:16px;font-weight:900;white-space:nowrap;cursor:pointer;display:flex;align-items:center;gap:8px;}
+#topnav .logo span{font-size:10px;background:var(--orange);color:#fff;padding:2px 7px;border-radius:999px;font-weight:900;letter-spacing:0.05em;}
+#topnav .orgBadge{font-size:12px;opacity:0.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+#globalSearch{flex:1;max-width:360px;margin:0 auto;position:relative;}
+#globalSearch input{width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:13px;outline:none;}
+#globalSearch input::placeholder{color:rgba(255,255,255,0.45);}
+#globalSearch .searchIcon{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:0.5;font-size:14px;}
+#topnav .navRight{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.notifBtn{background:none;border:none;color:#fff;cursor:pointer;font-size:18px;position:relative;padding:4px;}
+.notifCount{position:absolute;top:0;right:0;background:var(--orange);color:#fff;font-size:9px;font-weight:900;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;}
+.avatarBtn{width:32px;height:32px;border-radius:50%;background:var(--orange);color:#fff;border:none;cursor:pointer;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center;}
+.avatarMenu{position:absolute;top:calc(var(--topnav-h) + 4px);right:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,0.12);min-width:200px;z-index:300;display:none;}
+.avatarMenu.open{display:block;}
+.avatarMenu .menuItem{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);}
+.avatarMenu .menuItem:last-child{border-bottom:none;}
+.avatarMenu .menuItem:hover{background:var(--bg);}
+
+/* ── Sidebar ── */
+#sidebar{
+  position:fixed;top:var(--topnav-h);left:0;bottom:0;width:var(--sidebar-w);
+  background:var(--card);border-right:1px solid var(--border);
+  overflow-y:auto;z-index:100;transition:transform 0.2s;
+}
+.sidebarItem{
+  display:flex;align-items:center;gap:10px;padding:10px 16px;
+  cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);
+  border-left:3px solid transparent;transition:all 0.15s;
+}
+.sidebarItem:hover{background:var(--bg);color:var(--ink);}
+.sidebarItem.active{color:var(--orange);border-left-color:var(--orange);background:var(--orange-light);}
+.sidebarItem .icon{font-size:16px;width:22px;text-align:center;flex-shrink:0;}
+.sidebarDivider{height:1px;background:var(--border);margin:6px 0;}
+.sidebarSection{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:12px 16px 4px;}
+
+/* ── Main Content ── */
+#main{
+  margin-left:var(--sidebar-w);
+  margin-top:var(--topnav-h);
+  padding:24px;
+  min-height:calc(100vh - var(--topnav-h));
+}
+
+/* ── Login Screen ── */
+#loginScreen{
+  position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:1000;
+}
+.loginCard{background:var(--card);border-radius:16px;padding:36px 32px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.loginCard h1{font-size:22px;font-weight:900;color:var(--navy);margin-bottom:4px;}
+.loginCard .subtitle{font-size:12px;color:var(--muted);margin-bottom:24px;}
+.loginBadge{display:inline-block;background:var(--orange);color:#fff;font-size:9px;font-weight:900;padding:2px 8px;border-radius:999px;letter-spacing:0.06em;margin-bottom:16px;}
+.formGroup{margin-bottom:14px;}
+.formGroup label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;}
+.formGroup input,.formGroup select,.formGroup textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--ink);background:var(--card);outline:none;transition:border-color 0.15s;}
+.formGroup input:focus,.formGroup select:focus,.formGroup textarea:focus{border-color:var(--orange);}
+.formGroup .helper{font-size:11px;color:var(--muted);margin-top:4px;}
+.btnPrimary{width:100%;padding:12px;background:var(--orange);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:900;cursor:pointer;margin-top:4px;}
+.btnPrimary:hover{filter:brightness(1.1);}
+.btnPrimary:disabled{opacity:0.55;cursor:not-allowed;}
+.btnSecondary{padding:8px 16px;background:var(--bg);color:var(--ink);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.btnSecondary:hover{background:var(--border);}
+.btnOk{padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:900;cursor:pointer;}
+.btnOk:hover{filter:brightness(1.1);}
+.btnOk:disabled{opacity:0.55;cursor:not-allowed;}
+.loginError{background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,0.25);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+
+/* ── Pulse Cards ── */
+.pulseGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+.pulseCard{background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);border:1px solid var(--border);}
+.pulseCard .label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+.pulseCard .value{font-size:28px;font-weight:900;color:var(--ink);line-height:1;}
+.pulseCard .trend{font-size:11px;color:var(--muted);margin-top:4px;}
+.pulseCard .trend.up{color:var(--green);}
+.pulseCard .trend.down{color:var(--red);}
+
+/* ── Section Header ── */
+.sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+.sectionTitle{font-size:20px;font-weight:900;color:var(--ink);}
+.sectionSubtitle{font-size:13px;color:var(--muted);margin-top:2px;}
+
+/* ── Cards & Panels ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
+.card h3{font-size:14px;font-weight:900;margin-bottom:14px;color:var(--ink);}
+.twoCol{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.threeCol{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+
+/* ── Tables ── */
+.tableWrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{background:var(--bg);padding:10px 12px;text-align:left;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--ink);}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--bg);}
+tbody tr{cursor:pointer;}
+
+/* ── Status Chips ── */
+.chip{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;}
+.chip.green{background:var(--green-bg);color:var(--green);}
+.chip.red{background:var(--red-bg);color:var(--red);}
+.chip.amber{background:var(--amber-bg);color:var(--amber);}
+.chip.blue{background:var(--blue-bg);color:var(--blue);}
+.chip.grey{background:var(--border);color:var(--muted);}
+.chip.orange{background:var(--orange-light);color:var(--orange);}
+
+/* ── Search Bar ── */
+.searchBar{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+.searchBar input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--ink);outline:none;}
+.searchBar input:focus{border-color:var(--orange);}
+
+/* ── Activity Feed ── */
+.feedItem{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);}
+.feedItem:last-child{border-bottom:none;}
+.feedIcon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.feedIcon.green{background:var(--green-bg);}
+.feedIcon.orange{background:var(--orange-light);}
+.feedIcon.blue{background:var(--blue-bg);}
+.feedItem .feedBody{flex:1;min-width:0;}
+.feedItem .feedBody .feedTitle{font-size:13px;font-weight:700;}
+.feedItem .feedBody .feedMeta{font-size:11px;color:var(--muted);margin-top:2px;}
+.feedItem .feedTime{font-size:11px;color:var(--muted);white-space:nowrap;}
+
+/* ── Quick Actions ── */
+.quickGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.quickAction{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;text-align:center;cursor:pointer;transition:all 0.15s;font-size:12px;font-weight:700;color:var(--ink);}
+.quickAction:hover{border-color:var(--orange);background:var(--orange-light);color:var(--orange);}
+.quickAction .qaIcon{font-size:22px;display:block;margin-bottom:6px;}
+
+/* ── Team Health ── */
+.teamHealthGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+.teamTile{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);cursor:pointer;transition:border-color 0.15s;}
+.teamTile:hover{border-color:var(--orange);}
+.teamTile .ttName{font-size:13px;font-weight:900;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.teamTile .ttMeta{font-size:11px;color:var(--muted);margin-bottom:8px;}
+.progressBar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:6px;}
+.progressBar .fill{height:100%;background:var(--orange);border-radius:2px;transition:width 0.4s;}
+
+/* ── Detail Panel ── */
+#detailPanel{
+  position:fixed;top:var(--topnav-h);right:0;bottom:0;width:420px;max-width:100vw;
+  background:var(--card);border-left:1px solid var(--border);z-index:150;
+  overflow-y:auto;transform:translateX(100%);transition:transform 0.25s;
+  box-shadow:-4px 0 20px rgba(0,0,0,0.1);
+}
+#detailPanel.open{transform:translateX(0);}
+.panelHeader{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:10;}
+.panelHeader h2{font-size:16px;font-weight:900;flex:1;}
+.panelClose{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px;}
+.panelTabs{display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;}
+.panelTab{padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;}
+.panelTab.active{color:var(--orange);border-bottom-color:var(--orange);}
+.panelBody{padding:16px;}
+
+/* ── Forms ── */
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;}
+.field input,.field select,.field textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--ink);outline:none;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--orange);}
+.field textarea{min-height:100px;resize:vertical;}
+
+/* ── Notifications Panel ── */
+#notifPanel{
+  position:fixed;top:calc(var(--topnav-h) + 4px);right:60px;width:360px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:300;display:none;max-height:480px;overflow-y:auto;
+}
+#notifPanel.open{display:block;}
+.notifItem{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
+.notifItem:hover{background:var(--bg);}
+.notifItem:last-child{border-bottom:none;}
+.notifItem.unread{background:var(--orange-light);}
+.notifIcon{font-size:18px;flex-shrink:0;}
+.notifBody .notifTitle{font-size:13px;font-weight:700;margin-bottom:2px;}
+.notifBody .notifDesc{font-size:12px;color:var(--muted);}
+.notifBody .notifTime{font-size:11px;color:var(--muted);margin-top:2px;}
+
+/* ── Finance Summary ── */
+.finRow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.finRow:last-child{border-bottom:none;}
+.finRow .label{color:var(--muted);}
+.finRow .amount{font-weight:900;font-size:15px;}
+.finRow .amount.green{color:var(--green);}
+.finRow .amount.amber{color:var(--amber);}
+.finRow .amount.red{color:var(--red);}
+
+/* ── Role Badges ── */
+.roleBadge{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:900;}
+.roleBadge.owner{background:#7c3aed20;color:#7c3aed;}
+.roleBadge.manager{background:var(--blue-bg);color:var(--blue);}
+.roleBadge.staff{background:var(--green-bg);color:var(--green);}
+.roleBadge.viewer{background:var(--border);color:var(--muted);}
+
+/* ── Modals ── */
+#modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:400;display:none;align-items:center;justify-content:center;}
+#modalOverlay.open{display:flex;}
+.modal{background:var(--card);border-radius:16px;padding:28px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:18px;font-weight:900;margin-bottom:16px;}
+.modalActions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+
+/* ── Alerts / Banners ── */
+.banner{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:14px;}
+.banner.success{background:var(--green-bg);color:var(--green);border:1px solid rgba(22,163,74,0.25);}
+.banner.error{background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,0.25);}
+.banner.info{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(0,87,184,0.25);}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  #sidebar{transform:translateX(-100%);}
+  #sidebar.mobileOpen{transform:translateX(0);}
+  #main{margin-left:0;}
+  .pulseGrid{grid-template-columns:1fr 1fr;}
+  .twoCol,.threeCol{grid-template-columns:1fr;}
+  #detailPanel{width:100%;}
+}
+@media(max-width:600px){
+  .pulseGrid{grid-template-columns:1fr;}
+  #globalSearch{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="loginCard">
+    <span class="loginBadge">ENTERPRISE</span>
+    <h1>Tryout Enterprise</h1>
+    <p class="subtitle">Administration Dashboard — Organization Control Layer</p>
+
+    <div id="loginError" class="loginError"></div>
+
+    <div id="loginStep1">
+      <div class="formGroup">
+        <label>Organization Slug</label>
+        <input id="orgSlugInput" type="text" placeholder="e.g. msba" autocomplete="off" />
+        <div class="helper">Ask your organization owner for your domain slug.</div>
+      </div>
+      <button class="btnPrimary" onclick="loginContinue()">Continue</button>
+      <p style="text-align:center;margin-top:14px;font-size:12px;color:var(--muted);">
+        Need access? <a href="mailto:admin@swg47.com" style="color:var(--orange);">Request organization setup</a>
+      </p>
+    </div>
+
+    <div id="loginStep2" style="display:none;">
+      <div style="background:var(--bg);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:13px;">
+        Organization: <strong id="loginOrgName">—</strong>
+        <button onclick="resetLogin()" style="float:right;background:none;border:none;font-size:11px;color:var(--orange);cursor:pointer;">Change</button>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Sign in with your registered admin email to access this organization's dashboard.</p>
+      <button class="btnPrimary" onclick="netlifyLogin()">Sign In with Email</button>
+    </div>
+
+    <div id="loginStep3" style="display:none;">
+      <p style="font-size:13px;color:var(--muted);text-align:center;padding:20px 0;">Verifying access…</p>
+    </div>
+
+    <!-- Super-admin: org setup (shown when org slug doesn't exist yet) -->
+    <div id="loginStepSetup" style="display:none;">
+      <div style="background:#fff3e0;border:1px solid #f97316;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400e;">
+        ⚡ <strong>Super Admin</strong> — No organization found for slug "<span id="setupSlugLabel"></span>". Create it below.
+      </div>
+      <div class="formGroup" style="margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;">Organization Name</label>
+        <input id="setupOrgName" type="text" placeholder="e.g. Metro Sports Hockey Association" autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-top:4px;" />
+      </div>
+      <div class="formGroup" style="margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;">Owner Email</label>
+        <input id="setupOwnerEmail" type="email" placeholder="owner@example.com" autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-top:4px;" />
+      </div>
+      <div class="formGroup" style="margin-bottom:10px;">
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;">Owner Name</label>
+        <input id="setupOwnerName" type="text" placeholder="First Last" autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-top:4px;" />
+      </div>
+      <div class="formGroup" style="margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;">Sport</label>
+        <select id="setupSport" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-top:4px;">
+          <option>Hockey</option><option>Soccer</option><option>Basketball</option>
+          <option>Baseball</option><option>Football</option><option>Ringette</option>
+        </select>
+      </div>
+      <div id="setupError" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
+      <button class="btnPrimary" onclick="createOrgAndEnter()" style="width:100%;">Create Organization</button>
+      <button onclick="resetLogin()" style="width:100%;margin-top:8px;padding:9px;border:1px solid var(--border);border-radius:8px;background:none;font-size:13px;cursor:pointer;color:var(--muted);">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     TOP NAV
+═══════════════════════════════════════════════════════════════════════════ -->
+<nav id="topnav" style="display:none;">
+  <div class="logo" onclick="navigate('home')">
+    <span>ENTERPRISE</span> Tryout
+  </div>
+  <div class="orgBadge" id="navOrgName">—</div>
+
+  <div id="globalSearch">
+    <span class="searchIcon">🔍</span>
+    <input type="text" placeholder="Search players, assessments, payments…" oninput="globalSearchHandler(this.value)" />
+  </div>
+
+  <div class="navRight">
+    <button class="notifBtn" onclick="toggleNotifPanel()">
+      🔔<span class="notifCount" id="notifCount" style="display:none;">0</span>
+    </button>
+    <button class="avatarBtn" id="avatarBtn" onclick="toggleAvatarMenu()">A</button>
+  </div>
+</nav>
+
+<!-- Avatar Dropdown -->
+<div class="avatarMenu" id="avatarMenu">
+  <div class="menuItem" onclick="navigate('settings')">⚙️ Organization Settings</div>
+  <div class="menuItem" id="themeToggle" onclick="toggleTheme()">🌙 Dark Mode</div>
+  <div class="menuItem" style="color:var(--red);" onclick="signOut()">↩ Sign Out</div>
+</div>
+
+<!-- Notification Panel -->
+<div id="notifPanel">
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:900;display:flex;justify-content:space-between;">
+    Notifications <button onclick="clearNotifs()" style="background:none;border:none;font-size:11px;color:var(--orange);cursor:pointer;">Clear all</button>
+  </div>
+  <div id="notifList"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SIDEBAR
+═══════════════════════════════════════════════════════════════════════════ -->
+<nav id="sidebar" style="display:none;">
+  <div style="padding:12px 16px 6px;">
+    <div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;">Navigation</div>
+  </div>
+  <div class="sidebarItem active" data-view="home" onclick="navigate('home')"><span class="icon">🏠</span> Home</div>
+  <div class="sidebarItem" data-view="players" onclick="navigate('players')"><span class="icon">👥</span> Players</div>
+  <div class="sidebarItem" data-view="assessments" onclick="navigate('assessments')"><span class="icon">📋</span> Assessments</div>
+  <div class="sidebarItem" data-view="teams" onclick="navigate('teams')"><span class="icon">🏒</span> Teams</div>
+  <div class="sidebarDivider"></div>
+  <div class="sidebarItem" data-view="financials" onclick="navigate('financials')"><span class="icon">💰</span> Financials</div>
+  <div class="sidebarItem" data-view="communications" onclick="navigate('communications')"><span class="icon">📢</span> Communications</div>
+  <div class="sidebarItem" data-view="reports" onclick="navigate('reports')"><span class="icon">📊</span> Reports</div>
+  <div class="sidebarDivider"></div>
+  <div class="sidebarItem" data-view="admins" onclick="navigate('admins')"><span class="icon">🛡️</span> Admin Users</div>
+  <div class="sidebarItem" data-view="settings" onclick="navigate('settings')"><span class="icon">⚙️</span> Org Settings</div>
+  <div class="sidebarItem" id="auditNavItem" data-view="audit" onclick="navigate('audit')" style="display:none;"><span class="icon">📜</span> Audit Log</div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════════════════════════════════════════ -->
+<main id="main" style="display:none;">
+  <div id="viewContainer"></div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     DETAIL PANEL (right slide-in)
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="detailPanel">
+  <div class="panelHeader">
+    <h2 id="panelTitle">Detail</h2>
+    <button class="panelClose" onclick="closePanel()">✕</button>
+  </div>
+  <div id="panelContent"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MODAL
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalBox">
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  identityToken: null,
+  email: null,
+  adminName: null,
+  role: null,
+  orgSlug: null,
+  orgName: null,
+  orgConfig: null,
+  currentView: 'home',
+  notifications: [],
+  dashboardData: null,
+  players: [],
+  assessments: [],
+  teams: [],
+  payments: [],
+  broadcasts: [],
+  admins: [],
+  currentPanelTab: 0,
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmt = (n, cur='CAD') => {
+  const num = Number(n || 0);
+  return num.toLocaleString('en-CA', { style:'currency', currency: cur, minimumFractionDigits:2 });
+};
+const fmtDate = ms => ms ? new Date(ms).toLocaleDateString('en-CA') : '—';
+const fmtTime = iso => iso ? new Date(iso).toLocaleString('en-CA', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+const relTime = iso => {
+  if(!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  if(diff < 60000) return 'just now';
+  if(diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+  if(diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+  return `${Math.floor(diff/86400000)}d ago`;
+};
+const chipColor = status => {
+  const map = { active:'green', healthy:'green', paid:'green', sent:'green',
+    attention:'amber', pending:'amber', invited:'amber', warning:'amber',
+    inactive:'grey', draft:'grey', suspended:'red', failed:'red', refunded:'amber',
+    owner:'orange', manager:'blue', staff:'green', viewer:'grey' };
+  return map[status] || 'grey';
+};
+const roleBadge = role => `<span class="roleBadge ${role}">${esc(role)}</span>`;
+const statusChip = (label, color) => `<span class="chip ${color || chipColor(label)}">${esc(label)}</span>`;
+
+// ── API ────────────────────────────────────────────────────────────────────
+const api = async (path, opts = {}) => {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(state.identityToken ? { 'Authorization': `Bearer ${state.identityToken}` } : {}),
+    ...(state.orgSlug ? { 'X-Org-Slug': state.orgSlug } : {}),
+  };
+  const res = await fetch(path, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+  if(!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+};
+
+const apiBanner = (msg, type = 'info') => {
+  const b = document.createElement('div');
+  b.className = `banner ${type}`;
+  b.textContent = msg;
+  b.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:500;min-width:280px;text-align:center;';
+  document.body.appendChild(b);
+  setTimeout(() => b.remove(), 3500);
+};
+
+// ── Netlify Identity ───────────────────────────────────────────────────────
+const SUPER_ADMIN_EMAIL = 'shawngilbert047@gmail.com';
+
+function enterAsSuperAdmin(user) {
+  state.email        = (user?.email || '').trim().toLowerCase();
+  state.identityToken= user?.token?.access_token || '';
+  state.isSuperAdmin = true;
+  state.role         = 'owner';
+  state.adminName    = 'Super Admin';
+  state.orgSlug      = state.orgSlug || 'admin';
+  state.orgName      = 'Super Admin';
+  state.orgConfig    = {};
+  // Hide all login steps so nothing blocks the dashboard
+  ['loginStep1','loginStep2','loginStep3','loginStepSetup'].forEach(id => {
+    const el = $(id); if(el) el.style.display = 'none';
+  });
+  $('loginError').style.display = 'none';
+  enterDashboard();
+}
+
+netlifyIdentity.on('init', user => {
+  if(!user) return;
+  // Check email directly on the user object — no token needed
+  if((user.email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL) {
+    enterAsSuperAdmin(user);
+  } else {
+    onIdentityUser(user);
+  }
+});
+netlifyIdentity.on('login', user => {
+  netlifyIdentity.close();
+  if((user.email || '').trim().toLowerCase() === SUPER_ADMIN_EMAIL) {
+    enterAsSuperAdmin(user);
+  } else {
+    onIdentityUser(user);
+  }
+});
+netlifyIdentity.on('logout', () => { signOut(); });
+
+async function onIdentityUser(user) {
+  const token = user?.token?.access_token;
+  if(!token) { showLoginError('Could not retrieve identity token.'); return; }
+  state.identityToken = token;
+  state.email = (user.email || '').trim().toLowerCase();
+  $('loginStep2').style.display = 'none';
+  $('loginStep3').style.display = 'block';
+  await verifyEnterpriseAccess();
+}
+
+async function verifyEnterpriseAccess() {
+  try {
+    const data = await fetch('/api/enterprise/auth', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${state.identityToken}` },
+      body: JSON.stringify({ mode: 'login', orgSlug: state.orgSlug }),
+    }).then(r => r.json());
+
+    if(!data.ok) {
+      showLoginError(data.error || 'Access denied.');
+      netlifyIdentity.logout();
+      return;
+    }
+    state.role = data.role;
+    state.orgName = data.orgName;
+    state.orgConfig = data.orgConfig;
+    state.adminName = data.name || state.email;
+    state.isSuperAdmin = data.isSuperAdmin === true || state.email === 'shawngilbert047@gmail.com';
+    if(data.noOrg && state.isSuperAdmin) {
+      // Org doesn't exist yet — show setup panel for super-admin
+      showOrgSetupPanel();
+      return;
+    }
+    enterDashboard();
+  } catch(e) {
+    showLoginError('Connection error. Please try again.');
+    $('loginStep3').style.display = 'none';
+    $('loginStep2').style.display = 'block';
+  }
+}
+
+// ── Login Flow ─────────────────────────────────────────────────────────────
+function loginContinue() {
+  const slug = $('orgSlugInput').value.trim().toLowerCase();
+  if(!slug || !/^[a-z0-9-]{2,40}$/.test(slug)) {
+    showLoginError('Please enter a valid organization slug.');
+    return;
+  }
+  state.orgSlug = slug;
+  $('loginOrgName').textContent = slug.toUpperCase();
+  $('loginStep1').style.display = 'none';
+  $('loginStep2').style.display = 'block';
+  clearLoginError();
+}
+
+function resetLogin() {
+  $('loginStep1').style.display = 'block';
+  $('loginStep2').style.display = 'none';
+  $('loginStep3').style.display = 'none';
+  $('loginStepSetup').style.display = 'none';
+  clearLoginError();
+}
+
+function netlifyLogin() { netlifyIdentity.open('login'); }
+
+function showLoginError(msg) {
+  const el = $('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  $('loginStep3').style.display = 'none';
+  $('loginStep2').style.display = 'block';
+}
+
+function clearLoginError() { $('loginError').style.display = 'none'; }
+
+function showOrgSetupPanel() {
+  $('loginStep1').style.display = 'none';
+  $('loginStep2').style.display = 'none';
+  $('loginStep3').style.display = 'none';
+  $('loginStepSetup').style.display = 'block';
+  $('setupSlugLabel').textContent = state.orgSlug || '';
+  $('setupError').style.display = 'none';
+}
+
+async function createOrgAndEnter() {
+  const orgName = ($('setupOrgName').value || '').trim();
+  const ownerEmail = ($('setupOwnerEmail').value || '').trim().toLowerCase();
+  const ownerName = ($('setupOwnerName').value || '').trim();
+  const sport = ($('setupSport').value || 'Hockey').trim();
+  const errEl = $('setupError');
+
+  if(!orgName) { errEl.textContent = 'Organization name is required.'; errEl.style.display = 'block'; return; }
+  if(!ownerEmail || !ownerEmail.includes('@')) { errEl.textContent = 'Valid owner email is required.'; errEl.style.display = 'block'; return; }
+
+  errEl.style.display = 'none';
+  const btn = document.querySelector('#loginStepSetup .btnPrimary');
+  if(btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+
+  try {
+    const data = await fetch('/api/enterprise/auth', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${state.identityToken}` },
+      body: JSON.stringify({ mode: 'setup', orgSlug: state.orgSlug, orgName, ownerEmail, ownerName, sport }),
+    }).then(r => r.json());
+
+    if(!data.ok) {
+      errEl.textContent = data.error || 'Failed to create organization.';
+      errEl.style.display = 'block';
+      if(btn) { btn.disabled = false; btn.textContent = 'Create Organization'; }
+      return;
+    }
+
+    // Org created — now log in properly
+    const loginData = await fetch('/api/enterprise/auth', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${state.identityToken}` },
+      body: JSON.stringify({ mode: 'login', orgSlug: state.orgSlug }),
+    }).then(r => r.json());
+
+    if(!loginData.ok) {
+      errEl.textContent = loginData.error || 'Org created but login failed — please refresh and try again.';
+      errEl.style.display = 'block';
+      if(btn) { btn.disabled = false; btn.textContent = 'Create Organization'; }
+      return;
+    }
+
+    state.role = loginData.role;
+    state.orgName = loginData.orgName;
+    state.orgConfig = loginData.orgConfig;
+    state.adminName = loginData.name || state.email;
+    state.isSuperAdmin = true;
+    $('loginStepSetup').style.display = 'none';
+    enterDashboard();
+  } catch(e) {
+    errEl.textContent = 'Connection error. Please try again.';
+    errEl.style.display = 'block';
+    if(btn) { btn.disabled = false; btn.textContent = 'Create Organization'; }
+  }
+}
+
+// ── Enter Dashboard ────────────────────────────────────────────────────────
+function enterDashboard() {
+  $('loginScreen').style.display = 'none';
+  $('topnav').style.display = 'flex';
+  $('sidebar').style.display = 'block';
+  $('main').style.display = 'block';
+  $('navOrgName').textContent = state.orgName || state.orgSlug;
+  const initials = (state.adminName || state.email || 'A')[0].toUpperCase();
+  $('avatarBtn').textContent = initials;
+  // Super-admin and owners always see the audit log
+  if(state.role === 'owner' || state.isSuperAdmin) $('auditNavItem').style.display = 'flex';
+  // Super-admin badge in nav
+  const existingBadge = document.getElementById('superAdminBadge');
+  if(state.isSuperAdmin && !existingBadge) {
+    const badge = document.createElement('div');
+    badge.id = 'superAdminBadge';
+    badge.style.cssText = 'background:#f97316;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;text-align:center;margin:6px 16px 0;letter-spacing:0.05em;';
+    badge.textContent = '⚡ SUPER ADMIN';
+    $('sidebar').insertBefore(badge, $('sidebar').querySelector('.sidebarDivider'));
+  }
+  navigate('home');
+  addNotif('🏠', 'Welcome back', `Signed in as ${state.isSuperAdmin ? 'Super Admin' : state.role} to ${state.orgName}`, false);
+}
+
+function signOut() {
+  netlifyIdentity.logout();
+  Object.assign(state, { identityToken:null, email:null, role:null, orgSlug:null, orgName:null, orgConfig:null, dashboardData:null });
+  $('loginScreen').style.display = 'flex';
+  $('topnav').style.display = 'none';
+  $('sidebar').style.display = 'none';
+  $('main').style.display = 'none';
+  $('loginStep1').style.display = 'block';
+  $('loginStep2').style.display = 'none';
+  $('loginStep3').style.display = 'none';
+  $('orgSlugInput').value = '';
+  closePanel();
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function navigate(view) {
+  state.currentView = view;
+  document.querySelectorAll('.sidebarItem').forEach(el => {
+    el.classList.toggle('active', el.dataset.view === view);
+  });
+  closePanel();
+  renderView(view);
+}
+
+function renderView(view) {
+  const vc = $('viewContainer');
+  vc.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">Loading…</div>';
+  const render = {
+    home: renderHome,
+    players: renderPlayers,
+    assessments: renderAssessments,
+    teams: renderTeams,
+    financials: renderFinancials,
+    communications: renderCommunications,
+    reports: renderReports,
+    admins: renderAdmins,
+    settings: renderSettings,
+    audit: renderAudit,
+  };
+  if(render[view]) render[view]();
+  else vc.innerHTML = `<div class="sectionHeader"><div class="sectionTitle">${esc(view)}</div></div><div class="card"><p style="color:var(--muted);">Coming in Phase 2.</p></div>`;
+}
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  const dark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', dark ? 'light' : 'dark');
+  $('themeToggle').textContent = dark ? '🌙 Dark Mode' : '☀️ Light Mode';
+}
+
+// ── Notifications ──────────────────────────────────────────────────────────
+function addNotif(icon, title, desc, unread = true) {
+  state.notifications.unshift({ icon, title, desc, time: new Date().toISOString(), unread });
+  updateNotifBadge();
+}
+
+function updateNotifBadge() {
+  const count = state.notifications.filter(n => n.unread).length;
+  const badge = $('notifCount');
+  badge.style.display = count ? 'flex' : 'none';
+  badge.textContent = count;
+}
+
+function toggleNotifPanel() {
+  const panel = $('notifPanel');
+  const open = panel.classList.toggle('open');
+  if(open) renderNotifPanel();
+  $('avatarMenu').classList.remove('open');
+}
+
+function renderNotifPanel() {
+  const el = $('notifList');
+  if(!state.notifications.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">No notifications</div>';
+    return;
+  }
+  el.innerHTML = state.notifications.slice(0, 20).map(n => `
+    <div class="notifItem ${n.unread ? 'unread' : ''}">
+      <span class="notifIcon">${n.icon}</span>
+      <div class="notifBody">
+        <div class="notifTitle">${esc(n.title)}</div>
+        <div class="notifDesc">${esc(n.desc)}</div>
+        <div class="notifTime">${relTime(n.time)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function clearNotifs() {
+  state.notifications = [];
+  updateNotifBadge();
+  renderNotifPanel();
+}
+
+function toggleAvatarMenu() {
+  $('avatarMenu').classList.toggle('open');
+  $('notifPanel').classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+  if(!e.target.closest('#avatarMenu') && !e.target.closest('#avatarBtn')) $('avatarMenu').classList.remove('open');
+  if(!e.target.closest('#notifPanel') && !e.target.closest('.notifBtn')) $('notifPanel').classList.remove('open');
+});
+
+// ── Global Search ──────────────────────────────────────────────────────────
+let searchTimer;
+function globalSearchHandler(q) {
+  clearTimeout(searchTimer);
+  if(!q.trim()) return;
+  searchTimer = setTimeout(() => {
+    navigate('players');
+    setTimeout(() => { const inp = document.querySelector('#playersSearch'); if(inp) { inp.value = q; inp.dispatchEvent(new Event('input')); } }, 200);
+  }, 300);
+}
+
+// ── Panel ──────────────────────────────────────────────────────────────────
+function openPanel(title, content) {
+  $('panelTitle').textContent = title;
+  $('panelContent').innerHTML = content;
+  $('detailPanel').classList.add('open');
+}
+
+function closePanel() { $('detailPanel').classList.remove('open'); }
+
+// ── Modal ──────────────────────────────────────────────────────────────────
+function openModal(content) {
+  $('modalContent').innerHTML = content;
+  $('modalOverlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if(!e || e.target === $('modalOverlay')) $('modalOverlay').classList.remove('open');
+}
+
+function closeModalDirect() { $('modalOverlay').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: HOME
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderHome() {
+  const vc = $('viewContainer');
+  try {
+    const data = await api('/api/enterprise/org?section=home');
+    state.dashboardData = data;
+    const { pulseCards, teamHealth, recentActivity, totals } = data;
+    const cur = state.orgConfig?.currency || 'CAD';
+
+    vc.innerHTML = `
+      <div class="sectionHeader">
+        <div><div class="sectionTitle">Organization Home</div>
+          <div class="sectionSubtitle">${esc(state.orgName)} · ${esc(state.isSuperAdmin ? 'Super Admin' : state.role)} access</div>
+        </div>
+        <button class="btnSecondary" onclick="renderHome()">↻ Refresh</button>
+      </div>
+
+      <!-- Pulse Cards -->
+      <div class="pulseGrid">
+        <div class="pulseCard">
+          <div class="label">Active Registrations</div>
+          <div class="value">${pulseCards.activeRegistrations.toLocaleString()}</div>
+          <div class="trend">Total players across all assessments</div>
+        </div>
+        <div class="pulseCard">
+          <div class="label">Revenue This Month</div>
+          <div class="value">${fmt(pulseCards.revenueThisMonth, cur)}</div>
+          <div class="trend">Payments recorded this calendar month</div>
+        </div>
+        <div class="pulseCard">
+          <div class="label">Assessments Active</div>
+          <div class="value">${pulseCards.assessmentsActive}</div>
+          <div class="trend">Within 30 days of today</div>
+        </div>
+        <div class="pulseCard">
+          <div class="label">Pending Actions</div>
+          <div class="value ${pulseCards.pendingActions > 0 ? 'trend down' : ''}">${pulseCards.pendingActions}</div>
+          <div class="trend">Outstanding payment records</div>
+        </div>
+      </div>
+
+      <!-- Activity + Quick Actions -->
+      <div class="twoCol" style="grid-template-columns:2fr 1fr;">
+        <div class="card">
+          <h3>Live Activity Feed</h3>
+          ${recentActivity.length ? recentActivity.slice(0, 15).map(e => `
+            <div class="feedItem">
+              <div class="feedIcon orange">${actionIcon(String(e.action || ''))}</div>
+              <div class="feedBody">
+                <div class="feedTitle">${formatAction(String(e.action || ''))}</div>
+                <div class="feedMeta">${esc(String(e.email || e.target || ''))}</div>
+              </div>
+              <div class="feedTime">${relTime(String(e.timestamp || ''))}</div>
+            </div>
+          `).join('') : '<div style="color:var(--muted);padding:12px 0;font-size:13px;">No recent activity.</div>'}
+        </div>
+        <div class="card">
+          <h3>Quick Actions</h3>
+          <div class="quickGrid">
+            <div class="quickAction" onclick="navigate('players')"><span class="qaIcon">➕</span>Add Player</div>
+            <div class="quickAction" onclick="navigate('financials')"><span class="qaIcon">💳</span>Record Payment</div>
+            <div class="quickAction" onclick="navigate('communications')"><span class="qaIcon">📢</span>Broadcast</div>
+            <div class="quickAction" onclick="navigate('reports')"><span class="qaIcon">📄</span>Export Report</div>
+            <div class="quickAction" onclick="navigate('admins')"><span class="qaIcon">👤</span>Add Admin</div>
+            <div class="quickAction" onclick="navigate('players')"><span class="qaIcon">📋</span>Player List</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Totals -->
+      <div class="threeCol">
+        <div class="card" style="text-align:center;">
+          <div style="font-size:32px;font-weight:900;">${totals.players.toLocaleString()}</div>
+          <div style="color:var(--muted);font-size:12px;">Total Players</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:32px;font-weight:900;">${totals.assessments.toLocaleString()}</div>
+          <div style="color:var(--muted);font-size:12px;">Assessments</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:32px;font-weight:900;">${totals.teams.toLocaleString()}</div>
+          <div style="color:var(--muted);font-size:12px;">Teams</div>
+        </div>
+      </div>
+
+      <!-- Team Health Grid -->
+      <div class="card">
+        <h3>Team Health</h3>
+        ${teamHealth.length ? `<div class="teamHealthGrid">
+          ${teamHealth.map(t => `
+            <div class="teamTile" onclick="navigate('teams')">
+              <div class="ttName">${esc(t.name)}</div>
+              <div class="ttMeta">${esc(t.sport)} · ${t.playerCount} players</div>
+              <div class="progressBar"><div class="fill" style="width:${t.scoredPct}%"></div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:11px;color:var(--muted);">${t.scoredPct}% scored</span>
+                ${statusChip(t.status)}
+              </div>
+            </div>
+          `).join('')}
+        </div>` : '<div style="color:var(--muted);font-size:13px;">No teams found. Add coaches to the organization to populate this grid.</div>'}
+      </div>
+    `;
+  } catch(e) {
+    vc.innerHTML = `<div class="banner error">Failed to load dashboard: ${esc(e.message)}</div>`;
+  }
+}
+
+function actionIcon(action) {
+  if(action.includes('login')) return '🔑';
+  if(action.includes('payment')) return '💳';
+  if(action.includes('broadcast')) return '📢';
+  if(action.includes('player')) return '👤';
+  if(action.includes('admin')) return '🛡️';
+  if(action.includes('org')) return '⚙️';
+  return '📋';
+}
+
+function formatAction(action) {
+  return action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: PLAYERS
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderPlayers() {
+  const vc = $('viewContainer');
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Players</div><div class="sectionSubtitle">All registered players across the organization</div></div>
+    </div>
+    <div class="searchBar">
+      <input id="playersSearch" type="text" placeholder="Search by name, email, jersey…" oninput="searchPlayersDelayed(this.value)" />
+      <select id="playerFilterYob" onchange="loadPlayers()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:14px;">
+        <option value="">All Birth Years</option>
+        ${Array.from({length: new Date().getFullYear() - 1925 + 1}, (_,i) => new Date().getFullYear() - i)
+          .map(y => `<option value="${y}">${y}</option>`).join('')}
+      </select>
+      <select id="playerFilterStatus" onchange="loadPlayers()" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:14px;">
+        <option value="">All Sources</option>
+        <option value="qr">QR Registration</option>
+        <option value="manual">Manual</option>
+      </select>
+    </div>
+    <div id="playerTableWrap"><div style="padding:32px;text-align:center;color:var(--muted);">Loading players…</div></div>
+    <div id="playerPager" style="display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:12px;"></div>
+  `;
+  loadPlayers();
+}
+
+let playerPage = 1;
+let playerSearchTimer;
+
+function searchPlayersDelayed(q) {
+  clearTimeout(playerSearchTimer);
+  playerSearchTimer = setTimeout(() => { playerPage = 1; loadPlayers(); }, 250);
+}
+
+async function loadPlayers() {
+  const q = ($('playersSearch')?.value || '').trim();
+  const yob = $('playerFilterYob')?.value || '';
+  const status = $('playerFilterStatus')?.value || '';
+  const wrap = $('playerTableWrap');
+  if(!wrap) return;
+  wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">Loading…</div>';
+  try {
+    const params = new URLSearchParams({ section:'players', page: playerPage, pageSize:50 });
+    if(q) params.set('q', q);
+    if(yob) params.set('yob', yob);
+    if(status) params.set('status', status);
+    const data = await api(`/api/enterprise/org?${params}`);
+    state.players = data.players || [];
+    renderPlayerTable(data);
+  } catch(e) {
+    wrap.innerHTML = `<div class="banner error">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderPlayerTable(data) {
+  const { players, total, totalPages } = data;
+  const wrap = $('playerTableWrap');
+  if(!players.length) {
+    wrap.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No players found.</div>';
+    $('playerPager').innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = `<div class="tableWrap"><table>
+    <thead><tr>
+      <th>Player</th><th>Jersey</th><th>Position</th><th>Year of Birth</th>
+      <th>Assessment</th><th>Source</th><th>Guardian Email</th>
+    </tr></thead>
+    <tbody>${players.map((p, i) => {
+      const name = [p.first || p.firstName, p.last || p.lastName].filter(Boolean).join(' ') || p.name || '—';
+      return `<tr onclick="openPlayerPanel(${i})">
+        <td><b>${esc(name)}</b></td>
+        <td>${esc(p.jersey || '—')}</td>
+        <td>${esc(p.pos || p.position || '—')}</td>
+        <td>${esc(p.yearOfBirth || '—')}</td>
+        <td style="font-size:12px;color:var(--muted);">${esc(p._assessmentName || '—')}</td>
+        <td>${statusChip(p.registrationSource || 'manual')}</td>
+        <td style="font-size:12px;color:var(--muted);">${esc(p.guardianEmail || p.email || '—')}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+
+  const pager = $('playerPager');
+  pager.innerHTML = `
+    <span style="font-size:12px;color:var(--muted);">${total} players total</span>
+    <div style="display:flex;gap:8px;">
+      ${playerPage > 1 ? `<button class="btnSecondary" onclick="playerPage--;loadPlayers()">← Prev</button>` : ''}
+      <span style="font-size:12px;color:var(--muted);align-self:center;">Page ${playerPage} of ${totalPages}</span>
+      ${playerPage < totalPages ? `<button class="btnSecondary" onclick="playerPage++;loadPlayers()">Next →</button>` : ''}
+    </div>
+  `;
+}
+
+function openPlayerPanel(idx) {
+  const p = state.players[idx];
+  if(!p) return;
+  const name = [p.first || p.firstName, p.last || p.lastName].filter(Boolean).join(' ') || p.name || 'Player';
+  openPanel(name, `
+    <div class="panelTabs">
+      <div class="panelTab active" onclick="playerPanelTab(this,0,'player-tab-0')">Overview</div>
+      <div class="panelTab" onclick="playerPanelTab(this,1,'player-tab-1')">Assessment</div>
+      <div class="panelTab" onclick="playerPanelTab(this,2,'player-tab-2')">Notes</div>
+    </div>
+    <div class="panelBody">
+      <div id="player-tab-0">
+        <div style="background:var(--bg);border-radius:10px;padding:16px;margin-bottom:14px;">
+          <div style="font-size:32px;text-align:center;margin-bottom:8px;">👤</div>
+          <div style="text-align:center;font-weight:900;font-size:16px;">${esc(name)}</div>
+          <div style="text-align:center;color:var(--muted);font-size:12px;margin-top:2px;">${esc(p.pos || p.position || '—')} · #${esc(p.jersey || '—')}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;">
+          <div><div style="color:var(--muted);font-size:11px;font-weight:700;">YEAR OF BIRTH</div><div>${esc(p.yearOfBirth || '—')}</div></div>
+          <div><div style="color:var(--muted);font-size:11px;font-weight:700;">SOURCE</div><div>${statusChip(p.registrationSource || 'manual')}</div></div>
+          <div><div style="color:var(--muted);font-size:11px;font-weight:700;">GUARDIAN</div><div>${esc(p.guardianName || '—')}</div></div>
+          <div><div style="color:var(--muted);font-size:11px;font-weight:700;">GUARDIAN EMAIL</div><div style="font-size:12px;">${esc(p.guardianEmail || p.email || '—')}</div></div>
+          <div><div style="color:var(--muted);font-size:11px;font-weight:700;">ASSESSMENT</div><div style="font-size:12px;">${esc(p._assessmentName || '—')}</div></div>
+          <div><div style="color:var(--muted);font-size:11px;font-weight:700;">SPORT</div><div>${esc(p._sport || '—')}</div></div>
+        </div>
+        ${p.sortOut ? `<div class="banner info" style="margin-top:12px;">🔶 Sort Out participant</div>` : ''}
+      </div>
+      <div id="player-tab-1" style="display:none;">
+        <div style="color:var(--muted);font-size:13px;padding:12px 0;">
+          Assessment: <strong>${esc(p._assessmentName || '—')}</strong><br>
+          Evaluations: ${Array.isArray(p.evaluations) ? p.evaluations.length : 0}
+        </div>
+      </div>
+      <div id="player-tab-2" style="display:none;">
+        <div class="field"><label>Admin Notes <span style="font-weight:400;color:var(--muted);">(not visible to coaches)</span></label>
+          <textarea placeholder="Add a note about this player…" rows="5"></textarea>
+        </div>
+        <button class="btnOk" onclick="apiBanner('Notes saved','success')">Save Note</button>
+      </div>
+    </div>
+  `);
+}
+
+function playerPanelTab(el, idx, tabId) {
+  document.querySelectorAll('.panelTab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('[id^="player-tab-"]').forEach(t => t.style.display = 'none');
+  const tab = document.getElementById(tabId);
+  if(tab) tab.style.display = 'block';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: ASSESSMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderAssessments() {
+  const vc = $('viewContainer');
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Assessments</div><div class="sectionSubtitle">All assessment events across all teams</div></div>
+    </div>
+    <div class="searchBar">
+      <input type="text" placeholder="Search assessments…" oninput="filterAssessments(this.value)" />
+      <select onchange="filterAssessmentsByStatus(this.value)" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);">
+        <option value="">All</option><option value="upcoming">Upcoming</option><option value="active">Active</option><option value="completed">Completed</option>
+      </select>
+    </div>
+    <div id="assessmentTable"><div style="padding:32px;text-align:center;color:var(--muted);">Loading…</div></div>
+  `;
+  try {
+    const data = await api('/api/enterprise/org?section=assessments');
+    state.assessments = data.assessments || [];
+    renderAssessmentTable(state.assessments);
+  } catch(e) {
+    $('assessmentTable').innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
+  }
+}
+
+function renderAssessmentTable(list) {
+  const wrap = $('assessmentTable');
+  if(!wrap) return;
+  if(!list.length) { wrap.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No assessments found.</div>'; return; }
+  const now = Date.now();
+  wrap.innerHTML = `<div class="tableWrap"><table>
+    <thead><tr><th>Assessment</th><th>Sport</th><th>Date</th><th>Rink</th><th>Players</th><th>Status</th></tr></thead>
+    <tbody>${list.map((a, i) => {
+      const date = Date.parse(String(a.tryoutDate || ''));
+      const status = !Number.isFinite(date) ? 'unknown' : date > now + 86400000 ? 'upcoming' : date < now - 14*86400000 ? 'completed' : 'active';
+      return `<tr onclick="openAssessmentPanel(${i})">
+        <td><b>${esc(a.name || 'Unnamed')}</b></td>
+        <td>${esc(a.sport || '—')}</td>
+        <td>${esc(a.tryoutDate || '—')}</td>
+        <td>${esc(a.rink || '—')}</td>
+        <td>${Array.isArray(a.roster) ? a.roster.length : 0}</td>
+        <td>${statusChip(status)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+function filterAssessments(q) {
+  const lower = q.toLowerCase();
+  renderAssessmentTable(state.assessments.filter(a =>
+    String(a.name||'').toLowerCase().includes(lower) || String(a.rink||'').toLowerCase().includes(lower)
+  ));
+}
+
+function filterAssessmentsByStatus(status) {
+  if(!status) { renderAssessmentTable(state.assessments); return; }
+  const now = Date.now();
+  renderAssessmentTable(state.assessments.filter(a => {
+    const d = Date.parse(String(a.tryoutDate||''));
+    if(!Number.isFinite(d)) return false;
+    if(status === 'upcoming') return d > now + 86400000;
+    if(status === 'active') return d >= now - 14*86400000 && d <= now + 86400000;
+    if(status === 'completed') return d < now - 14*86400000;
+    return true;
+  }));
+}
+
+function openAssessmentPanel(idx) {
+  const a = state.assessments[idx];
+  if(!a) return;
+  const roster = Array.isArray(a.roster) ? a.roster : [];
+  openPanel(a.name || 'Assessment', `
+    <div class="panelBody">
+      <div class="card" style="margin-bottom:12px;">
+        <div class="finRow"><span class="label">Sport</span><span>${esc(a.sport||'—')}</span></div>
+        <div class="finRow"><span class="label">Date</span><span>${esc(a.tryoutDate||'—')}</span></div>
+        <div class="finRow"><span class="label">Rink / Location</span><span>${esc(a.rink||'—')}</span></div>
+        <div class="finRow"><span class="label">Players</span><span><b>${roster.length}</b></span></div>
+      </div>
+      <h3 style="margin-bottom:8px;font-size:13px;">Roster Preview</h3>
+      ${roster.slice(0,10).map(p => {
+        const name = [p.first||p.firstName, p.last||p.lastName].filter(Boolean).join(' ') || '—';
+        return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${esc(name)}</span><span style="color:var(--muted);">#${esc(p.jersey||'—')}</span></div>`;
+      }).join('')}
+      ${roster.length > 10 ? `<div style="font-size:12px;color:var(--muted);padding:8px 0;">+${roster.length-10} more</div>` : ''}
+    </div>
+  `);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: TEAMS
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderTeams() {
+  const vc = $('viewContainer');
+  vc.innerHTML = `<div class="sectionHeader"><div><div class="sectionTitle">Teams</div><div class="sectionSubtitle">All teams in the organization</div></div></div>
+    <div id="teamGrid" style="padding:8px 0;"><div style="padding:32px;text-align:center;color:var(--muted);">Loading…</div></div>`;
+  try {
+    const data = await api('/api/enterprise/org?section=teams');
+    state.teams = data.teams || [];
+    const grid = $('teamGrid');
+    if(!state.teams.length) { grid.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No teams found.</div>'; return; }
+    grid.innerHTML = `<div class="teamHealthGrid">${state.teams.map(t => {
+      const roster = Array.isArray(t.roster) ? t.roster : [];
+      return `<div class="teamTile">
+        <div class="ttName">${esc(t.teamName||t.name||'Unnamed')}</div>
+        <div class="ttMeta">${esc(t.sport||'—')} · ${roster.length} players</div>
+        <div class="progressBar"><div class="fill" style="width:100%"></div></div>
+        <div style="font-size:11px;color:var(--muted);">${esc(t.season||t.label||'')}</div>
+      </div>`;
+    }).join('')}</div>`;
+  } catch(e) {
+    $('teamGrid').innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: FINANCIALS
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderFinancials() {
+  const vc = $('viewContainer');
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Financials</div><div class="sectionSubtitle">Payment ledger and financial summary</div></div>
+      ${(state.isSuperAdmin || state.role !== 'viewer') ? `<button class="btnOk" onclick="openRecordPaymentModal()">+ Record Payment</button>` : ''}
+    </div>
+    <div id="finSummary"><div style="padding:24px;text-align:center;color:var(--muted);">Loading…</div></div>
+    <div class="card" style="margin-top:16px;">
+      <h3>Transaction Ledger</h3>
+      <div class="searchBar" style="margin-bottom:10px;">
+        <input type="text" placeholder="Search payments…" oninput="filterPayments(this.value)" />
+        <select onchange="filterPaymentsByStatus(this.value)" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);">
+          <option value="">All Status</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="refunded">Refunded</option>
+        </select>
+      </div>
+      <div id="paymentTable"><div style="padding:16px;text-align:center;color:var(--muted);">Loading…</div></div>
+    </div>
+  `;
+  await loadPayments();
+}
+
+async function loadPayments() {
+  try {
+    const data = await api('/api/enterprise/payments');
+    state.payments = data.payments || [];
+    const cur = state.orgConfig?.currency || 'CAD';
+
+    // Summary
+    if(data.summary) {
+      $('finSummary').innerHTML = `<div class="threeCol">
+        <div class="card" style="text-align:center;">
+          <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:6px;">COLLECTED</div>
+          <div style="font-size:24px;font-weight:900;color:var(--green);">${fmt(data.summary.totalCollected, cur)}</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:6px;">OUTSTANDING</div>
+          <div style="font-size:24px;font-weight:900;color:var(--amber);">${fmt(data.summary.totalOutstanding, cur)}</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div class="label" style="font-size:11px;color:var(--muted);margin-bottom:6px;">REFUNDED</div>
+          <div style="font-size:24px;font-weight:900;color:var(--red);">${fmt(data.summary.totalRefunded, cur)}</div>
+        </div>
+      </div>`;
+    } else {
+      $('finSummary').innerHTML = '<div class="banner info">Financial amounts are visible to Manager and Owner roles.</div>';
+    }
+    renderPaymentTable(state.payments);
+  } catch(e) {
+    if($('finSummary')) $('finSummary').innerHTML = '';
+    if($('paymentTable')) $('paymentTable').innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
+  }
+}
+
+function renderPaymentTable(list) {
+  const wrap = $('paymentTable');
+  if(!wrap) return;
+  if(!list.length) { wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">No payment records found.</div>'; return; }
+  const cur = state.orgConfig?.currency || 'CAD';
+  const canSeeAmounts = state.isSuperAdmin || state.role === 'manager' || state.role === 'owner';
+  wrap.innerHTML = `<div class="tableWrap"><table>
+    <thead><tr><th>Player</th><th>Assessment</th><th>Fee</th>${canSeeAmounts ? '<th>Amount</th>' : ''}<th>Method</th><th>Status</th><th>Date</th></tr></thead>
+    <tbody>${list.map(p => `<tr>
+      <td><b>${esc(p.playerName||'—')}</b></td>
+      <td style="font-size:12px;color:var(--muted);">${esc(p.assessmentName||'—')}</td>
+      <td style="font-size:12px;">${esc(p.feeName||'—')}</td>
+      ${canSeeAmounts ? `<td>${fmt(p.amount, cur)}</td>` : ''}
+      <td>${esc(p.method||'—')}</td>
+      <td>${statusChip(p.status||'pending')}</td>
+      <td style="font-size:12px;color:var(--muted);">${fmtDate(p.createdAt)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function filterPayments(q) {
+  const lower = q.toLowerCase();
+  renderPaymentTable(state.payments.filter(p =>
+    String(p.playerName||'').toLowerCase().includes(lower) ||
+    String(p.assessmentName||'').toLowerCase().includes(lower) ||
+    String(p.reference||'').toLowerCase().includes(lower)
+  ));
+}
+
+function filterPaymentsByStatus(status) {
+  renderPaymentTable(status ? state.payments.filter(p => p.status === status) : state.payments);
+}
+
+function openRecordPaymentModal() {
+  openModal(`
+    <h2>Record Payment</h2>
+    <div class="field"><label>Player Name *</label><input id="pyPlayer" type="text" placeholder="Full name" /></div>
+    <div class="field"><label>Assessment / Team</label><input id="pyAssessment" type="text" placeholder="Assessment name" /></div>
+    <div class="field"><label>Fee Name</label><input id="pyFee" type="text" value="Registration Fee" /></div>
+    <div class="field"><label>Amount (${state.orgConfig?.currency || 'CAD'})</label><input id="pyAmount" type="number" min="0" step="0.01" placeholder="0.00" /></div>
+    <div class="field"><label>Payment Method</label>
+      <select id="pyMethod"><option value="cash">Cash</option><option value="interac">Interac e-Transfer</option><option value="credit_card">Credit Card</option><option value="cheque">Cheque</option><option value="other">Other</option></select>
+    </div>
+    <div class="field"><label>Reference #</label><input id="pyRef" type="text" placeholder="e-Transfer confirmation, receipt #…" /></div>
+    <div class="field"><label>Notes</label><textarea id="pyNotes" rows="2" placeholder="Optional notes"></textarea></div>
+    <div class="modalActions">
+      <button class="btnSecondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btnOk" onclick="submitPayment()">Record Payment</button>
+    </div>
+  `);
+}
+
+async function submitPayment() {
+  const playerName = $('pyPlayer')?.value.trim();
+  const amount = parseFloat($('pyAmount')?.value || '0');
+  if(!playerName) { apiBanner('Player name is required', 'error'); return; }
+  if(!Number.isFinite(amount) || amount < 0) { apiBanner('Enter a valid amount', 'error'); return; }
+  try {
+    await api('/api/enterprise/payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        playerName,
+        assessmentName: $('pyAssessment')?.value.trim(),
+        feeName: $('pyFee')?.value.trim() || 'Registration Fee',
+        amount,
+        method: $('pyMethod')?.value,
+        reference: $('pyRef')?.value.trim(),
+        notes: $('pyNotes')?.value.trim(),
+        status: 'paid',
+      }),
+    });
+    closeModalDirect();
+    apiBanner('Payment recorded successfully', 'success');
+    addNotif('💳', 'Payment Recorded', `${playerName} — ${amount}`, true);
+    await loadPayments();
+  } catch(e) {
+    apiBanner('Error: ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: COMMUNICATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderCommunications() {
+  const vc = $('viewContainer');
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Communications</div><div class="sectionSubtitle">Broadcast messages to coaches and families</div></div>
+    </div>
+    <div class="twoCol" style="grid-template-columns:1.2fr 0.8fr;align-items:start;">
+      <div class="card">
+        <h3>📢 Broadcast Composer</h3>
+        <div class="field"><label>Audience</label>
+          <select id="bcAudience" onchange="updateRecipientCount()">
+            <option value="all">Entire Organization</option>
+            <option value="custom">Custom Email List</option>
+          </select>
+        </div>
+        <div id="customEmailsField" style="display:none;">
+          <div class="field"><label>Email Addresses</label><textarea id="bcCustomEmails" rows="3" placeholder="One email per line or comma-separated"></textarea></div>
+        </div>
+        <div class="field"><label>Subject *</label><input id="bcSubject" type="text" placeholder="e.g. Important update from the organization" /></div>
+        <div class="field"><label>Message *</label><textarea id="bcMessage" rows="6" placeholder="Write your message here…"></textarea></div>
+        <div class="field"><label>Call-to-Action Button (optional)</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <input id="bcCtaLabel" type="text" placeholder="Button label" />
+            <input id="bcCtaUrl" type="url" placeholder="https://…" />
+          </div>
+        </div>
+        <div id="recipientCount" style="font-size:12px;color:var(--muted);margin-bottom:12px;"></div>
+        <div id="bcStatus" class="banner" style="display:none;"></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btnSecondary" onclick="saveBroadcastDraft()">Save Draft</button>
+          <button class="btnOk" onclick="sendBroadcast()">Send Now</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Message History</h3>
+        <div id="broadcastHistory"><div style="color:var(--muted);font-size:13px;padding:8px 0;">Loading…</div></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('bcAudience')?.addEventListener('change', function() {
+    $('customEmailsField').style.display = this.value === 'custom' ? 'block' : 'none';
+  });
+
+  await loadBroadcastHistory();
+  updateRecipientCount();
+}
+
+async function updateRecipientCount() {
+  const audience = $('bcAudience')?.value || 'all';
+  const customEmails = audience === 'custom'
+    ? String($('bcCustomEmails')?.value || '').split(/[\n,]/).map(e => e.trim()).filter(e => e.includes('@'))
+    : [];
+  try {
+    const data = await api('/api/enterprise/broadcast', {
+      method: 'PUT',
+      body: JSON.stringify({ audienceType: audience, customEmails }),
+    });
+    const rc = $('recipientCount');
+    if(rc) rc.textContent = `${data.recipientCount} recipient${data.recipientCount !== 1 ? 's' : ''} will receive this message`;
+  } catch { /* silent */ }
+}
+
+async function loadBroadcastHistory() {
+  try {
+    const data = await api('/api/enterprise/broadcast');
+    state.broadcasts = data.broadcasts || [];
+    const el = $('broadcastHistory');
+    if(!el) return;
+    if(!state.broadcasts.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">No broadcasts sent yet.</div>'; return; }
+    el.innerHTML = state.broadcasts.slice(0, 10).map(b => `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="font-weight:700;font-size:13px;">${esc(b.subject)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${esc(b.audienceDescription)} · ${b.recipientCount} recipients</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+          ${statusChip(b.status)}
+          <span style="font-size:11px;color:var(--muted);">${fmtTime(new Date(b.sentAt).toISOString())}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    const el = $('broadcastHistory');
+    if(el) el.innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
+  }
+}
+
+async function sendBroadcast(draft = false) {
+  const subject = $('bcSubject')?.value.trim();
+  const message = $('bcMessage')?.value.trim();
+  if(!subject || !message) { apiBanner('Subject and message are required', 'error'); return; }
+  const audience = $('bcAudience')?.value || 'all';
+  const customEmails = audience === 'custom'
+    ? String($('bcCustomEmails')?.value || '').split(/[\n,]/).map(e => e.trim()).filter(e => e.includes('@'))
+    : [];
+  const status = $('bcStatus');
+  if(status) { status.className = 'banner info'; status.textContent = draft ? 'Saving draft…' : 'Sending…'; status.style.display = 'block'; }
+  try {
+    const data = await api('/api/enterprise/broadcast', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject, message, audienceType: audience, customEmails,
+        ctaLabel: $('bcCtaLabel')?.value.trim(),
+        ctaUrl: $('bcCtaUrl')?.value.trim(),
+        draft,
+      }),
+    });
+    if(status) { status.className = 'banner success'; status.textContent = draft ? 'Draft saved.' : `Sent to ${data.broadcast.recipientCount} recipient${data.broadcast.recipientCount !== 1 ? 's' : ''}.`; }
+    if(!draft) {
+      if($('bcSubject')) $('bcSubject').value = '';
+      if($('bcMessage')) $('bcMessage').value = '';
+      addNotif('📢', 'Broadcast Sent', `"${subject}" to ${data.broadcast.recipientCount} recipients`, true);
+    }
+    await loadBroadcastHistory();
+  } catch(e) {
+    if(status) { status.className = 'banner error'; status.textContent = 'Error: ' + e.message; }
+  }
+}
+
+function saveBroadcastDraft() { sendBroadcast(true); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: REPORTS
+// ═══════════════════════════════════════════════════════════════════════════
+function renderReports() {
+  const vc = $('viewContainer');
+  const reports = [
+    { icon:'👥', title:'Full Player Registry', desc:'Every player registered with the organization. Name, contact, team, score.', category:'Players' },
+    { icon:'🏆', title:'Player Rankings Report', desc:'All players ranked by overall score within position groups. Formatted for governing bodies.', category:'Players' },
+    { icon:'📅', title:'Year-of-Birth Report', desc:'Players grouped by birth year across all teams. Used for eligibility planning.', category:'Players' },
+    { icon:'🔍', title:'Duplicate Detection', desc:'Flags players who appear to be the same person across multiple registrations.', category:'Players' },
+    { icon:'📋', title:'Assessment Completion', desc:'All assessments with completion percentage, assessor count, last evaluation timestamp.', category:'Assessments' },
+    { icon:'📊', title:'Multi-Assessment Comparison', desc:'Unified ranking of players who appear in more than one assessment.', category:'Assessments' },
+    { icon:'💰', title:'Revenue by Team', desc:'Expected vs collected vs outstanding per team.', category:'Financials' },
+    { icon:'💳', title:'Player Payment Status', desc:'One row per player with all fee obligations. Primary reconciliation document.', category:'Financials' },
+    { icon:'⚠️', title:'Overdue Accounts', desc:'Players with balances past the configured threshold.', category:'Financials' },
+  ];
+  const categories = [...new Set(reports.map(r => r.category))];
+  vc.innerHTML = `
+    <div class="sectionHeader"><div><div class="sectionTitle">Reports</div><div class="sectionSubtitle">Exportable reports for players, assessments, and financials</div></div></div>
+    ${categories.map(cat => `
+      <div style="margin-bottom:24px;">
+        <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:10px;">${esc(cat)}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+          ${reports.filter(r => r.category === cat).map(r => `
+            <div class="card" style="cursor:pointer;" onclick="generateReport('${esc(r.title)}')">
+              <div style="font-size:24px;margin-bottom:8px;">${r.icon}</div>
+              <div style="font-weight:900;font-size:14px;margin-bottom:6px;">${esc(r.title)}</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">${esc(r.desc)}</div>
+              <button class="btnSecondary" style="font-size:12px;padding:6px 14px;">Generate CSV</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function generateReport(title) {
+  apiBanner(`Generating "${title}"…`, 'info');
+  // Build a basic CSV from current state data
+  setTimeout(() => {
+    const players = state.players;
+    if(!players.length) { apiBanner('Load the Players section first to generate a player report', 'info'); return; }
+    const rows = [['Name','Jersey','Position','Year of Birth','Assessment','Source','Guardian Email']];
+    for(const p of players) {
+      rows.push([
+        [p.first||p.firstName, p.last||p.lastName].filter(Boolean).join(' ') || '—',
+        p.jersey || '—',
+        p.pos || p.position || '—',
+        p.yearOfBirth || '—',
+        p._assessmentName || '—',
+        p.registrationSource || '—',
+        p.guardianEmail || p.email || '—',
+      ]);
+    }
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${title.replace(/\s+/g,'-').toLowerCase()}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    apiBanner('Report downloaded', 'success');
+  }, 600);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: ADMIN USERS
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderAdmins() {
+  const vc = $('viewContainer');
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Admin Users</div><div class="sectionSubtitle">Manage who has access to this dashboard</div></div>
+      ${state.role === 'manager' || state.role === 'owner' ? `<button class="btnOk" onclick="openInviteAdminModal()">+ Invite Admin</button>` : ''}
+    </div>
+    <div id="adminTable"><div style="padding:32px;text-align:center;color:var(--muted);">Loading…</div></div>
+  `;
+  await loadAdmins();
+}
+
+async function loadAdmins() {
+  try {
+    const data = await api('/api/enterprise/admins');
+    state.admins = data.admins || [];
+    renderAdminTable();
+  } catch(e) {
+    const el = $('adminTable');
+    if(el) el.innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
+  }
+}
+
+function renderAdminTable() {
+  const wrap = $('adminTable');
+  if(!wrap) return;
+  wrap.innerHTML = `<div class="tableWrap"><table>
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Invited By</th><th>Actions</th></tr></thead>
+    <tbody>${state.admins.map(a => `<tr>
+      <td><b>${esc(a.name || '—')}</b></td>
+      <td style="font-size:12px;">${esc(a.email)}</td>
+      <td>${roleBadge(a.role)}</td>
+      <td>${statusChip(a.status)}</td>
+      <td style="font-size:12px;color:var(--muted);">${esc(a.invitedBy || '—')}</td>
+      <td>
+        ${state.role === 'owner' && a.email !== state.email ? `
+          <button class="btnSecondary" style="font-size:11px;padding:4px 10px;margin-right:4px;" onclick="openEditAdminModal('${esc(a.email)}')">Edit</button>
+          <button style="background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,0.25);border-radius:6px;font-size:11px;padding:4px 10px;cursor:pointer;" onclick="removeAdmin('${esc(a.email)}','${esc(a.name||a.email)}')">Remove</button>
+        ` : '<span style="font-size:12px;color:var(--muted);">—</span>'}
+      </td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function openInviteAdminModal() {
+  openModal(`
+    <h2>Invite Admin User</h2>
+    <div class="field"><label>Email Address *</label><input id="invEmail" type="email" placeholder="admin@example.com" /></div>
+    <div class="field"><label>Full Name</label><input id="invName" type="text" placeholder="Jane Smith" /></div>
+    <div class="field"><label>Role *</label>
+      <select id="invRole">
+        <option value="viewer">Viewer — Read only</option>
+        <option value="staff" selected>Staff — Players, payments, communications</option>
+        <option value="manager">Manager — Full access except org settings</option>
+        ${state.role === 'owner' ? '<option value="owner">Owner — Unrestricted</option>' : ''}
+      </select>
+    </div>
+    <div class="field"><label>Personal Message (included in invitation email)</label>
+      <textarea id="invMessage" rows="3" placeholder="Welcome to the team…"></textarea>
+    </div>
+    <div class="modalActions">
+      <button class="btnSecondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btnOk" onclick="sendAdminInvite()">Send Invitation</button>
+    </div>
+  `);
+}
+
+async function sendAdminInvite() {
+  const email = $('invEmail')?.value.trim();
+  const name = $('invName')?.value.trim();
+  const role = $('invRole')?.value;
+  const message = $('invMessage')?.value.trim();
+  if(!email || !email.includes('@')) { apiBanner('Valid email required', 'error'); return; }
+  try {
+    await api('/api/enterprise/admins', {
+      method: 'POST',
+      body: JSON.stringify({ email, name, role, message }),
+    });
+    closeModalDirect();
+    apiBanner(`Invitation sent to ${email}`, 'success');
+    addNotif('🛡️', 'Admin Invited', `${email} invited as ${role}`, true);
+    await loadAdmins();
+  } catch(e) {
+    apiBanner('Error: ' + e.message, 'error');
+  }
+}
+
+function openEditAdminModal(email) {
+  const admin = state.admins.find(a => a.email === email);
+  if(!admin) return;
+  openModal(`
+    <h2>Edit Admin: ${esc(admin.name || admin.email)}</h2>
+    <div class="field"><label>Role</label>
+      <select id="editRole">
+        <option value="viewer" ${admin.role==='viewer'?'selected':''}>Viewer</option>
+        <option value="staff" ${admin.role==='staff'?'selected':''}>Staff</option>
+        <option value="manager" ${admin.role==='manager'?'selected':''}>Manager</option>
+        ${(state.isSuperAdmin || state.role === 'owner') ? `<option value="owner" ${admin.role==='owner'?'selected':''}>Owner</option>` : ''}
+      </select>
+    </div>
+    <div class="field"><label>Status</label>
+      <select id="editStatus">
+        <option value="active" ${admin.status==='active'?'selected':''}>Active</option>
+        <option value="suspended" ${admin.status==='suspended'?'selected':''}>Suspended</option>
+      </select>
+    </div>
+    <div class="modalActions">
+      <button class="btnSecondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btnOk" onclick="saveAdminEdit('${esc(email)}')">Save Changes</button>
+    </div>
+  `);
+}
+
+async function saveAdminEdit(email) {
+  try {
+    await api(`/api/enterprise/admins?email=${encodeURIComponent(email)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role: $('editRole')?.value, status: $('editStatus')?.value }),
+    });
+    closeModalDirect();
+    apiBanner('Admin updated', 'success');
+    await loadAdmins();
+  } catch(e) { apiBanner('Error: ' + e.message, 'error'); }
+}
+
+async function removeAdmin(email, name) {
+  if(!confirm(`Remove ${name} (${email}) from this organization?`)) return;
+  try {
+    await api(`/api/enterprise/admins?email=${encodeURIComponent(email)}`, { method: 'DELETE' });
+    apiBanner(`${name} removed`, 'success');
+    await loadAdmins();
+  } catch(e) { apiBanner('Error: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderSettings() {
+  const vc = $('viewContainer');
+  const cfg = state.orgConfig;
+  if(!cfg) { vc.innerHTML = '<div class="banner error">Organization config not loaded.</div>'; return; }
+  const canEdit = state.isSuperAdmin || state.role === 'manager' || state.role === 'owner';
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Organization Settings</div><div class="sectionSubtitle">Global configuration for ${esc(cfg.orgName)}</div></div>
+      ${canEdit ? `<button class="btnOk" onclick="saveSettings()">Save Changes</button>` : ''}
+    </div>
+    <div class="twoCol">
+      <div>
+        <div class="card">
+          <h3>General</h3>
+          <div class="field"><label>Organization Name</label><input id="cfgName" value="${esc(cfg.orgName)}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Sport</label><input id="cfgSport" value="${esc(cfg.sport)}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Contact Email</label><input id="cfgContactEmail" type="email" value="${esc(cfg.contactEmail)}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Contact Name</label><input id="cfgContactName" value="${esc(cfg.contactName)}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Timezone</label><input id="cfgTimezone" value="${esc(cfg.timezone)}" ${canEdit?'':'readonly'} /></div>
+        </div>
+        <div class="card">
+          <h3>Financials</h3>
+          <div class="field"><label>Currency</label><input id="cfgCurrency" value="${esc(cfg.currency)}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Late Payment Threshold (days)</label><input id="cfgLateDays" type="number" value="${cfg.latePaymentThresholdDays}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Payment Reminder (days)</label><input id="cfgReminderDays" type="number" value="${cfg.paymentReminderDays}" ${canEdit?'':'readonly'} /></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>Branding &amp; Email</h3>
+          <div class="field"><label>Email From Name</label><input id="cfgEmailFromName" value="${esc(cfg.emailFromName)}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Email Reply-To</label><input id="cfgEmailReplyTo" type="email" value="${esc(cfg.emailReplyTo)}" ${canEdit?'':'readonly'} /></div>
+        </div>
+        <div class="card">
+          <h3>Security</h3>
+          <div class="field"><label>MFA Required</label>
+            <select id="cfgMfa" ${canEdit?'':'disabled'}>
+              <option value="all" ${cfg.mfaRequired==='all'?'selected':''}>Required for all admins</option>
+              <option value="owners" ${cfg.mfaRequired==='owners'?'selected':''}>Required for Owners only</option>
+              <option value="optional" ${cfg.mfaRequired==='optional'?'selected':''}>Optional</option>
+            </select>
+          </div>
+          <div class="field"><label>Session Timeout (minutes)</label><input id="cfgSession" type="number" value="${cfg.sessionTimeoutMinutes}" ${canEdit?'':'readonly'} /></div>
+          <div class="field"><label>Lockout After (failed attempts)</label><input id="cfgLockout" type="number" value="${cfg.loginLockoutAttempts}" ${canEdit?'':'readonly'} /></div>
+        </div>
+        <div class="card">
+          <h3>Plan</h3>
+          <div class="finRow"><span class="label">Current Plan</span>${statusChip(cfg.planTier, 'orange')}</div>
+          <div class="finRow"><span class="label">Organization Slug</span><span style="font-family:monospace;">${esc(cfg.orgSlug)}</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function saveSettings() {
+  const patch = {
+    orgName: $('cfgName')?.value.trim(),
+    sport: $('cfgSport')?.value.trim(),
+    contactEmail: $('cfgContactEmail')?.value.trim(),
+    contactName: $('cfgContactName')?.value.trim(),
+    timezone: $('cfgTimezone')?.value.trim(),
+    currency: $('cfgCurrency')?.value.trim(),
+    latePaymentThresholdDays: Number($('cfgLateDays')?.value),
+    paymentReminderDays: Number($('cfgReminderDays')?.value),
+    emailFromName: $('cfgEmailFromName')?.value.trim(),
+    emailReplyTo: $('cfgEmailReplyTo')?.value.trim(),
+    mfaRequired: $('cfgMfa')?.value,
+    sessionTimeoutMinutes: Number($('cfgSession')?.value),
+    loginLockoutAttempts: Number($('cfgLockout')?.value),
+  };
+  try {
+    const data = await api('/api/enterprise/org', { method:'PATCH', body: JSON.stringify(patch) });
+    state.orgConfig = data.orgConfig;
+    apiBanner('Settings saved', 'success');
+  } catch(e) { apiBanner('Error: ' + e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: AUDIT LOG
+// ═══════════════════════════════════════════════════════════════════════════
+async function renderAudit() {
+  if(state.role !== 'owner') {
+    $('viewContainer').innerHTML = '<div class="banner error">Audit Log is accessible to Owner-level administrators only.</div>';
+    return;
+  }
+  const vc = $('viewContainer');
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Audit Log</div><div class="sectionSubtitle">Tamper-evident chronological record of all admin actions</div></div>
+    </div>
+    <div class="searchBar">
+      <input type="date" id="auditFrom" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);" />
+      <input type="date" id="auditTo" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);" />
+      <input type="text" id="auditAdminFilter" placeholder="Filter by admin email…" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);" />
+      <button class="btnOk" onclick="loadAudit()">Search</button>
+    </div>
+    <div id="auditTable"><div style="padding:32px;text-align:center;color:var(--muted);">Loading audit log…</div></div>
+  `;
+  const now = new Date();
+  const weekAgo = new Date(now - 7 * 86400000);
+  $('auditFrom').value = weekAgo.toISOString().slice(0, 10);
+  $('auditTo').value = now.toISOString().slice(0, 10);
+  await loadAudit();
+}
+
+async function loadAudit() {
+  const from = $('auditFrom')?.value;
+  const to = $('auditTo')?.value;
+  const admin = $('auditAdminFilter')?.value.trim();
+  const wrap = $('auditTable');
+  if(!wrap) return;
+  wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);">Loading…</div>';
+  try {
+    const params = new URLSearchParams();
+    if(from) params.set('from', from);
+    if(to) params.set('to', to + 'T23:59:59');
+    if(admin) params.set('admin', admin);
+    const data = await api(`/api/enterprise/audit?${params}`);
+    const logs = data.logs || [];
+    if(!logs.length) { wrap.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No audit entries found for this range.</div>'; return; }
+    wrap.innerHTML = `<div class="tableWrap"><table>
+      <thead><tr><th>Timestamp</th><th>Admin</th><th>Action</th><th>Details</th></tr></thead>
+      <tbody>${logs.map(l => `<tr>
+        <td style="white-space:nowrap;font-size:12px;">${fmtTime(String(l.timestamp||''))}</td>
+        <td style="font-size:12px;">${esc(String(l.email||'—'))}</td>
+        <td><span style="font-family:monospace;font-size:11px;background:var(--bg);padding:2px 6px;border-radius:4px;">${esc(String(l.action||'—'))}</span></td>
+        <td style="font-size:12px;color:var(--muted);">${esc(String(l.target||l.subject||l.paymentId||l.orgName||''))}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div style="margin-top:10px;font-size:12px;color:var(--muted);">${data.count} entries found · Audit log is append-only and cannot be modified.</div>`;
+  } catch(e) {
+    wrap.innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+netlifyIdentity.init();
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+[functions]
+external_node_modules = ["@neondatabase/serverless"]
+
+[build.environment]
+NPM_FLAGS = "--include=dev"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[redirects]]
+  from   = "/api/seasons/:seasonId/calendar.ics"
+  to     = "/.netlify/functions/season-calendar"
+  status = 200
+
+[[redirects]]
+  from   = "/api/seasons/save"
+  to     = "/.netlify/functions/season-save"
+  status = 200
+
+[[redirects]]
+  from   = "/register"
+  to     = "/register.html"
+  status = 200
+
+[[redirects]]
+  from   = "/admin"
+  to     = "/admin.html"
+  status = 200
+
+[[plugins]]
+package = "netlify-plugin-cypress"
+
+  [plugins.inputs]
+  enable = true

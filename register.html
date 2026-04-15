@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Player registration form for Athlete Assessment Systems." />
+  <title>Player Registration — Athlete Assessment Systems</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" /></noscript>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Manrope', Arial, sans-serif; margin: 0; background: linear-gradient(160deg, #f3f7ff, #edf7f4 55%, #fff8ef); color: #17324a; min-height: 100vh; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 26px 16px 60px; }
+    .card { background: #ffffffd9; border: 1px solid #d9e6ea; border-radius: 14px; padding: 24px; box-shadow: 0 12px 32px rgba(12,33,56,.08); }
+    h1 { margin: 0 0 6px; font-size: 1.55rem; color: #0a1e3d; }
+    h2 { margin: 0 0 4px; font-size: 1rem; font-weight: 700; color: #0a1e3d; }
+    p { margin: 0 0 12px; }
+    .muted { color: #5a6f7f; font-size: .92rem; }
+    .event-badge { display: inline-block; background: #F97316; color: #fff; font-size: .8rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; text-transform: uppercase; margin-bottom: 8px; }
+    .section { margin-top: 22px; padding-top: 16px; border-top: 1px solid #e8eff3; }
+    .section-label { font-size: .85rem; font-weight: 700; color: #F97316; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    label { display: block; font-weight: 600; font-size: .92rem; margin: 10px 0 5px; color: #17324a; }
+    label .req { color: #ef4444; }
+    input, textarea, select { width: 100%; border: 1px solid #c8d8de; border-radius: 10px; padding: 10px 12px; font: inherit; font-size: .95rem; background: #fff; transition: border-color .15s, outline .15s; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid #F97316; outline-offset: -1px; border-color: #F97316; }
+    textarea { min-height: 100px; resize: vertical; }
+    .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; cursor: pointer; }
+    .check input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: #F97316; cursor: pointer; flex-shrink: 0; }
+    .check span { font-size: .92rem; line-height: 1.4; }
+    .privacy-note { font-size: .82rem; color: #64748b; margin: 8px 0 0 30px; }
+    .submit-btn { margin-top: 20px; border: 0; border-radius: 10px; padding: 14px 16px; background: #F97316; color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer; width: 100%; transition: background .15s, opacity .15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .submit-btn:hover:not(:disabled) { background: #ea6c0e; }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .submit-btn:focus-visible { outline: 2px solid #F97316; outline-offset: 2px; }
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; display: none; }
+    .submit-btn.loading .spinner { display: inline-block; }
+    .submit-btn.loading .btn-text { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Banners */
+    .banner { border-radius: 10px; padding: 14px 16px; margin: 14px 0; font-weight: 600; font-size: .95rem; }
+    .banner-error { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+    .banner-warning { background: #fefce8; color: #854d0e; border: 1px solid #fde047; }
+    .banner-success { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+
+    /* Success state */
+    .success-page { text-align: center; padding: 40px 20px; }
+    .success-icon { font-size: 64px; margin-bottom: 16px; }
+    .success-page h1 { font-size: 1.8rem; margin-bottom: 12px; color: #166534; }
+    .success-page .sub { font-size: 1.05rem; color: #374151; max-width: 480px; margin: 0 auto; }
+
+    /* Loading state */
+    .loading-state { text-align: center; padding: 60px 20px; }
+    .loading-state .dots { font-size: 24px; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+
+    /* Error state (event not found) */
+    .error-page { text-align: center; padding: 40px 20px; }
+    .error-page h1 { color: #991b1b; }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .wrap { padding: 16px 12px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <!-- Loading state -->
+    <div id="loadingState" class="card loading-state">
+      <div class="dots">...</div>
+      <p class="muted" style="margin-top:12px;">Loading event details...</p>
+    </div>
+
+    <!-- Error state (event not found) -->
+    <div id="errorState" class="card error-page" style="display:none;">
+      <h1>Registration Unavailable</h1>
+      <p class="muted">This registration link is no longer active.</p>
+      <p class="muted">If you believe this is an error, please contact the event organizer.</p>
+    </div>
+
+    <!-- Registration form -->
+    <div id="formState" style="display:none;">
+      <div class="card">
+        <div class="event-badge" id="eventTypeBadge">Event</div>
+        <h1 id="eventTitle">Registration</h1>
+        <p class="muted" id="eventMeta"></p>
+
+        <!-- Inline banners for errors/duplicates -->
+        <div id="formBanner" style="display:none;"></div>
+
+        <form id="registrationForm" novalidate>
+          <!-- Section 1: Player Info -->
+          <div class="section" style="margin-top:12px; padding-top:0; border-top:none;">
+            <div class="section-label">Player Info</div>
+            <div class="grid">
+              <div>
+                <label for="firstName">First Name <span class="req">*</span></label>
+                <input id="firstName" name="firstName" required autocomplete="given-name" />
+              </div>
+              <div>
+                <label for="lastName">Last Name <span class="req">*</span></label>
+                <input id="lastName" name="lastName" required autocomplete="family-name" />
+              </div>
+            </div>
+            <div class="grid">
+              <div>
+                <label for="yearOfBirth">Year of Birth <span class="req">*</span></label>
+                <select id="yearOfBirth" name="yearOfBirth" required>
+                  <option value="">Select year...</option>
+                </select>
+              </div>
+              <div>
+                <label for="currentTeam">Current Team</label>
+                <input id="currentTeam" name="currentTeam" />
+              </div>
+            </div>
+            <div class="grid">
+              <div>
+                <label for="currentLevel">Current Level / Division</label>
+                <input id="currentLevel" name="currentLevel" placeholder="e.g. AA, Division 1" />
+              </div>
+              <div>
+                <label for="positionTryingOutFor">Position Trying Out For <span class="req">*</span></label>
+                <select id="positionTryingOutFor" name="positionTryingOutFor" required>
+                  <option value="">Select position...</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: About the Player -->
+          <div class="section">
+            <div class="section-label">About the Player</div>
+            <label for="aboutPlayer">Tell us more about the player</label>
+            <textarea id="aboutPlayer" name="aboutPlayer" placeholder="Other sports, hobbies, strengths, anything else we should know..."></textarea>
+          </div>
+
+          <!-- Section 3: Parent / Guardian Info -->
+          <div class="section">
+            <div class="section-label">Parent / Guardian Info</div>
+            <div class="grid">
+              <div>
+                <label for="guardianName">Parent / Guardian Name <span class="req">*</span></label>
+                <input id="guardianName" name="guardianName" required autocomplete="name" />
+              </div>
+              <div>
+                <label for="guardianEmail">Parent / Guardian Email <span class="req">*</span></label>
+                <input id="guardianEmail" name="guardianEmail" type="email" required autocomplete="email" />
+              </div>
+            </div>
+            <label for="guardianPhone">Parent / Guardian Phone Number</label>
+            <input id="guardianPhone" name="guardianPhone" type="tel" autocomplete="tel" />
+          </div>
+
+          <!-- Section 4: Authorization -->
+          <div class="section">
+            <div class="section-label">Authorization</div>
+            <label class="check">
+              <input type="checkbox" id="authorization" name="authorization" required />
+              <span>I authorize the recording of my child's name for the purposes of this event only. <span class="req">*</span></span>
+            </label>
+            <p class="privacy-note">Your information will only be used for event registration and will not be shared.</p>
+          </div>
+
+          <button type="submit" class="submit-btn" id="submitBtn" disabled>
+            <span class="btn-text">Complete Registration</span>
+            <span class="spinner"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Success state -->
+    <div id="successState" class="card success-page" style="display:none;">
+      <div class="success-icon" style="color:#4ADE80;">&#10003;</div>
+      <h1>Registration Complete!</h1>
+      <p class="sub" id="successMessage"></p>
+    </div>
+  </main>
+
+  <script>
+    (function() {
+      'use strict';
+
+      /* ── DOM refs ── */
+      const $loading = document.getElementById('loadingState');
+      const $error = document.getElementById('errorState');
+      const $formWrap = document.getElementById('formState');
+      const $success = document.getElementById('successState');
+      const $form = document.getElementById('registrationForm');
+      const $banner = document.getElementById('formBanner');
+      const $submitBtn = document.getElementById('submitBtn');
+      const $eventTypeBadge = document.getElementById('eventTypeBadge');
+      const $eventTitle = document.getElementById('eventTitle');
+      const $eventMeta = document.getElementById('eventMeta');
+      const $successMsg = document.getElementById('successMessage');
+
+      /* ── Read URL params ── */
+      const params = new URLSearchParams(window.location.search);
+      const eventId = (params.get('event') || '').trim();
+      const eventType = (params.get('type') || '').trim();
+
+      const prefillMap = {
+        firstName: ['firstName', 'first', 'fname'],
+        lastName: ['lastName', 'last', 'lname'],
+        yearOfBirth: ['yearOfBirth', 'yob', 'birthYear'],
+        currentTeam: ['currentTeam', 'team'],
+        currentLevel: ['currentLevel', 'level', 'division'],
+        positionTryingOutFor: ['positionTryingOutFor', 'position', 'pos'],
+        aboutPlayer: ['aboutPlayer', 'about', 'notes'],
+        guardianName: ['guardianName', 'parentName'],
+        guardianEmail: ['guardianEmail', 'parentEmail', 'email'],
+        guardianPhone: ['guardianPhone', 'parentPhone', 'phone']
+      };
+
+      if (!eventId) {
+        showError();
+        return;
+      }
+
+      /* ── State ── */
+      let eventInfo = null;
+      const draftFieldIds = [
+        'firstName',
+        'lastName',
+        'yearOfBirth',
+        'currentTeam',
+        'currentLevel',
+        'positionTryingOutFor',
+        'aboutPlayer',
+        'guardianName',
+        'guardianEmail',
+        'guardianPhone',
+        'authorization'
+      ];
+
+      /* ── Helpers ── */
+      function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = String(s || '');
+        return d.innerHTML;
+      }
+
+      function getDraftKey() {
+        return 'aasRegisterDraft:' + eventId;
+      }
+
+      function readDraft() {
+        try {
+          const raw = sessionStorage.getItem(getDraftKey());
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== 'object' || !parsed.values || typeof parsed.values !== 'object') {
+            return null;
+          }
+          return parsed.values;
+        } catch {
+          return null;
+        }
+      }
+
+      function clearDraft() {
+        try {
+          sessionStorage.removeItem(getDraftKey());
+        } catch {
+          /* no-op */
+        }
+      }
+
+      function saveDraft() {
+        const values = {};
+        let hasAnyValue = false;
+
+        draftFieldIds.forEach(function(id) {
+          const el = document.getElementById(id);
+          if (!el) return;
+
+          if (el.type === 'checkbox') {
+            values[id] = !!el.checked;
+            if (el.checked) hasAnyValue = true;
+            return;
+          }
+
+          const val = (el.value || '').trim();
+          values[id] = val;
+          if (val) hasAnyValue = true;
+        });
+
+        if (!hasAnyValue) {
+          clearDraft();
+          return;
+        }
+
+        try {
+          sessionStorage.setItem(
+            getDraftKey(),
+            JSON.stringify({ savedAt: Date.now(), values: values })
+          );
+        } catch {
+          /* no-op */
+        }
+      }
+
+      function restoreDraft() {
+        const values = readDraft();
+        if (!values) return;
+
+        draftFieldIds.forEach(function(id) {
+          const el = document.getElementById(id);
+          if (!el || !(id in values)) return;
+
+          if (el.type === 'checkbox') {
+            el.checked = !!values[id];
+            return;
+          }
+
+          const val = String(values[id] || '');
+          if (el.tagName === 'SELECT') {
+            const optionExists = Array.from(el.options).some(function(opt) { return opt.value === val; });
+            if (!optionExists) return;
+          }
+          el.value = val;
+        });
+      }
+
+      function normalizePrefillValue(value) {
+        return String(value || '').trim();
+      }
+
+      function getPrefillValue(keys) {
+        for (const key of keys) {
+          const value = normalizePrefillValue(params.get(key));
+          if (value) return value;
+        }
+        return '';
+      }
+
+      function applyPrefill() {
+        Object.keys(prefillMap).forEach(function(fieldId) {
+          const el = document.getElementById(fieldId);
+          if (!el) return;
+
+          const existing = el.type === 'checkbox' ? (el.checked ? '1' : '') : normalizePrefillValue(el.value);
+          if (existing) return;
+
+          const next = getPrefillValue(prefillMap[fieldId]);
+          if (!next) return;
+
+          if (el.tagName === 'SELECT') {
+            const optionExists = Array.from(el.options).some(function(opt) { return opt.value === next; });
+            if (!optionExists) return;
+          }
+
+          el.value = next;
+        });
+
+        const authParam = normalizePrefillValue(params.get('authorization') || params.get('authorized'));
+        if (authParam) {
+          const auth = document.getElementById('authorization');
+          if (auth && !auth.checked) {
+            auth.checked = ['1', 'true', 'yes', 'on'].includes(authParam.toLowerCase());
+          }
+        }
+      }
+
+      function showError() {
+        $loading.style.display = 'none';
+        $error.style.display = '';
+        $formWrap.style.display = 'none';
+        $success.style.display = 'none';
+      }
+
+      function showForm() {
+        $loading.style.display = 'none';
+        $error.style.display = 'none';
+        $formWrap.style.display = '';
+        $success.style.display = 'none';
+      }
+
+      function showSuccess(firstName, eventName, guardianEmail, emailSent) {
+        $loading.style.display = 'none';
+        $error.style.display = 'none';
+        $formWrap.style.display = 'none';
+        $success.style.display = '';
+        if (emailSent) {
+          $successMsg.textContent = firstName + ' has been registered for ' + eventName + '. A confirmation email has been sent to ' + guardianEmail + '.';
+        } else {
+          $successMsg.textContent = firstName + ' has been registered for ' + eventName + '. Registration confirmed — please save this page as your confirmation.';
+        }
+      }
+
+      function showBanner(type, message) {
+        $banner.style.display = '';
+        $banner.className = 'banner banner-' + type;
+        $banner.textContent = message;
+        $banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      function hideBanner() {
+        $banner.style.display = 'none';
+      }
+
+      /* ── Populate Year of Birth dropdown ── */
+      function populateYears() {
+        const sel = document.getElementById('yearOfBirth');
+        const now = new Date().getFullYear();
+        for (let y = now - 3; y >= now - 20; y--) {
+          const opt = document.createElement('option');
+          opt.value = String(y);
+          opt.textContent = String(y);
+          sel.appendChild(opt);
+        }
+      }
+
+      /* ── Populate positions dropdown ── */
+      function populatePositions(positions) {
+        const sel = document.getElementById('positionTryingOutFor');
+        /* clear existing options beyond the placeholder */
+        while (sel.options.length > 1) sel.remove(1);
+        if (Array.isArray(positions)) {
+          positions.forEach(function(p) {
+            var opt = document.createElement('option');
+            opt.value = p.value;
+            opt.textContent = p.label;
+            sel.appendChild(opt);
+          });
+        }
+      }
+
+      /* ── Form validation (enable/disable submit) ── */
+      function checkFormValid() {
+        var firstName = document.getElementById('firstName').value.trim();
+        var lastName = document.getElementById('lastName').value.trim();
+        var yearOfBirth = document.getElementById('yearOfBirth').value;
+        var position = document.getElementById('positionTryingOutFor').value;
+        var guardianName = document.getElementById('guardianName').value.trim();
+        var guardianEmail = document.getElementById('guardianEmail').value.trim();
+        var auth = document.getElementById('authorization').checked;
+        var valid = firstName && lastName && yearOfBirth && position && guardianName && guardianEmail && auth;
+        $submitBtn.disabled = !valid;
+      }
+
+      /* ── Fetch event info ── */
+      async function loadEvent() {
+        try {
+          var res = await fetch('/api/register/event-info?event=' + encodeURIComponent(eventId));
+          if (!res.ok) { showError(); return; }
+          eventInfo = await res.json();
+          if (!eventInfo || eventInfo.error) { showError(); return; }
+
+          /* Update UI */
+          var displayType = eventInfo.eventType || eventType || 'Event';
+          $eventTypeBadge.textContent = displayType;
+          $eventTitle.textContent = 'Registering for: ' + (eventInfo.name || 'Event');
+
+          var meta = [];
+          if (eventInfo.sport) meta.push(eventInfo.sport);
+          if (eventInfo.tryoutDate) meta.push(eventInfo.tryoutDate);
+          if (eventInfo.startTime) meta.push(eventInfo.startTime);
+          if (eventInfo.rink) meta.push(eventInfo.rink);
+          $eventMeta.textContent = meta.join(' \u2022 ');
+
+          document.title = 'Register — ' + (eventInfo.name || 'Event') + ' — Athlete Assessment Systems';
+
+          populateYears();
+          populatePositions(eventInfo.positions);
+          restoreDraft();
+          applyPrefill();
+          saveDraft();
+          checkFormValid();
+          showForm();
+        } catch {
+          showError();
+        }
+      }
+
+      /* ── Listen for input changes ── */
+      $form.addEventListener('input', function() {
+        checkFormValid();
+        saveDraft();
+      });
+      $form.addEventListener('change', function() {
+        checkFormValid();
+        saveDraft();
+      });
+
+      /* ── Form submission ── */
+      $form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        hideBanner();
+
+        /* Gather values */
+        var firstName = document.getElementById('firstName').value.trim();
+        var lastName = document.getElementById('lastName').value.trim();
+        var yearOfBirth = document.getElementById('yearOfBirth').value;
+        var currentTeam = document.getElementById('currentTeam').value.trim();
+        var currentLevel = document.getElementById('currentLevel').value.trim();
+        var positionTryingOutFor = document.getElementById('positionTryingOutFor').value;
+        var aboutPlayer = document.getElementById('aboutPlayer').value.trim();
+        var guardianName = document.getElementById('guardianName').value.trim();
+        var guardianEmail = document.getElementById('guardianEmail').value.trim();
+        var guardianPhone = document.getElementById('guardianPhone').value.trim();
+
+        /* Show loading */
+        $submitBtn.classList.add('loading');
+        $submitBtn.disabled = true;
+
+        try {
+          var res = await fetch('/api/register/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              eventId: eventId,
+              eventType: eventInfo ? eventInfo.eventType : eventType,
+              firstName: firstName,
+              lastName: lastName,
+              yearOfBirth: yearOfBirth,
+              currentTeam: currentTeam,
+              currentLevel: currentLevel,
+              positionTryingOutFor: positionTryingOutFor,
+              aboutPlayer: aboutPlayer,
+              guardianName: guardianName,
+              guardianEmail: guardianEmail,
+              guardianPhone: guardianPhone
+            })
+          });
+
+          var data = await res.json().catch(function() { return null; });
+
+          if (data && data.success) {
+            clearDraft();
+            showSuccess(firstName, eventInfo ? eventInfo.name : 'this event', guardianEmail, data.emailSent);
+            return;
+          }
+
+          if (data && data.duplicate) {
+            showBanner('warning', 'This player appears to already be registered for this event. If you believe this is an error, please contact the organizer.');
+          } else {
+            showBanner('error', (data && data.error) || 'Something went wrong. Please try again or contact the event organizer.');
+          }
+        } catch {
+          showBanner('error', 'Something went wrong. Please try again or contact the event organizer.');
+        }
+
+        /* Re-enable submit */
+        $submitBtn.classList.remove('loading');
+        checkFormValid();
+      });
+
+      /* ── Init ── */
+      loadEvent();
+    })();
+  </script>
+</body>
+</html>

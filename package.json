@@ -1,0 +1,20 @@
+{
+  "name": "athlete-assessment-systems",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4",
+    "@netlify/blobs": "^10.7.0",
+    "@netlify/functions": "^2.8.1",
+    "bcryptjs": "^2.4.3",
+    "qrcode": "^1.5.4",
+    "resend": "^6.10.0"
+  },
+  "devDependencies": {
+    "cypress": "^13.15.0"
+  },
+  "scripts": {
+    "test": "cypress run",
+    "test:open": "cypress open"
+  }
+}
