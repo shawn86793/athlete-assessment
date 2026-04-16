@@ -14129,37 +14129,77 @@ function getTeamTotalScore(team){
 }
 
 function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
-  // Sort packages by average score descending (best groups first)
-  packages.sort((a, b)=>{
-    const avgA = a.reduce((s,p)=>s+(weightedOverall(p.id)||0),0)/a.length;
-    const avgB = b.reduce((s,p)=>s+(weightedOverall(p.id)||0),0)/b.length;
-    return avgB - avgA;
-  });
-
-  packages.forEach(pkg=>{
-    // Try to place entire package on one team (lowest current total score with enough room)
-    const eligible = teams.filter(team=>{
-      const cap = capacityFn(team);
-      const used = (team[role]?.length || 0);
-      return cap - used >= pkg.length;
+  // ── Step 1: Friend packages (size > 1) go FIRST so they get first pick of space.
+  //            Within each group sort by size desc then score desc.
+  //            Singletons fill remaining slots afterwards, balanced by score.
+  const friendPkgs = packages
+    .filter(p => p.length > 1)
+    .sort((a, b) => {
+      if(b.length !== a.length) return b.length - a.length; // larger groups first
+      const avgA = a.reduce((s,p)=>s+(weightedOverall(p.id)||0),0)/a.length;
+      const avgB = b.reduce((s,p)=>s+(weightedOverall(p.id)||0),0)/b.length;
+      return avgB - avgA;
+    });
+  const singletons = packages
+    .filter(p => p.length === 1)
+    .sort((a, b) => {
+      const avgA = weightedOverall(a[0].id)||0;
+      const avgB = weightedOverall(b[0].id)||0;
+      return avgB - avgA;
     });
 
+  const ordered = [...friendPkgs, ...singletons];
+
+  ordered.forEach(pkg=>{
+    const remaining = t => capacityFn(t) - (t[role]?.length || 0);
+
+    // Teams that can fit the whole package without overflow
+    const eligible = teams.filter(team => remaining(team) >= pkg.length);
+
     if(eligible.length > 0){
-      // Pick team with lowest total score
+      // Pick lowest-score team with enough room
       const target = eligible.reduce((best, team)=>
         getTeamTotalScore(team) < getTeamTotalScore(best) ? team : best
       );
-      pkg.forEach(p=>assignPlayerToTeam(target, p, role, sport));
+      pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
+    } else if(pkg.length > 1){
+      // ── Friend package but no single team has enough contiguous room.
+      //    Overflow: place the whole package on the team with the MOST remaining
+      //    space (even if it exceeds the target). This keeps friends together.
+      //    Only split if the package is larger than any team's full capacity.
+      const maxCap = Math.max(...teams.map(t => capacityFn(t)));
+      if(pkg.length <= maxCap){
+        // Overflow to team with most remaining space (ties broken by lowest score)
+        const target = teams
+          .filter(t => remaining(t) > 0 || capacityFn(t) > 0)
+          .reduce((best, t) => {
+            const remT = remaining(t), remB = remaining(best);
+            if(remT !== remB) return remT > remB ? t : best;
+            return getTeamTotalScore(t) < getTeamTotalScore(best) ? t : best;
+          });
+        pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
+      } else {
+        // Package larger than any team — must split, keep as many together as possible
+        const chunks = [];
+        let i = 0;
+        while(i < pkg.length){
+          chunks.push(pkg.slice(i, i + maxCap));
+          i += maxCap;
+        }
+        chunks.forEach(chunk => {
+          const t2 = teams.reduce((best, t) =>
+            getTeamTotalScore(t) < getTeamTotalScore(best) ? t : best
+          );
+          chunk.forEach(p => assignPlayerToTeam(t2, p, role, sport));
+        });
+      }
     } else {
-      // Can't fit whole package on one team — assign players individually to lowest-score teams
-      pkg.forEach(p=>{
-        const solo = teams.filter(team=>(team[role]?.length||0) < capacityFn(team));
-        if(!solo.length) return;
-        const target = solo.reduce((best, team)=>
-          getTeamTotalScore(team) < getTeamTotalScore(best) ? team : best
-        );
-        assignPlayerToTeam(target, p, role, sport);
-      });
+      // Singleton — place on any team with capacity, or overflow to least-full team
+      const hasRoom = teams.filter(t => remaining(t) > 0);
+      const target = (hasRoom.length ? hasRoom : teams).reduce((best, t)=>
+        getTeamTotalScore(t) < getTeamTotalScore(best) ? t : best
+      );
+      pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     }
   });
 }
@@ -14198,7 +14238,29 @@ function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sort
   );
   const skaterCapacityByTeam = teams.map(team=>Math.max(0, totalPlayersPerTeam - (team.goalies?.length || 0)));
   const skaterTarget = skaterCapacityByTeam.reduce((sum, capacity)=>sum + capacity, 0);
-  const selectedSkaters = rankedSkaters.slice(0, skaterTarget);
+  let selectedSkaters = rankedSkaters.slice(0, skaterTarget);
+
+  // ── Ensure every member of an explicit friend package is included in
+  //    selectedSkaters even if they ranked below the cut-off.  We expand the
+  //    list rather than drop half a package silently.
+  if(sortMethod !== 'serpentine' && Array.isArray(t.friendPackages) && t.friendPackages.length){
+    const selectedIds = new Set(selectedSkaters.map(p => p.id));
+    const rankedSkaterMap = new Map(rankedSkaters.map(p => [p.id, p]));
+    const extras = [];
+    t.friendPackages.forEach(pkg => {
+      const ids = pkg.playerIds || [];
+      // Only act if at least one member is already in the selection
+      const anyIn = ids.some(id => selectedIds.has(id));
+      if(!anyIn) return;
+      ids.forEach(id => {
+        if(!selectedIds.has(id)){
+          const p = rankedSkaterMap.get(id);
+          if(p){ extras.push(p); selectedIds.add(id); }
+        }
+      });
+    });
+    if(extras.length) selectedSkaters = [...selectedSkaters, ...extras];
+  }
 
   // Skaters: serpentine draft OR package-balanced assignment
   if(sortMethod === 'serpentine'){
