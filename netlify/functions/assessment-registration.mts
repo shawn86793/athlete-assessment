@@ -357,6 +357,10 @@ const generateId = () => {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+// Generates a unique 8-digit numeric Athlete ID for year-over-year tracking
+const generateAthleteId = () =>
+  String(Math.floor(10000000 + Math.random() * 90000000))
+
 const getBaseUrl = (req: Request) => {
   const forwarded = req.headers.get('x-forwarded-host')
   const host = forwarded || req.headers.get('host') || new URL(req.url).host
@@ -747,6 +751,7 @@ export default async (req: Request, context: Context) => {
     const createdAt = Date.now()
     const player = {
       id: generateId(),
+      athleteId: generateAthleteId(),
       first: values.firstName,
       last: values.lastName,
       anonymous: false,

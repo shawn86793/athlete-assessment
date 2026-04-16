@@ -6332,6 +6332,58 @@ const CUSTOM_SCORE_TYPES = [
  *  Helpers
  * ------------------------- */
 function uid(){ return String(Date.now()) + "-" + Math.random().toString(16).slice(2); }
+
+// ── Unique 8-digit Athlete ID ─────────────────────────────────────────────────
+// Generates a random 8-digit number (10000000–99999999) unique across all
+// players currently in the DB. Used for year-over-year tracking & registration.
+function generateAthleteId(existingIds){
+  const taken = existingIds instanceof Set ? existingIds : _buildAthleteIdSet();
+  let id;
+  let attempts = 0;
+  do {
+    id = String(Math.floor(10000000 + Math.random() * 90000000));
+    attempts++;
+  } while(taken.has(id) && attempts < 500);
+  return id;
+}
+function _buildAthleteIdSet(){
+  const ids = new Set();
+  const allTryouts = Object.values(DB.tryouts || {});
+  allTryouts.forEach(t => {
+    (t.roster || []).forEach(p => { if(p.athleteId) ids.add(String(p.athleteId)); });
+  });
+  // Also cover season rosters
+  Object.values(DB.seasons || {}).forEach(s => {
+    (s.roster || []).forEach(p => { if(p.athleteId) ids.add(String(p.athleteId)); });
+  });
+  return ids;
+}
+// Back-fill: assigns athleteId to any existing player who doesn't have one yet.
+function backfillAthleteIds(){
+  const taken = _buildAthleteIdSet();
+  let changed = false;
+  const allTryouts = Object.values(DB.tryouts || {});
+  allTryouts.forEach(t => {
+    (t.roster || []).forEach(p => {
+      if(!p.athleteId){
+        p.athleteId = generateAthleteId(taken);
+        taken.add(p.athleteId);
+        changed = true;
+      }
+    });
+  });
+  Object.values(DB.seasons || {}).forEach(s => {
+    (s.roster || []).forEach(p => {
+      if(!p.athleteId){
+        p.athleteId = generateAthleteId(taken);
+        taken.add(p.athleteId);
+        changed = true;
+      }
+    });
+  });
+  if(changed) saveDB();
+  return changed;
+}
 function clamp15(v){ const n=Number(v); if(Number.isNaN(n)) return null; return Math.max(1, Math.min(5,n)); }
 function normalizeCustomScale(scale){
   const val = String(scale || "1-5").trim();
@@ -7708,6 +7760,8 @@ window.addEventListener("online", async ()=>{
 let DB = loadDB();
 if(!DB.seasons || typeof DB.seasons !== "object") DB.seasons = {};
 if(!DB.tryouts || typeof DB.tryouts !== "object") DB.tryouts = {};
+// Back-fill athleteId for any players created before this feature launched
+setTimeout(() => backfillAthleteIds(), 500);
 let autoRefreshEnabled = true;
 let autoRefreshTimer = null;
 let lastDbSnapshot = safeStorageGet(STORAGE_KEY, "") || "";
@@ -13933,6 +13987,7 @@ function addPlayer(){
 
   t.roster.push({
     id: uid(),
+    athleteId: generateAthleteId(),
     first, last,
     anonymous: false,
     jersey,
@@ -15389,6 +15444,7 @@ function parseCSVToPlayers(text){
     if(!first && !last) continue;
     players.push({
       id: uid(),
+      athleteId: col(row,"athleteid","athlete id","playerid","player id") || generateAthleteId(),
       first: first || "Unknown",
       last:  last  || "",
       anonymous: false,
@@ -15838,7 +15894,7 @@ function renderRosterTiles(){
               <div class="ptTop">
                 <div style="min-width:0;flex:1;">
                   <div class="ptName">${escapeHTML(playerDisplayName(p))} ${createdBadge} ${anonBadge}${friendBadge}</div>
-                  <div class="ptSub">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos||"—")}</div>
+                  <div class="ptSub">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos||"—")}${p.athleteId ? ` • <span style="font-family:monospace;font-size:10px;color:#94a3b8;letter-spacing:0.04em;">ID ${escapeHTML(p.athleteId)}</span>` : ""}</div>
                   <div class="ptSub">Assigned: <b style="color:var(--black-font-replacement)">${escapeHTML(assigned)}</b></div>
                 </div>
                 <div class="ptAvatar ${avatarClass}">${escapeHTML(avatarInitials)}</div>
@@ -16236,6 +16292,7 @@ function renderPlayerHub(){
         ${p.anonymous ? `<span class="badge anon">Anonymous</span>` : ``}
       </h2>
       <div class="pillRow">
+        ${p.athleteId ? `<div class="pill" style="background:#0a1e3d;color:#fff;font-family:monospace;font-size:13px;letter-spacing:0.05em;" title="Unique Athlete ID — use this for returning player registration">🪪 ID <b>${escapeHTML(p.athleteId)}</b></div>` : ""}
         <div class="pill">Jersey: <b>#${escapeHTML(p.jersey||"—")}</b></div>
         <div class="pill">Assessments: <b>${evs.length}</b></div>
         <div class="pill">Overall: <b>${fmt2(overall)}</b></div>
@@ -17103,6 +17160,8 @@ function generateRandomAssessments(options = {}){
   const skaterPositions = getSkaterPositions(sport);
   const goaliePos = getGoaliePosition(sport);
   const newPlayers = [];
+  // Build a set of all existing athleteIds so generated ones are unique
+  const takenIds = _buildAthleteIdSet();
 
   function makePlayer(pos){
     // Dummy data — jersey numbers 1-99, duplicates allowed
@@ -17133,8 +17192,11 @@ function generateRandomAssessments(options = {}){
     const aboutPool = SPORT_ABOUT_CHILD[sport] || DEFAULT_ABOUT_CHILD;
     const aboutChild = randPick(aboutPool);
 
+    const aId = generateAthleteId(takenIds);
+    takenIds.add(aId);
     const player = {
       id: uid(),
+      athleteId: aId,
       first, last,
       anonymous: false,
       jersey,

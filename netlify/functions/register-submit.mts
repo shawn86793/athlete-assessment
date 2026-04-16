@@ -87,6 +87,10 @@ const generateId = () => {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+// Generates a unique 8-digit numeric Athlete ID for year-over-year tracking
+const generateAthleteId = () =>
+  String(Math.floor(10000000 + Math.random() * 90000000))
+
 const coerceTimestamp = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0
 const toTrimmedString = (value: unknown) => String(value ?? '').trim()
@@ -546,6 +550,7 @@ async function handleSubmit(req: Request, clientIp = 'unknown') {
   const cloudCreatedAt = Date.now()
   const cloudPlayer: Record<string, unknown> = {
     id: generateId(),
+    athleteId: generateAthleteId(),
     first: firstName,
     last: lastName,
     anonymous: false,
