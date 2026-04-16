@@ -17026,28 +17026,13 @@ function generateRandomAssessments(options = {}){
   }
 
   // --- Generate random player profiles ---
-  const usedJerseys = new Set(t.roster.map(p => p.jersey));
   const skaterPositions = getSkaterPositions(sport);
   const goaliePos = getGoaliePosition(sport);
   const newPlayers = [];
 
   function makePlayer(pos){
-    let jersey;
-    // Expand range beyond 99 if the roster is large enough to exhaust 1-99,
-    // otherwise the do/while loops forever and freezes the tab.
-    const maxJersey = Math.max(99, (usedJerseys.size + 10) * 2);
-    let jerseyAttempts = 0;
-    do {
-      jersey = String(randInt(1, maxJersey));
-      jerseyAttempts++;
-    } while(usedJerseys.has(jersey) && jerseyAttempts < 500);
-    // Absolute fallback: sequential scan to guarantee uniqueness
-    if(usedJerseys.has(jersey)){
-      for(let n = 1; n <= 9999; n++){
-        if(!usedJerseys.has(String(n))){ jersey = String(n); break; }
-      }
-    }
-    usedJerseys.add(jersey);
+    // Dummy data — jersey numbers 1-99, duplicates allowed
+    const jersey = String(randInt(1, 99));
     const first = randPick(firstNames);
     const last = randPick(lastNames);
     const yearOfBirth = String(randInt(2008, 2016));
