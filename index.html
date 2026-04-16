@@ -14410,15 +14410,446 @@ function teamBuilderTileHTML(t, canManage){
         <div class="ptPill">${data ? `${escapeHTML(String(data.config?.teamCount || 0))} teams ready` : "No teams generated yet"}</div>
       </div>
       <div class="ptCompareRow">
-        ${canManage ? `<button class="compareTile" onclick="openTeamBuilderWizard();event.stopPropagation();">${data ? "Regenerate" : "Create Teams"}</button>` : ``}
-        ${canExport ? `<button class="compareTile" style="background:#0a1e3d;color:#fff;border-color:#0a1e3d;" onclick="openTeamBuilderDashboard(event)">🏒 Preview Dashboard</button>` : ``}
-        ${canManage && data ? `<button class="compareTile" onclick="openFriendPackagesPanel(event)">🤝 Packages</button>` : ``}
+        ${canManage ? `<button class="compareTile" style="background:#f97316;color:#fff;border-color:#f97316;font-weight:900;" onclick="openFreshTeamBuilder(event)">🧠 Team Builder</button>` : ``}
+        ${canExport ? `<button class="compareTile" style="background:#0a1e3d;color:#fff;border-color:#0a1e3d;" onclick="openTeamBuilderDashboard(event)">🏒 Preview</button>` : ``}
         ${canManage && data ? `<button class="compareTile danger" onclick="deleteTeamBuilderResult(event)">Delete</button>` : ``}
-        ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderPDF(event)">Export PDF</button>` : ``}
-        ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderCSV(event)">Export CSV</button>` : ``}
+        ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderPDF(event)">PDF</button>` : ``}
+        ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderCSV(event)">CSV</button>` : ``}
       </div>
     </div>
   `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FRESH TEAM BUILDER — full-screen setup experience
+// ═══════════════════════════════════════════════════════════════════════════
+
+window._ftb = { search:'', pkgSearch:'', minScore:0, topN:0, selectedPkgId:null };
+
+function openFreshTeamBuilder(ev){
+  if(ev) ev.stopPropagation();
+  const t = getTryout();
+  if(!t) return;
+  if(!checkFeature("canUseTeamBuilder","Team Builder Locked","Team Builder is available on Club plans and above.","🧠")) return;
+  if(!isTeamSortEvent(t)) return showActionBanner("Team Builder is only available for Sort Outs assessments.","error");
+  window._ftb = { search:'', pkgSearch:'', minScore:0, topN:0, selectedPkgId:null };
+  if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
+  _renderFreshTB();
+}
+
+function _closeFreshTB(){
+  const el = document.getElementById("freshTBOverlay");
+  if(el) el.remove();
+}
+
+function _renderFreshTB(){
+  _closeFreshTB();
+  const t = getTryout();
+  if(!t) return;
+  const sport = getSportFromTryout(t);
+  const hasGoalies = sportHasSpecialPosition(sport);
+  const labels = teamBuilderGroupLabels(sport);
+  const cfg = t.teamBuilder?.config || {};
+
+  const overlay = document.createElement("div");
+  overlay.id = "freshTBOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:#f1f5f9;z-index:2000;display:flex;flex-direction:column;overflow:hidden;";
+  overlay.innerHTML = `
+    <!-- ── Top bar ── -->
+    <div style="flex-shrink:0;background:#0a1e3d;color:#fff;height:56px;display:flex;align-items:center;padding:0 18px;gap:14px;border-bottom:3px solid #f97316;z-index:5;">
+      <span style="font-size:18px;font-weight:900;letter-spacing:-0.02em;">🧠 Team Builder</span>
+      <span style="font-size:12px;opacity:0.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${escapeHTML(t.name||"")}</span>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <button onclick="ftbBuildTeams()" style="padding:8px 22px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:900;font-size:14px;letter-spacing:-0.01em;">⚡ Build Teams</button>
+        <button onclick="_closeFreshTB()" style="padding:8px 13px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:13px;">✕</button>
+      </div>
+    </div>
+
+    <!-- ── Body ── -->
+    <div style="flex:1;display:grid;grid-template-columns:290px 1fr;overflow:hidden;">
+
+      <!-- LEFT: config + packages -->
+      <div style="background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:18px;">
+
+        <!-- Team Setup -->
+        <div>
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:10px;">Team Setup</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#64748b;">
+              How many teams?
+              <input id="ftbTeamCount" type="number" min="2" max="20" value="${escapeAttr(cfg.teamCount||4)}"
+                style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#0f172a;width:100%;">
+            </label>
+            <label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#64748b;">
+              ${escapeHTML(labels.primaryPlural)} per team
+              <input id="ftbSkaters" type="number" min="1" max="40" value="${escapeAttr(cfg.skatersPerTeam||10)}"
+                style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#0f172a;width:100%;">
+            </label>
+            ${hasGoalies ? `<label style="display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#64748b;">
+              ${escapeHTML(labels.secondaryPlural)} per team
+              <input id="ftbGoalies" type="number" min="0" max="10" value="${escapeAttr(cfg.goaliesPerTeam||1)}"
+                style="padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;font-size:15px;font-weight:700;color:#0f172a;width:100%;">
+            </label>` : `<input type="hidden" id="ftbGoalies" value="0">`}
+          </div>
+        </div>
+
+        <!-- Sort Method -->
+        <div>
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:10px;">Sort Method</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label style="display:flex;gap:9px;padding:10px 11px;border:2px solid #e2e8f0;border-radius:9px;cursor:pointer;align-items:flex-start;" id="ftbLabelAvg">
+              <input type="radio" name="ftbSort" value="average" checked onclick="ftbStyleSort()" style="margin-top:2px;accent-color:#0057b8;">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#0f172a;">📊 Score Average</div>
+                <div style="font-size:10px;color:#64748b;margin-top:1px;">Balanced by combine score · friend packages kept together</div>
+              </div>
+            </label>
+            <label style="display:flex;gap:9px;padding:10px 11px;border:2px solid #e2e8f0;border-radius:9px;cursor:pointer;align-items:flex-start;" id="ftbLabelSerp">
+              <input type="radio" name="ftbSort" value="serpentine" onclick="ftbStyleSort()" style="margin-top:2px;accent-color:#0057b8;">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:#0f172a;">🐍 Serpentine</div>
+                <div style="font-size:10px;color:#64748b;margin-top:1px;">Classic snake draft · alternating pick order 1-2-3-3-2-1</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Friend Packages -->
+        <div style="flex:1;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">🤝 Friend Packages</div>
+            <button onclick="ftbAddPkg()" style="font-size:11px;padding:3px 10px;background:#0a1e3d;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:900;">+ Add</button>
+          </div>
+          <!-- Package search -->
+          <div style="position:relative;margin-bottom:8px;">
+            <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;color:#94a3b8;">🔍</span>
+            <input id="ftbPkgSearch" type="text" placeholder="Search packages…" oninput="ftbRenderPkgs()"
+              style="width:100%;padding:6px 8px 6px 26px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#0f172a;box-sizing:border-box;">
+          </div>
+          <div id="ftbPkgList" style="flex:1;overflow-y:auto;"></div>
+        </div>
+
+      </div><!-- /left -->
+
+      <!-- RIGHT: player list -->
+      <div style="overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px;">
+
+        <!-- Filter bar -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:13px 16px;flex-shrink:0;">
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+
+            <!-- Name search -->
+            <div style="flex:1;min-width:160px;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;">Search by name</div>
+              <div style="position:relative;">
+                <span style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#94a3b8;">🔍</span>
+                <input id="ftbSearch" type="text" placeholder="Last name, first name, jersey…" oninput="ftbFilterPlayers()"
+                  style="width:100%;padding:8px 10px 8px 30px;border:1px solid #e2e8f0;border-radius:7px;font-size:13px;color:#0f172a;box-sizing:border-box;">
+              </div>
+            </div>
+
+            <!-- Score slider -->
+            <div style="min-width:160px;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;">Min score</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input id="ftbScoreSlider" type="range" min="0" max="5" step="0.1" value="0" oninput="ftbFilterPlayers()"
+                  style="width:120px;accent-color:#0a1e3d;cursor:pointer;">
+                <span id="ftbScoreLbl" style="font-size:12px;font-weight:700;color:#0a1e3d;min-width:50px;">All</span>
+              </div>
+            </div>
+
+            <!-- Top N -->
+            <div style="min-width:100px;">
+              <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;">Show top</div>
+              <div style="display:flex;align-items:center;gap:5px;">
+                <input id="ftbTopN" type="number" min="0" max="999" value="0" placeholder="All" oninput="ftbFilterPlayers()"
+                  style="width:60px;padding:7px 8px;border:1px solid #e2e8f0;border-radius:7px;font-size:13px;text-align:center;color:#0f172a;">
+                <span style="font-size:12px;color:#64748b;">players</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- List header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding:0 2px;">
+          <div id="ftbPlayerCount" style="font-size:12px;font-weight:700;color:#64748b;"></div>
+          <div style="font-size:11px;color:#94a3b8;">↑ A–Z by last name &nbsp;·&nbsp; click ⊕ to add to selected package</div>
+        </div>
+
+        <!-- Player rows -->
+        <div id="ftbPlayerList" style="display:flex;flex-direction:column;gap:5px;"></div>
+
+      </div><!-- /right -->
+    </div><!-- /body -->
+  `;
+  document.body.appendChild(overlay);
+  ftbStyleSort();
+  ftbRenderPkgs();
+  ftbFilterPlayers();
+}
+
+// ── Style the active sort radio ───────────────────────────────────────────────
+function ftbStyleSort(){
+  const avg  = document.getElementById("ftbLabelAvg");
+  const serp = document.getElementById("ftbLabelSerp");
+  const val  = document.querySelector('input[name="ftbSort"]:checked')?.value || 'average';
+  if(avg)  avg.style.borderColor  = val === 'average'    ? '#0057b8' : '#e2e8f0';
+  if(serp) serp.style.borderColor = val === 'serpentine' ? '#0057b8' : '#e2e8f0';
+  if(avg)  avg.style.background   = val === 'average'    ? '#eff6ff' : '#fff';
+  if(serp) serp.style.background  = val === 'serpentine' ? '#eff6ff' : '#fff';
+}
+
+// ── Package list (left panel) ─────────────────────────────────────────────────
+function ftbRenderPkgs(){
+  const listEl = document.getElementById("ftbPkgList");
+  if(!listEl) return;
+  const t = getTryout();
+  if(!t) return;
+  const pkgs = t.friendPackages || [];
+  const rosterMap = new Map((t.roster||[]).map(p=>[p.id,p]));
+  const state = window._ftb || {};
+  const q = (document.getElementById("ftbPkgSearch")?.value || "").trim().toLowerCase();
+
+  const visible = q ? pkgs.filter(pk => pk.name.toLowerCase().includes(q)) : pkgs;
+
+  if(!visible.length){
+    listEl.innerHTML = `<div style="text-align:center;padding:20px 0;color:#94a3b8;font-size:12px;">${pkgs.length ? "No packages match." : "No packages yet.\nClick + Add to create one."}</div>`;
+    return;
+  }
+
+  listEl.innerHTML = visible.map(pkg => {
+    const isSel = state.selectedPkgId === pkg.id;
+    const members = (pkg.playerIds||[]);
+    const memberNames = members.slice(0,3).map(pid => {
+      const p = rosterMap.get(pid);
+      return p ? `${String(p.last||"?")}` : "?";
+    }).join(", ") + (members.length > 3 ? ` +${members.length-3}` : "");
+
+    return `<div onclick="ftbSelectPkg('${escapeAttr(pkg.id)}')"
+      style="border:2px solid ${isSel?'#f97316':pkg.highlighted?'#f97316':'#e2e8f0'};border-radius:9px;padding:8px 10px;margin-bottom:5px;background:${isSel?'#fff8f3':pkg.highlighted?'#fffaf5':'#fff'};cursor:pointer;transition:border-color 0.15s;">
+      <div style="display:flex;align-items:center;gap:5px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:700;color:#0f172a;display:flex;align-items:center;gap:4px;">
+            ${isSel ? '<span style="color:#f97316;">✎</span>' : pkg.highlighted ? '<span style="color:#f97316;">★</span>' : ''}
+            ${escapeHTML(pkg.name)}
+          </div>
+          <div style="font-size:10px;color:#64748b;margin-top:1px;">${members.length} player${members.length!==1?'s':''} ${members.length ? '· '+memberNames : ''}</div>
+        </div>
+        <button onclick="ftbToggleHL(event,'${escapeAttr(pkg.id)}')"
+          style="font-size:11px;width:22px;height:22px;border:1px solid ${pkg.highlighted?'#f97316':'#e2e8f0'};border-radius:4px;background:${pkg.highlighted?'#f97316':'transparent'};color:${pkg.highlighted?'#fff':'#94a3b8'};cursor:pointer;display:flex;align-items:center;justify-content:center;">★</button>
+        <button onclick="ftbDelPkg(event,'${escapeAttr(pkg.id)}')"
+          style="font-size:11px;width:22px;height:22px;border:1px solid #fecaca;border-radius:4px;background:transparent;color:#dc2626;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+      ${isSel && members.length > 0 ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:3px;">${members.map(pid=>{const p=rosterMap.get(pid);return p?`<span style="font-size:9px;background:#fff3e0;border:1px solid #fdba74;border-radius:999px;padding:1px 6px;color:#9a3412;">${escapeHTML(String(p.last||""))} #${escapeHTML(String(p.jersey||""))}</span>`:"";}).join("")}</div>` : ""}
+      ${isSel ? `<div style="margin-top:5px;font-size:10px;color:#94a3b8;">↑ Click ⊕ on any player in the list to add them</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function ftbSelectPkg(pkgId){
+  const state = window._ftb || {};
+  state.selectedPkgId = state.selectedPkgId === pkgId ? null : pkgId;
+  window._ftb = state;
+  ftbRenderPkgs();
+  ftbFilterPlayers(); // re-render player rows to show ⊕/✕ buttons
+}
+
+function ftbAddPkg(){
+  const t = getTryout();
+  if(!t) return;
+  if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
+  if(t.friendPackages.length >= 50) return showActionBanner("Maximum 50 packages.","error");
+  t.friendPackages.push({id:uid(), name:`Package ${t.friendPackages.length+1}`, playerIds:[], highlighted:false});
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  ftbRenderPkgs();
+}
+
+function ftbDelPkg(ev, pkgId){
+  ev.stopPropagation();
+  const t = getTryout();
+  if(!t || !confirmDeleteEntity("this package")) return;
+  t.friendPackages = (t.friendPackages||[]).filter(pk=>pk.id!==pkgId);
+  if((window._ftb||{}).selectedPkgId === pkgId) window._ftb.selectedPkgId = null;
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  ftbRenderPkgs();
+  ftbFilterPlayers();
+}
+
+function ftbToggleHL(ev, pkgId){
+  ev.stopPropagation();
+  const t = getTryout();
+  const pkg = (t?.friendPackages||[]).find(pk=>pk.id===pkgId);
+  if(!pkg) return;
+  pkg.highlighted = !pkg.highlighted;
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  ftbRenderPkgs();
+  ftbFilterPlayers();
+}
+
+function ftbAddPlayerToPkg(playerId){
+  const state = window._ftb || {};
+  if(!state.selectedPkgId) return showActionBanner("Select a package on the left first.","error");
+  const t = getTryout();
+  const pkg = (t?.friendPackages||[]).find(pk=>pk.id===state.selectedPkgId);
+  if(!pkg) return;
+  if(!(pkg.playerIds||[]).includes(playerId)) pkg.playerIds = [...(pkg.playerIds||[]), playerId];
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  ftbRenderPkgs();
+  ftbFilterPlayers();
+}
+
+function ftbRemovePlayerFromPkg(playerId){
+  const state = window._ftb || {};
+  if(!state.selectedPkgId) return;
+  const t = getTryout();
+  const pkg = (t?.friendPackages||[]).find(pk=>pk.id===state.selectedPkgId);
+  if(!pkg) return;
+  pkg.playerIds = (pkg.playerIds||[]).filter(id=>id!==playerId);
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  ftbRenderPkgs();
+  ftbFilterPlayers();
+}
+
+// ── Player list (right panel) ─────────────────────────────────────────────────
+function ftbFilterPlayers(){
+  const t = getTryout();
+  if(!t) return;
+  const sport = getSportFromTryout(t);
+  const pkgs  = t.friendPackages || [];
+  const state = window._ftb || {};
+
+  const search   = (document.getElementById("ftbSearch")?.value || "").trim().toLowerCase();
+  const minScore = parseFloat(document.getElementById("ftbScoreSlider")?.value || "0");
+  const topN     = parseInt(document.getElementById("ftbTopN")?.value || "0", 10);
+  const scoreLbl = document.getElementById("ftbScoreLbl");
+  if(scoreLbl) scoreLbl.textContent = minScore > 0 ? `≥ ${minScore.toFixed(1)}` : "All";
+
+  // Build scored list sorted by last name A-Z
+  const players = (t.roster||[]).slice().sort((a,b) => {
+    const la = String(a.last||"").toLowerCase(), lb = String(b.last||"").toLowerCase();
+    if(la!==lb) return la.localeCompare(lb);
+    return String(a.first||"").toLowerCase().localeCompare(String(b.first||"").toLowerCase());
+  });
+
+  const scored = players.map(p => ({ p, score: weightedOverall(p.id) }));
+
+  // Build rank map (rank 1 = highest score)
+  const byScore = scored.slice().sort((a,b) => (b.score??-999)-(a.score??-999));
+  const rankMap = {}; byScore.forEach(({p},i) => { rankMap[p.id] = i+1; });
+
+  // Filter
+  let filtered = scored.filter(({p, score}) => {
+    if(search){
+      const hay = `${String(p.last||"")} ${String(p.first||"")} ${String(p.jersey||"")}`.toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    if(minScore > 0 && (score===null || score < minScore)) return false;
+    return true;
+  });
+  if(topN > 0) filtered = filtered.filter(({p}) => (rankMap[p.id]||99999) <= topN);
+
+  // Count
+  const countEl = document.getElementById("ftbPlayerCount");
+  if(countEl) countEl.textContent = `${filtered.length} of ${players.length} players`;
+
+  const listEl = document.getElementById("ftbPlayerList");
+  if(!listEl) return;
+
+  if(!filtered.length){
+    listEl.innerHTML = `<div style="text-align:center;padding:48px;color:#94a3b8;font-size:14px;">${players.length ? "No players match the current filters." : "No players in this assessment yet."}</div>`;
+    return;
+  }
+
+  const selPkgId = state.selectedPkgId;
+  const selPkg   = selPkgId ? pkgs.find(pk=>pk.id===selPkgId) : null;
+
+  listEl.innerHTML = filtered.map(({p, score}) => {
+    const rank = rankMap[p.id];
+    const playerPkgs = pkgs.filter(pk=>(pk.playerIds||[]).includes(p.id));
+    const pkgBadges  = playerPkgs.map(pk =>
+      `<span style="font-size:9px;font-weight:900;padding:1px 7px;border-radius:999px;color:#fff;background:${pk.highlighted?'#f97316':'#0057b8'};white-space:nowrap;">${escapeHTML(pk.name)}</span>`
+    ).join("");
+
+    const sc = score !== null ? score : null;
+    const scoreColor = sc===null ? '#94a3b8' : sc>=4.2?'#16a34a':sc>=3.2?'#0057b8':sc>=2?'#d97706':'#dc2626';
+    const scoreStr   = sc!==null ? num2(sc) : "—";
+    const isG = isSpecialPosition(p.pos, sport);
+
+    const inSelPkg = selPkg && (selPkg.playerIds||[]).includes(p.id);
+    const canAdd   = selPkg && !inSelPkg;
+
+    // Score bar width (0-5 scale → 0-100%)
+    const barPct = sc !== null ? Math.max(0, Math.min(100, (sc/5)*100)) : 0;
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 13px;background:#fff;border:1.5px solid ${inSelPkg?'#f97316':'#e2e8f0'};border-radius:10px;transition:border-color 0.15s;">
+
+      <!-- Jersey badge -->
+      <div style="width:34px;height:34px;border-radius:50%;background:${isG?'#fef3c7':'#eff6ff'};border:2px solid ${isG?'#f59e0b':'#bfdbfe'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:${isG?'#92400e':'#1e40af'};flex-shrink:0;letter-spacing:-0.02em;">#${escapeHTML(String(p.jersey||"?"))}</div>
+
+      <!-- Name + meta -->
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${escapeHTML(String(p.last||"—"))}, ${escapeHTML(String(p.first||""))}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px;">
+          <span style="font-size:10px;color:#64748b;">${escapeHTML(p.pos||"—")}</span>
+          ${pkgBadges ? pkgBadges : ""}
+        </div>
+        <!-- Score bar -->
+        <div style="margin-top:5px;height:4px;background:#e2e8f0;border-radius:99px;overflow:hidden;max-width:140px;">
+          <div style="height:100%;width:${barPct}%;background:${scoreColor};border-radius:99px;transition:width 0.3s;"></div>
+        </div>
+      </div>
+
+      <!-- Score + rank -->
+      <div style="text-align:right;flex-shrink:0;min-width:48px;">
+        <div style="font-size:17px;font-weight:900;color:${scoreColor};line-height:1;">${scoreStr}</div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:1px;">Rank #${rank}</div>
+      </div>
+
+      <!-- Package action button -->
+      ${canAdd   ? `<button onclick="ftbAddPlayerToPkg('${escapeAttr(p.id)}')" title="Add to ${escapeAttr(selPkg.name)}"
+        style="flex-shrink:0;width:28px;height:28px;background:#0a1e3d;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:16px;font-weight:900;display:flex;align-items:center;justify-content:center;">⊕</button>` : ""}
+      ${inSelPkg ? `<button onclick="ftbRemovePlayerFromPkg('${escapeAttr(p.id)}')" title="Remove from package"
+        style="flex-shrink:0;width:28px;height:28px;background:#fff5f5;color:#dc2626;border:1px solid #fecaca;border-radius:6px;cursor:pointer;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;">✕</button>` : ""}
+    </div>`;
+  }).join("");
+}
+
+// ── Build Teams ───────────────────────────────────────────────────────────────
+function ftbBuildTeams(){
+  const t = getTryout();
+  if(!t) return;
+  if(!checkFeature("canUseTeamBuilder","Team Builder Locked","Team Builder is available on Club plans and above.","🧠")) return;
+  const sport = getSportFromTryout(t);
+  const teamCount      = Math.max(2, Number(document.getElementById("ftbTeamCount")?.value||4));
+  const skatersPerTeam = Math.max(1, Number(document.getElementById("ftbSkaters")?.value||10));
+  const goaliesPerTeam = sportHasSpecialPosition(sport) ? Math.max(0, Number(document.getElementById("ftbGoalies")?.value||1)) : 0;
+  const sortMethod     = document.querySelector('input[name="ftbSort"]:checked')?.value || 'average';
+
+  if(isNaN(teamCount)||isNaN(skatersPerTeam)) return showActionBanner("Enter valid whole numbers for team setup.","error");
+
+  const data = buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sortMethod);
+  t.teamBuilder = data;
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+
+  _closeFreshTB();
+  renderRosterTiles();
+
+  if(data.warnings?.length){
+    showActionBanner(`Teams created with ${data.warnings.length} warning${data.warnings.length>1?"s":""}. Check dashboard.`,"error");
+  } else {
+    showActionBanner(`✅ ${teamCount} teams built!`,"success");
+  }
+  // Open the dashboard automatically
+  setTimeout(() => renderTeamBuilderDashboard(), 120);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
