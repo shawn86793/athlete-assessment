@@ -1,2 +1,2 @@
-// Cypress support file — loaded before each spec.
-// Add custom commands or global hooks here.
+// Cypress support file — loaded automatically before every spec.
+import './commands'
