@@ -63,8 +63,10 @@ export default async (req: Request, context: Context) => {
   }
 
   if (req.method === 'DELETE') {
+    // Declare seasons outside try so it is in scope for the final return
+    let seasons: Record<string, Record<string, unknown>> = {}
     try {
-      const seasons = await loadSeasons(userId)
+      seasons = await loadSeasons(userId)
       const deletedSeason = seasons[seasonId] as Record<string, unknown> | undefined
       const teamId = String(deletedSeason?.teamId || '').trim()
       let removedSeasonIds = 0
