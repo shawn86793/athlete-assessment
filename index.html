@@ -14411,7 +14411,6 @@ function teamBuilderTileHTML(t, canManage){
       </div>
       <div class="ptCompareRow">
         ${canManage ? `<button class="compareTile" style="background:#f97316;color:#fff;border-color:#f97316;font-weight:900;" onclick="openFreshTeamBuilder(event)">🧠 Team Builder</button>` : ``}
-        ${canExport ? `<button class="compareTile" style="background:#0a1e3d;color:#fff;border-color:#0a1e3d;" onclick="openTeamBuilderDashboard(event)">🏒 Preview</button>` : ``}
         ${canManage && data ? `<button class="compareTile danger" onclick="deleteTeamBuilderResult(event)">Delete</button>` : ``}
         ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderPDF(event)">PDF</button>` : ``}
         ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderCSV(event)">CSV</button>` : ``}
@@ -14460,7 +14459,7 @@ function _renderFreshTB(){
       <span style="font-size:18px;font-weight:900;letter-spacing:-0.02em;">🧠 Team Builder</span>
       <span style="font-size:12px;opacity:0.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${escapeHTML(t.name||"")}</span>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-        <button onclick="ftbBuildTeams()" style="padding:8px 22px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:900;font-size:14px;letter-spacing:-0.01em;">⚡ Build Teams</button>
+        <button onclick="ftbBuildTeams()" style="padding:8px 22px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:900;font-size:14px;letter-spacing:-0.01em;">⚡ Create Teams</button>
         <button onclick="_closeFreshTB()" style="padding:8px 13px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:13px;">✕</button>
       </div>
     </div>
@@ -14572,9 +14571,12 @@ function _renderFreshTB(){
         </div>
 
         <!-- List header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding:0 2px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;padding:0 2px;gap:8px;flex-wrap:wrap;">
           <div id="ftbPlayerCount" style="font-size:12px;font-weight:700;color:#64748b;"></div>
-          <div style="font-size:11px;color:#94a3b8;">↑ A–Z by last name &nbsp;·&nbsp; click ⊕ to add to selected package</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="font-size:11px;color:#94a3b8;">↑ A–Z by last name &nbsp;·&nbsp; click ⊕ to add to package</div>
+            <button onclick="openImportCSVModal()" style="padding:5px 12px;background:#0a1e3d;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;white-space:nowrap;" title="Import players from a CSV file (works on phone or desktop)">📂 Import Players</button>
+          </div>
         </div>
 
         <!-- Player rows -->
@@ -14895,12 +14897,13 @@ function renderTeamBuilderDashboard(){
         ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${pkg.highlighted ? '#f97316' : '#0057b8'};margin-left:4px;vertical-align:middle;">${escapeHTML(pkg.name)}</span>`
         : "";
       const overallStr = (det.overall !== null && det.overall !== undefined && Number.isFinite(Number(det.overall))) ? num2(det.overall) : "—";
-      return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:3px;background:#fafafa;">
+      const displayName = det.name || playerDisplayName(player) || `#${player.jersey||"?"}`;
+      return `<div onclick="openTradeModal('${escapeAttr(pid)}','${escapeAttr(team.id)}')" style="display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:3px;background:#fafafa;cursor:pointer;transition:background 0.12s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='#fafafa'">
         <div style="flex:1;min-width:0;overflow:hidden;">
-          <span style="font-size:12px;font-weight:700;">#${escapeHTML(String(player.jersey||"?"))} ${escapeHTML(playerDisplayName(player))}</span>${pkgTag}
+          <span style="font-size:12px;font-weight:700;color:#0f172a;">#${escapeHTML(String(player.jersey||det.jersey||"?"))} ${escapeHTML(displayName)}</span>${pkgTag}
           <div style="font-size:10px;color:#64748b;">${escapeHTML(det.position||player.pos||"")} &nbsp;·&nbsp; Avg ${overallStr}</div>
         </div>
-        <button onclick="openTradeModal('${escapeAttr(pid)}','${escapeAttr(team.id)}')" style="flex-shrink:0;font-size:10px;padding:3px 9px;background:#0a1e3d;color:#fff;border:none;border-radius:5px;cursor:pointer;">↔ Trade</button>
+        <span style="flex-shrink:0;font-size:10px;color:#94a3b8;">↔</span>
       </div>`;
     }).join("");
 
@@ -14965,7 +14968,7 @@ function openTradeModal(playerId, fromTeamId){
   modal.innerHTML = `
     <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
       <h3 style="margin:0 0 6px;color:#0a1e3d;font-size:18px;">↔️ Trade Player</h3>
-      <div style="color:#64748b;font-size:13px;margin-bottom:16px;">Move <strong>${escapeHTML(playerDisplayName(player))}</strong> from <strong>${escapeHTML(fromTeam.name)}</strong> to:</div>
+      <div style="color:#64748b;font-size:13px;margin-bottom:16px;">Move <strong>${escapeHTML(playerDisplayName(player) || (fromTeam.details?.[playerId]?.name) || "this player")}</strong> from <strong>${escapeHTML(fromTeam.name)}</strong> — select destination team:</div>
       <select id="tradeDestTeam" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:18px;color:#0f172a;">${options}</select>
       <div style="display:flex;gap:10px;justify-content:flex-end;">
         <button onclick="closeTradeModal()" style="padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:13px;">Cancel</button>
@@ -14993,6 +14996,7 @@ function executePlayerTrade(playerId, fromTeamId){
   if(!fromTeam || !toTeam) return;
   const player = (t.roster||[]).find(p => p.id === playerId);
   if(!player) return;
+  const playerName = playerDisplayName(player) || (fromTeam.details?.[playerId]?.name) || "Player";
   const sport = getSportFromTryout(t);
   const isGoalie = isSpecialPosition(player.pos, sport);
 
@@ -15018,7 +15022,7 @@ function executePlayerTrade(playerId, fromTeamId){
   if(authState.user) dbSaveTryout(t.id);
   closeTradeModal();
   renderTeamBuilderDashboard();
-  showActionBanner("🔄 Trade complete", "success");
+  showActionBanner("✅ Trade Complete — " + escapeHTML(playerName) + " moved to " + escapeHTML(toTeam.name), "success");
 }
 
 function renameTBTeam(teamId){
@@ -20989,7 +20993,6 @@ function renderSeasonHub(){
                   <button class="tinyBtn" onclick="importFromSeasonRosterForAssessment('${escapeJS(t.id)}','${escapeJS(season.id)}')">Import Roster</button>
                   <button class="ok tinyBtn" style="padding:10px 16px;font-size:13px;font-weight:900;" onclick="openSeasonImportSelectorByTryoutId('${escapeJS(t.id)}')">Create Roster</button>
                   <button class="tinyBtn" style="${teamHubSelectedCombineIds.includes(String(t.id || "")) ? "background:#ecfdf5;color:#065f46;border-color:#10b981;" : ""}" onclick="toggleTeamHubCombineSelection('${escapeJS(t.id)}')">Combine${teamHubSelectedCombineIds.includes(String(t.id || "")) ? ` <span style="color:#16a34a;font-weight:900;">✓</span>` : ""}</button>
-                  ${isTeamSortEvent(t) ? `<button class="tinyBtn" onclick="openSeasonTeamBuilder('${escapeJS(t.id)}')">Team Builder</button>` : ``}
                   <button class="tinyBtn" onclick="openSeasonTryoutView('${escapeJS(t.id)}','export')">Export Results</button>
                   <button class="tinyBtn danger" onclick="deleteTryout('${escapeJS(t.id)}',{stayOnSeason:true})">Delete</button>
                 </div>
