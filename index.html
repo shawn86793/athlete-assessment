@@ -14164,7 +14164,8 @@ function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
   });
 }
 
-function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam){
+function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sortMethod){
+  sortMethod = sortMethod || 'average';
   const sport = getSportFromTryout(t);
   const labels = teamBuilderGroupLabels(sport);
   const ranked = buildRankedRoster(t);
@@ -14199,15 +14200,20 @@ function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam){
   const skaterTarget = skaterCapacityByTeam.reduce((sum, capacity)=>sum + capacity, 0);
   const selectedSkaters = rankedSkaters.slice(0, skaterTarget);
 
-  // Skaters: group into friend packages, balance by total average score
-  const packages = buildFriendPackages(selectedSkaters);
-  assignPackagesToTeams(
-    teams,
-    packages,
-    "skaters",
-    (team)=>skaterCapacityByTeam[team.index] || 0,
-    sport
-  );
+  // Skaters: serpentine draft OR package-balanced assignment
+  if(sortMethod === 'serpentine'){
+    assignTeamPoolBySnake(teams, selectedSkaters, "skaters", (team)=>skaterCapacityByTeam[team.index]||0, sport, 0);
+  } else {
+    // Combine auto-friend links (friend1Name/friend2Name) + explicit t.friendPackages
+    const packages = buildExplicitFriendPackages(t, selectedSkaters);
+    assignPackagesToTeams(
+      teams,
+      packages,
+      "skaters",
+      (team)=>skaterCapacityByTeam[team.index] || 0,
+      sport
+    );
+  }
 
   const warnings = [];
   const assignedSkaters = teams.reduce((n, team)=>n+(team.skaters?.length||0), 0);
@@ -14221,8 +14227,8 @@ function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam){
     warnings.push(`Teams were balanced to ${totalPlayersPerTeam} total players each due to roster availability.`);
   }
 
-  // Check if any friend packages were split across teams
-  const rosterFriendPackages = buildFriendPackages(selectedSkaters);
+  // Check if any friend packages were split across teams (only relevant for average mode)
+  const rosterFriendPackages = sortMethod !== 'serpentine' ? buildFriendPackages(selectedSkaters) : [];
   rosterFriendPackages.forEach(pkg=>{
     if(pkg.length < 2) return;
     const teamsForPkg = new Set(pkg.map(p=>{
@@ -14243,6 +14249,7 @@ function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam){
 
   return {
     generatedAt: Date.now(),
+    sortMethod,
     config: { teamCount, skatersPerTeam, goaliesPerTeam },
     ranks,
     warnings,
@@ -14285,7 +14292,18 @@ function openTeamBuilderWizard(){
           <input id="tbGoaliesPerTeam" type="number" min="0" max="10" value="${escapeAttr(defaultGoalies)}">
         </div>
       ` : ``}
-      <div class="teamWizardActions">
+      <div style="margin-top:14px;">
+        <label class="muted" style="display:block;margin-bottom:6px;">Sort method:</label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-bottom:5px;font-size:13px;">
+          <input type="radio" name="tbSortMethod" value="average" checked> 📊 Combine Score Average <span style="font-size:11px;color:#64748b;">(friend packages kept together)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="tbSortMethod" value="serpentine"> 🐍 Serpentine / Snake Draft <span style="font-size:11px;color:#64748b;">(classic alternating pick order)</span>
+        </label>
+      </div>
+      <div class="teamWizardActions" style="flex-wrap:wrap;gap:8px;margin-top:16px;">
+        <button class="secondary" onclick="openFriendPackagesPanel(event)" style="flex:0 0 auto;">🤝 Friend Packages</button>
+        <div style="flex:1;"></div>
         <button class="secondary" onclick="closeTeamBuilderWizard()">Cancel</button>
         <button class="ok" onclick="createTeamsFromWizard()">Generate Teams</button>
       </div>
@@ -14316,7 +14334,8 @@ function createTeamsFromWizard(){
     return showActionBanner("Enter whole numbers for team setup.", "error");
   }
 
-  const data = buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam);
+  const sortMethod = document.querySelector('input[name="tbSortMethod"]:checked')?.value || 'average';
+  const data = buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sortMethod);
   t.teamBuilder = data;
   touchTryout(t);
   saveDB();
@@ -14392,7 +14411,8 @@ function teamBuilderTileHTML(t, canManage){
       </div>
       <div class="ptCompareRow">
         ${canManage ? `<button class="compareTile" onclick="openTeamBuilderWizard();event.stopPropagation();">${data ? "Regenerate" : "Create Teams"}</button>` : ``}
-        ${canManage && data ? `<button class="compareTile" onclick="editTeamBuilderResult(event)">Edit Setup</button>` : ``}
+        ${canExport ? `<button class="compareTile" style="background:#0a1e3d;color:#fff;border-color:#0a1e3d;" onclick="openTeamBuilderDashboard(event)">🏒 Preview Dashboard</button>` : ``}
+        ${canManage && data ? `<button class="compareTile" onclick="openFriendPackagesPanel(event)">🤝 Packages</button>` : ``}
         ${canManage && data ? `<button class="compareTile danger" onclick="deleteTeamBuilderResult(event)">Delete</button>` : ``}
         ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderPDF(event)">Export PDF</button>` : ``}
         ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderCSV(event)">Export CSV</button>` : ``}
@@ -14400,6 +14420,510 @@ function teamBuilderTileHTML(t, canManage){
     </div>
   `;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEAM BUILDER DASHBOARD — preview, trade, rename
+// ═══════════════════════════════════════════════════════════════════════════
+
+function calcTeamAvgScore(team){
+  const scores = (team.players||[])
+    .map(pid => (team.details||{})[pid]?.overall)
+    .filter(v => v !== null && v !== undefined && Number.isFinite(Number(v)));
+  return scores.length ? +(scores.reduce((s,v) => s + Number(v), 0) / scores.length).toFixed(2) : null;
+}
+
+function openTeamBuilderDashboard(ev){
+  if(ev) ev.stopPropagation();
+  const t = getTryout();
+  if(!t?.teamBuilder?.teams?.length) return showActionBanner("Create teams first.", "error");
+  renderTeamBuilderDashboard();
+}
+
+function closeTeamBuilderDashboard(){
+  const el = document.getElementById("teamBuilderDashboardOverlay");
+  if(el) el.remove();
+}
+
+function renderTeamBuilderDashboard(){
+  closeTeamBuilderDashboard();
+  const t = getTryout();
+  if(!t?.teamBuilder) return;
+  const data = t.teamBuilder;
+  const rosterMap = new Map((t.roster||[]).map(p => [p.id, p]));
+  const pkgs = Array.isArray(t.friendPackages) ? t.friendPackages : [];
+
+  const teamsHTML = (data.teams||[]).map(team => {
+    const avg = calcTeamAvgScore(team);
+    const avgStr = avg !== null ? num2(avg) : "—";
+    const playersHTML = (team.players||[]).map(pid => {
+      const player = rosterMap.get(pid);
+      if(!player) return "";
+      const det = (team.details||{})[pid] || {};
+      const pkg = pkgs.find(pk => (pk.playerIds||[]).includes(pid));
+      const pkgTag = pkg
+        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${pkg.highlighted ? '#f97316' : '#0057b8'};margin-left:4px;vertical-align:middle;">${escapeHTML(pkg.name)}</span>`
+        : "";
+      const overallStr = (det.overall !== null && det.overall !== undefined && Number.isFinite(Number(det.overall))) ? num2(det.overall) : "—";
+      return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:3px;background:#fafafa;">
+        <div style="flex:1;min-width:0;overflow:hidden;">
+          <span style="font-size:12px;font-weight:700;">#${escapeHTML(String(player.jersey||"?"))} ${escapeHTML(playerDisplayName(player))}</span>${pkgTag}
+          <div style="font-size:10px;color:#64748b;">${escapeHTML(det.position||player.pos||"")} &nbsp;·&nbsp; Avg ${overallStr}</div>
+        </div>
+        <button onclick="openTradeModal('${escapeAttr(pid)}','${escapeAttr(team.id)}')" style="flex-shrink:0;font-size:10px;padding:3px 9px;background:#0a1e3d;color:#fff;border:none;border-radius:5px;cursor:pointer;">↔ Trade</button>
+      </div>`;
+    }).join("");
+
+    return `<div style="background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div>
+          <div style="font-size:14px;font-weight:900;color:#0a1e3d;">${escapeHTML(team.name)}</div>
+          <div style="font-size:11px;color:#64748b;">⭐ Avg ${avgStr} &nbsp;·&nbsp; ${(team.players||[]).length} players</div>
+        </div>
+        <button onclick="renameTBTeam('${escapeAttr(team.id)}')" style="font-size:10px;padding:2px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;" title="Rename team">✏️</button>
+      </div>
+      ${playersHTML || '<div style="color:#94a3b8;font-size:12px;padding:4px 0;">No players assigned.</div>'}
+    </div>`;
+  }).join("");
+
+  const overlay = document.createElement("div");
+  overlay.id = "teamBuilderDashboardOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:#0a1e3d;z-index:1500;overflow-y:auto;padding:20px;box-sizing:border-box;";
+  overlay.innerHTML = `
+    <div style="max-width:1400px;margin:0 auto;">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+        <div style="color:#fff;">
+          <div style="font-size:20px;font-weight:900;">🧠 Team Builder Dashboard</div>
+          <div style="font-size:12px;opacity:0.65;margin-top:2px;">${escapeHTML(t.name||"")} &nbsp;·&nbsp; Sort: <strong>${data.sortMethod === 'serpentine' ? '🐍 Serpentine' : '📊 Combine Score Avg'}</strong> &nbsp;·&nbsp; ${(data.teams||[]).length} teams</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
+          <button onclick="openImportCSVModal()" style="padding:8px 14px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📂 Import CSV</button>
+          <button onclick="exportTeamBuilderCSV(event)" style="padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Export CSV</button>
+          <button onclick="exportTeamBuilderPDF(event)" style="padding:8px 14px;background:#0057b8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📄 Export PDF</button>
+          <button onclick="closeTeamBuilderDashboard()" style="padding:8px 14px;background:rgba(220,38,38,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✕ Close</button>
+        </div>
+      </div>
+      ${(data.warnings||[]).length ? `<div style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);border-radius:8px;padding:10px 14px;color:#fbbf24;font-size:12px;margin-bottom:12px;">⚠️ ${escapeHTML(data.warnings.join(" · "))}</div>` : ""}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+        ${teamsHTML}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+// ── Trade modal ──────────────────────────────────────────────────────────────
+function openTradeModal(playerId, fromTeamId){
+  const t = getTryout();
+  if(!t?.teamBuilder?.teams) return;
+  const data = t.teamBuilder;
+  const player = (t.roster||[]).find(p => p.id === playerId);
+  const fromTeam = (data.teams||[]).find(tm => tm.id === fromTeamId);
+  if(!player || !fromTeam) return;
+
+  const options = (data.teams||[])
+    .filter(tm => tm.id !== fromTeamId)
+    .map(tm => {
+      const avg = calcTeamAvgScore(tm);
+      return `<option value="${escapeAttr(tm.id)}">${escapeHTML(tm.name)} — ${avg !== null ? num2(avg) : "—"} avg · ${(tm.players||[]).length} players</option>`;
+    }).join("");
+
+  closeTradeModal();
+  const modal = document.createElement("div");
+  modal.id = "tradeModalOverlay";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:2000;";
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:420px;width:92%;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+      <h3 style="margin:0 0 6px;color:#0a1e3d;font-size:18px;">↔️ Trade Player</h3>
+      <div style="color:#64748b;font-size:13px;margin-bottom:16px;">Move <strong>${escapeHTML(playerDisplayName(player))}</strong> from <strong>${escapeHTML(fromTeam.name)}</strong> to:</div>
+      <select id="tradeDestTeam" style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;margin-bottom:18px;color:#0f172a;">${options}</select>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="closeTradeModal()" style="padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:13px;">Cancel</button>
+        <button onclick="executePlayerTrade('${escapeAttr(playerId)}','${escapeAttr(fromTeamId)}')" style="padding:10px 18px;background:#0a1e3d;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">Complete Trade ✓</button>
+      </div>
+    </div>
+  `;
+  modal.addEventListener("click", e => { if(e.target === modal) closeTradeModal(); });
+  document.body.appendChild(modal);
+}
+
+function closeTradeModal(){
+  const el = document.getElementById("tradeModalOverlay");
+  if(el) el.remove();
+}
+
+function executePlayerTrade(playerId, fromTeamId){
+  const t = getTryout();
+  if(!t?.teamBuilder?.teams) return;
+  const toTeamId = document.getElementById("tradeDestTeam")?.value;
+  if(!toTeamId) return;
+  const data = t.teamBuilder;
+  const fromTeam = (data.teams||[]).find(tm => tm.id === fromTeamId);
+  const toTeam   = (data.teams||[]).find(tm => tm.id === toTeamId);
+  if(!fromTeam || !toTeam) return;
+  const player = (t.roster||[]).find(p => p.id === playerId);
+  if(!player) return;
+  const sport = getSportFromTryout(t);
+  const isGoalie = isSpecialPosition(player.pos, sport);
+
+  // Remove from source team
+  fromTeam.players = (fromTeam.players||[]).filter(id => id !== playerId);
+  fromTeam.skaters = (fromTeam.skaters||[]).filter(id => id !== playerId);
+  fromTeam.goalies = (fromTeam.goalies||[]).filter(id => id !== playerId);
+
+  // Add to destination team
+  toTeam.players = [...(toTeam.players||[]), playerId];
+  if(isGoalie) toTeam.goalies = [...(toTeam.goalies||[]), playerId];
+  else          toTeam.skaters = [...(toTeam.skaters||[]), playerId];
+
+  // Move detail record
+  if(fromTeam.details?.[playerId]){
+    toTeam.details = toTeam.details || {};
+    toTeam.details[playerId] = fromTeam.details[playerId];
+    delete fromTeam.details[playerId];
+  }
+
+  touchTryout(t);
+  saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  closeTradeModal();
+  renderTeamBuilderDashboard();
+  showActionBanner("🔄 Trade complete", "success");
+}
+
+function renameTBTeam(teamId){
+  const t = getTryout();
+  const team = (t?.teamBuilder?.teams||[]).find(tm => tm.id === teamId);
+  if(!team) return;
+  const newName = prompt("Enter new team name:", team.name || "");
+  if(newName === null || !String(newName).trim()) return;
+  team.name = String(newName).trim();
+  touchTryout(t);
+  saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  renderTeamBuilderDashboard();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FRIEND PACKAGES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function openFriendPackagesPanel(ev){
+  if(ev) ev.stopPropagation();
+  const t = getTryout();
+  if(!t) return;
+  if(!canManageRoster()) return showActionBanner("Only the Lead Assessor can manage friend packages.", "error");
+  if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
+  closeFriendPackagesPanel();
+  const overlay = document.createElement("div");
+  overlay.id = "friendPackagesOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(10,30,61,0.88);display:flex;align-items:center;justify-content:center;z-index:1600;padding:20px;box-sizing:border-box;";
+  overlay.addEventListener("click", e => { if(e.target === overlay) closeFriendPackagesPanel(); });
+  document.body.appendChild(overlay);
+  renderFriendPackagesList();
+}
+
+function closeFriendPackagesPanel(){
+  const el = document.getElementById("friendPackagesOverlay");
+  if(el) el.remove();
+}
+
+function renderFriendPackagesList(){
+  const overlay = document.getElementById("friendPackagesOverlay");
+  if(!overlay) return;
+  const t = getTryout();
+  if(!t) return;
+  const pkgs = Array.isArray(t.friendPackages) ? t.friendPackages : [];
+  const rosterMap = new Map((t.roster||[]).map(p => [p.id, p]));
+  const allPlayers = (t.roster||[]).slice().sort((a,b) => playerDisplayName(a).localeCompare(playerDisplayName(b)));
+
+  const pkgsHTML = pkgs.map((pkg, idx) => {
+    const availableOptions = allPlayers
+      .filter(p => !(pkg.playerIds||[]).includes(p.id))
+      .map(p => `<option value="${escapeAttr(p.id)}">#${escapeHTML(String(p.jersey||"?"))} ${escapeHTML(playerDisplayName(p))}</option>`)
+      .join("");
+    const memberChips = (pkg.playerIds||[]).map(pid => {
+      const p = rosterMap.get(pid);
+      return p ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${pkg.highlighted?'#fff3e0':'#f0f4ff'};border:1px solid ${pkg.highlighted?'#f97316':'#bfdbfe'};border-radius:999px;padding:2px 8px 2px 10px;font-size:11px;font-weight:600;color:#0f172a;margin:2px 2px 2px 0;">
+          #${escapeHTML(String(p.jersey||"?"))} ${escapeHTML(playerDisplayName(p))}
+          <button onclick="removePkgPlayer('${escapeAttr(pkg.id)}','${escapeAttr(pid)}')" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:0 0 0 2px;font-size:12px;line-height:1;" title="Remove">✕</button>
+        </span>` : "";
+    }).join("");
+
+    return `<div style="border:2px solid ${pkg.highlighted?'#f97316':'#e2e8f0'};border-radius:12px;padding:14px;margin-bottom:10px;background:${pkg.highlighted?'#fffaf5':'#fff'};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <input id="pkgName_${escapeAttr(pkg.id)}" value="${escapeAttr(pkg.name||`Package ${idx+1}`)}" onchange="renamePkg('${escapeAttr(pkg.id)}')" style="font-size:13px;font-weight:700;border:1px solid #e2e8f0;border-radius:6px;padding:4px 8px;flex:1;min-width:120px;color:#0f172a;">
+        <button onclick="togglePkgHighlight('${escapeAttr(pkg.id)}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid ${pkg.highlighted?'#f97316':'#e2e8f0'};background:${pkg.highlighted?'#f97316':'#f8fafc'};color:${pkg.highlighted?'#fff':'#64748b'};cursor:pointer;font-weight:700;white-space:nowrap;" title="Toggle highlight">★ ${pkg.highlighted?"Highlighted":"Highlight"}</button>
+        <button onclick="deletePkg('${escapeAttr(pkg.id)}')" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid #fecaca;background:#fff5f5;color:#dc2626;cursor:pointer;font-weight:700;white-space:nowrap;">✕ Delete</button>
+      </div>
+      <div style="margin-bottom:8px;min-height:26px;display:flex;flex-wrap:wrap;gap:2px;align-items:center;">
+        ${memberChips || '<span style="color:#94a3b8;font-size:12px;">No players in this package yet.</span>'}
+      </div>
+      ${allPlayers.length > 0 ? `<div style="display:flex;gap:6px;align-items:center;">
+        <select id="pkgAddSel_${escapeAttr(pkg.id)}" style="flex:1;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#0f172a;min-width:0;">
+          <option value="">— Add player to package —</option>
+          ${availableOptions}
+        </select>
+        <button onclick="addPkgPlayer('${escapeAttr(pkg.id)}')" style="padding:6px 12px;background:#0057b8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">Add</button>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:18px;padding:28px;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.4);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0;font-size:18px;color:#0a1e3d;">🤝 Friend Packages</h3>
+          <div style="font-size:12px;color:#64748b;margin-top:3px;">${pkgs.length}/50 packages &nbsp;·&nbsp; Groups stay together when building teams</div>
+        </div>
+        <button onclick="closeFriendPackagesPanel()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748b;line-height:1;">✕</button>
+      </div>
+      ${pkgs.length === 0 ? '<div style="text-align:center;padding:36px 20px;color:#94a3b8;font-size:14px;">No packages yet.<br>Click <strong>+ Add Package</strong> to create your first group.</div>' : pkgsHTML}
+      <div style="margin-top:14px;border-top:1px solid #e2e8f0;padding-top:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <button onclick="addPkg()" ${pkgs.length >= 50 ? "disabled" : ""} style="padding:10px 20px;background:${pkgs.length >= 50 ? '#94a3b8' : '#0a1e3d'};color:#fff;border:none;border-radius:9px;cursor:${pkgs.length >= 50 ? 'not-allowed' : 'pointer'};font-weight:700;font-size:14px;">+ Add Package</button>
+        <button onclick="closeFriendPackagesPanel()" style="padding:10px 20px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;cursor:pointer;font-size:14px;">Done</button>
+      </div>
+    </div>
+  `;
+}
+
+function addPkg(){
+  const t = getTryout();
+  if(!t) return;
+  if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
+  if(t.friendPackages.length >= 50) return showActionBanner("Maximum 50 packages allowed.", "error");
+  t.friendPackages.push({ id: uid(), name: `Package ${t.friendPackages.length + 1}`, playerIds: [], highlighted: false });
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  renderFriendPackagesList();
+}
+
+function deletePkg(pkgId){
+  const t = getTryout();
+  if(!t || !Array.isArray(t.friendPackages)) return;
+  if(!confirmDeleteEntity("this friend package")) return;
+  t.friendPackages = t.friendPackages.filter(pk => pk.id !== pkgId);
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  renderFriendPackagesList();
+}
+
+function renamePkg(pkgId){
+  const t = getTryout();
+  const pkg = (t?.friendPackages||[]).find(pk => pk.id === pkgId);
+  if(!pkg) return;
+  const input = document.getElementById(`pkgName_${pkgId}`);
+  if(input) pkg.name = String(input.value).trim() || pkg.name;
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+}
+
+function togglePkgHighlight(pkgId){
+  const t = getTryout();
+  const pkg = (t?.friendPackages||[]).find(pk => pk.id === pkgId);
+  if(!pkg) return;
+  pkg.highlighted = !pkg.highlighted;
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  renderFriendPackagesList();
+}
+
+function addPkgPlayer(pkgId){
+  const t = getTryout();
+  const pkg = (t?.friendPackages||[]).find(pk => pk.id === pkgId);
+  if(!pkg) return;
+  const sel = document.getElementById(`pkgAddSel_${pkgId}`);
+  const playerId = sel?.value;
+  if(!playerId) return;
+  if(!(pkg.playerIds||[]).includes(playerId)){
+    pkg.playerIds = [...(pkg.playerIds||[]), playerId];
+    touchTryout(t); saveDB();
+    if(authState.user) dbSaveTryout(t.id);
+  }
+  renderFriendPackagesList();
+}
+
+function removePkgPlayer(pkgId, playerId){
+  const t = getTryout();
+  const pkg = (t?.friendPackages||[]).find(pk => pk.id === pkgId);
+  if(!pkg) return;
+  pkg.playerIds = (pkg.playerIds||[]).filter(id => id !== playerId);
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  renderFriendPackagesList();
+}
+
+// Merge auto-detected friend links + explicit t.friendPackages into one set of groups
+function buildExplicitFriendPackages(t, players){
+  if(!players.length) return [];
+  const parent = {};
+  players.forEach(p => { parent[p.id] = p.id; });
+
+  function find(id){ let i = id; while(parent[i] !== i){ parent[i] = parent[parent[i]] || parent[i]; i = parent[i]; } return i; }
+  function union(a, b){ const ra = find(a), rb = find(b); if(ra !== rb) parent[rb] = ra; }
+
+  // Auto-detect from friend1Name/friend2Name
+  const nameIndex = {};
+  players.forEach(p => {
+    const full = `${String(p.first||"").trim()} ${String(p.last||"").trim()}`.trim().toLowerCase();
+    if(full) nameIndex[full] = p;
+    const disp = playerDisplayName(p).trim().toLowerCase();
+    if(disp) nameIndex[disp] = p;
+  });
+  players.forEach(p => {
+    [p.friend1Name, p.friend2Name].filter(Boolean).forEach(name => {
+      const match = nameIndex[String(name).trim().toLowerCase()];
+      if(match && match.id !== p.id) union(p.id, match.id);
+    });
+  });
+
+  // Apply explicit t.friendPackages
+  const playerSet = new Set(players.map(p => p.id));
+  (t.friendPackages||[]).forEach(pkg => {
+    const inScope = (pkg.playerIds||[]).filter(id => playerSet.has(id));
+    for(let i = 1; i < inScope.length; i++) union(inScope[0], inScope[i]);
+  });
+
+  const groups = {};
+  players.forEach(p => {
+    const root = find(p.id);
+    if(!groups[root]) groups[root] = [];
+    groups[root].push(p);
+  });
+  return Object.values(groups);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CSV IMPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function openImportCSVModal(){
+  const existing = document.getElementById("csvImportModal");
+  if(existing) existing.remove();
+  const modal = document.createElement("div");
+  modal.id = "csvImportModal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:3000;padding:20px;box-sizing:border-box;";
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <h3 style="margin:0 0 8px;color:#0a1e3d;font-size:17px;">📂 Import Players from CSV</h3>
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">CSV must include a header row. Recognized columns (case-insensitive):<br>
+        <code style="background:#f1f5f9;padding:2px 4px;border-radius:4px;font-size:11px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild</code><br>
+        Unknown columns are ignored.</div>
+      <label style="display:block;border:2px dashed #bfdbfe;border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#0057b8;font-size:14px;margin-bottom:14px;font-weight:700;">
+        📁 Click to select a CSV file
+        <input type="file" accept=".csv,text/csv" onchange="handleCSVImport(event)" style="display:none;">
+      </label>
+      <div id="csvImportPreview" style="max-height:160px;overflow-y:auto;font-size:12px;color:#334155;margin-bottom:14px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('csvImportModal').remove()" style="padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:13px;">Cancel</button>
+        <button id="csvImportConfirmBtn" onclick="confirmCSVImport()" disabled style="padding:10px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;opacity:0.5;">Import Players</button>
+      </div>
+    </div>
+  `;
+  modal.addEventListener("click", e => { if(e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+window._csvPendingPlayers = [];
+
+function handleCSVImport(ev){
+  const file = ev.target?.files?.[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target?.result;
+    if(typeof text !== "string") return;
+    const players = parseCSVToPlayers(text);
+    window._csvPendingPlayers = players;
+    const preview = document.getElementById("csvImportPreview");
+    const btn = document.getElementById("csvImportConfirmBtn");
+    if(preview){
+      if(!players.length){
+        preview.innerHTML = '<span style="color:#dc2626;">⚠️ No valid rows found. Check your CSV format and make sure column headers match.</span>';
+      } else {
+        const sampleRows = players.slice(0,5).map(p =>
+          `<div style="padding:2px 0;border-bottom:1px solid #f1f5f9;">#${escapeHTML(String(p.jersey||"?"))} <strong>${escapeHTML(playerDisplayName(p))}</strong> · ${escapeHTML(p.pos||"—")}</div>`
+        ).join("");
+        preview.innerHTML = `<div style="color:#16a34a;font-weight:700;margin-bottom:6px;">✓ ${players.length} player${players.length!==1?"s":""} ready to import</div>${sampleRows}${players.length>5?`<div style="color:#64748b;margin-top:4px;">…and ${players.length-5} more</div>`:""}`;
+      }
+    }
+    if(btn){ btn.disabled = !players.length; btn.style.opacity = players.length ? "1" : "0.5"; }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVToPlayers(text){
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if(lines.length < 2) return [];
+  // Simple CSV parser (handles quoted values)
+  function parseLine(line){
+    const result = [];
+    let cur = "", inQuote = false;
+    for(let i = 0; i < line.length; i++){
+      const ch = line[i];
+      if(ch === '"' && (i === 0 || line[i-1] === ',')){ inQuote = true; }
+      else if(ch === '"' && inQuote){ inQuote = false; }
+      else if(ch === ',' && !inQuote){ result.push(cur.trim()); cur = ""; }
+      else { cur += ch; }
+    }
+    result.push(cur.trim());
+    return result;
+  }
+  const headers = parseLine(lines[0]).map(h => h.replace(/^["']|["']$/g,"").toLowerCase().replace(/\s+/g,""));
+  const col = (row, ...names) => {
+    for(const name of names){
+      const idx = headers.indexOf(name.toLowerCase().replace(/\s+/g,""));
+      if(idx >= 0){ const v = (row[idx]||"").replace(/^["']|["']$/g,"").trim(); if(v) return v; }
+    }
+    return "";
+  };
+  const players = [];
+  for(let i = 1; i < lines.length; i++){
+    const row = parseLine(lines[i]);
+    const first = col(row,"first","firstname","first name");
+    const last  = col(row,"last","lastname","last name");
+    if(!first && !last) continue;
+    players.push({
+      id: uid(),
+      first: first || "Unknown",
+      last:  last  || "",
+      anonymous: false,
+      jersey:    col(row,"jersey","number","#","jerseynum") || String(i),
+      jerseyColour: col(row,"jerseycolour","jerseycolor","colour","color") || "",
+      pos:           col(row,"pos","position") || "F",
+      shoots:        col(row,"shoots","hand") || "R",
+      assignedAssessor: "",
+      guardianName:  col(row,"guardianname","guardian","parent","parentname","guardian name","parent name") || "",
+      guardianEmail: col(row,"guardianemail","parentemail","email","guardian email","parent email") || "",
+      guardianPhone: col(row,"guardianphone","parentphone","phone","guardian phone","parent phone") || "",
+      yearOfBirth:   col(row,"yearofbirth","yob","birthyear","year of birth","birth year") || "",
+      currentTeam:   col(row,"currentteam","team","current team") || "",
+      currentLevel:  col(row,"currentlevel","level","division","current level") || "",
+      aboutChild:    col(row,"aboutchild","about","notes","bio","about child") || "",
+      waiverAcceptedAt: Date.now(),
+      registrationSource: "csv",
+      createdAt: Date.now()
+    });
+  }
+  return players;
+}
+
+function confirmCSVImport(){
+  const players = window._csvPendingPlayers || [];
+  if(!players.length) return;
+  const t = getTryout();
+  if(!t) return;
+  if(!Array.isArray(t.roster)) t.roster = [];
+  t.roster.push(...players);
+  window._csvPendingPlayers = [];
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  const modal = document.getElementById("csvImportModal");
+  if(modal) modal.remove();
+  render();
+  showActionBanner(`Imported ${players.length} player${players.length!==1?"s":""} from CSV.`, "success");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 
 function exportTeamBuilderPDF(ev){
   if(ev) ev.stopPropagation();
@@ -16296,8 +16820,10 @@ function generateRandomAssessments(options = {}){
     }
   }
 
-  touchTryout(t);
-  saveDB();
+  if(!options.skipSave){
+    touchTryout(t);
+    saveDB();
+  }
 
   // Close the panel
   const panel = document.getElementById("randomAssessmentPanel");
@@ -16356,6 +16882,7 @@ async function startBatchGeneration(){
   let goaliesRemaining = totalGoalies;
   let playersGenerated = 0;
   let firstBatch = true;
+  let genError = null;
 
   for(let batch = 0; batch < totalBatches; batch++){
     if(window._batchGenCancelled) break;
@@ -16367,16 +16894,25 @@ async function startBatchGeneration(){
     skatersRemaining -= batchSkaters;
     goaliesRemaining -= batchGoalies;
 
-    generateRandomAssessments({
-      skaterCount: batchSkaters,
-      goalieCount: batchGoalies,
-      customRubricCount: firstBatch ? customRubricCount : 0,
-      assessmentsPerPlayer,
-      silent: true,
-      skipRender: true,
-      keepPanelOpen: true,
-      requireManage: false,
-    });
+    if(batchSkaters + batchGoalies === 0) continue;
+
+    try {
+      generateRandomAssessments({
+        tryout: t,           // pass explicit reference — prevents stale re-fetch after saveDB
+        skaterCount: batchSkaters,
+        goalieCount: batchGoalies,
+        customRubricCount: firstBatch ? customRubricCount : 0,
+        assessmentsPerPlayer,
+        silent: true,
+        skipRender: true,
+        keepPanelOpen: true,
+        requireManage: false,
+        skipSave: true,      // skip per-batch saves; one final save below
+      });
+    } catch(err){
+      genError = err;
+      break;
+    }
 
     firstBatch = false;
     playersGenerated += batchSkaters + batchGoalies;
@@ -16385,14 +16921,21 @@ async function startBatchGeneration(){
     if(bar) bar.style.width = pct + "%";
     if(label) label.textContent = `Generating… ${playersGenerated} / ${totalPlayers} players`;
 
-    // Yield to the browser between batches to prevent UI freeze
-    await new Promise(resolve => setTimeout(resolve, 0));
+    // Yield to the browser between batches so the progress bar actually updates
+    await new Promise(resolve => setTimeout(resolve, 15));
   }
 
   if(progress) progress.style.display = "none";
   if(controls) controls.style.display = "";
 
-  if(!window._batchGenCancelled){
+  if(genError){
+    showActionBanner(`Generation error: ${genError.message || "Unknown error"}. Partial data may have been added.`, "error");
+    render();
+  } else if(!window._batchGenCancelled){
+    // Single final save for all batches
+    touchTryout(t);
+    saveDB();
+    if(authState.user) dbSaveTryout(t.id);
     render();
     showActionBanner(`Generated ${playersGenerated} player${playersGenerated !== 1 ? "s" : ""} with test scores.`, "success");
     const panel = document.getElementById("randomAssessmentPanel");
