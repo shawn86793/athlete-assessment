@@ -7810,6 +7810,8 @@ let rosterScoringFilter = "all";
 let exportHistory = [];
 let exportWarningsDismissed = {};
 let exportHistoryCollapsed = true;
+let _lastTrade = null;
+let _formDirty = false;
 let teamBuilderPreSortedRoster = null;
 let teamBuilderEntryFromResults = false;
 let teamBuilderSeedRoster = null;
@@ -9284,6 +9286,22 @@ function isAdminAssessor(){
   return isLeadAssessor();
 }
 
+function assessorIdentityBannerHTML(){
+  if(!authState?.user) return "";
+  const t = getTryout();
+  if(!t) return "";
+  const userName = authState.user.user_metadata?.full_name || authState.user.email?.split("@")[0] || "You";
+  const isLead = isLeadAssessor();
+  if(isLead) return "";
+  const canManage = canManageRoster();
+  const readOnly  = isAssessorReadOnly();
+  if(canManage)
+    return `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 14px;font-size:12px;color:#1e40af;margin-bottom:10px;display:flex;align-items:center;gap:8px;">🎯 <span>Scoring as <b>${escapeHTML(userName)}</b> — Assistant Assessor</span></div>`;
+  if(readOnly)
+    return `<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:8px 14px;font-size:12px;color:#92400e;margin-bottom:10px;display:flex;align-items:center;gap:8px;">👁 <span>Viewing as <b>${escapeHTML(userName)}</b> — Read Only</span></div>`;
+  return "";
+}
+
 function canEditAssessment(e){
   if(!e) return false;
   if(isLeadAssessor()) return true;
@@ -9540,6 +9558,9 @@ function combinedRankInGroup(metricFn, roster, group, direction="desc"){
  * ------------------------- */
 function go(view){
   navMoreOpen = false;
+  if(_formDirty && view !== currentView){
+    if(!guardNavigationIfDirty()) return;
+  }
   const requested = String(view || "").trim();
   if(SEASON_VIEWS.has(requested) && !getPlanLimits().canUseTeamBuilder){
     ensureSeasonBuilderAccess();
@@ -11378,9 +11399,105 @@ function applyPendingSeasonAssessmentPrefill(){
   pendingSeasonAssessmentPrefill = null;
 }
 
+function renderGlobalSearchResults(){
+  const q = (document.getElementById("globalSearchInput")?.value || "").trim().toLowerCase();
+  const out = document.getElementById("globalSearchResults");
+  if(!out) return;
+  if(!q || q.length < 2){ out.innerHTML = ""; return; }
+  const results = [];
+  Object.values(DB.tryouts || {}).forEach(t => {
+    if((t.name||"").toLowerCase().includes(q))
+      results.push({ type:"assessment", label:t.name||"Assessment", sub:`${(t.roster||[]).length} players · ${assessmentMetaLine(t)}`, tid:t.id, pid:null });
+    (t.roster||[]).forEach(p => {
+      const fullName = `${p.first||""} ${p.last||""}`.trim().toLowerCase();
+      if(fullName.includes(q) || String(p.athleteId||"").includes(q) || String(p.jersey||"").toLowerCase()===q)
+        results.push({ type:"player", label:`${p.first||""} ${p.last||""}`.trim()||`#${p.jersey}`, sub:`${t.name} · #${p.jersey||"—"} · ${p.pos||"—"}${p.athleteId?" · ID "+p.athleteId:""}`, tid:t.id, pid:p.id });
+    });
+  });
+  if(!results.length){ out.innerHTML=`<div style="padding:12px 14px;color:#94a3b8;font-size:13px;">No results for "${escapeHTML(q)}"</div>`; return; }
+  out.innerHTML = `<div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);">` +
+    results.slice(0,10).map(r=>`<div onclick="globalSearchOpen('${escapeJS(r.tid)}','${escapeJS(r.pid||"")}')" style="padding:10px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;align-items:center;gap:10px;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='';">`+
+      `<span style="font-size:18px;">${r.type==="assessment"?"📋":"👤"}</span>`+
+      `<div><div style="font-size:13px;font-weight:700;color:#0f172a;">${escapeHTML(r.label)}</div><div style="font-size:11px;color:#64748b;">${escapeHTML(r.sub)}</div></div></div>`).join("")+
+    (results.length>10?`<div style="padding:8px 14px;font-size:11px;color:#94a3b8;">…and ${results.length-10} more — keep typing to narrow</div>`:"") +
+  `</div>`;
+}
+
+function globalSearchOpen(tryoutId, playerId){
+  const allIds = Object.keys(DB.tryouts||{});
+  if(!allIds.includes(tryoutId)) return;
+  selectedTryoutIds = [tryoutId];
+  currentTryoutId = tryoutId;
+  if(playerId){
+    currentPlayerId = playerId;
+    currentView = "player";
+  } else {
+    currentView = "roster";
+  }
+  render();
+}
+
+function renderOnboardingWizard(){
+  const container = document.getElementById("homeTabContent");
+  if(!container) return;
+  container.innerHTML = `
+    <div style="max-width:560px;margin:40px auto;padding:0 16px;">
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="font-size:48px;margin-bottom:12px;">🏒</div>
+        <h1 style="margin:0 0 8px;font-size:26px;font-weight:900;color:#0a1e3d;">Welcome to Athlete Assessment Systems</h1>
+        <div style="color:#64748b;font-size:15px;">You're all set up. Choose how you'd like to get started:</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div onclick="startCreateSeason()" style="background:#fff;border:2px solid #e2e8f0;border-radius:14px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='#0057b8'" onmouseout="this.style.borderColor='#e2e8f0'">
+          <div style="font-size:32px;">🏟️</div>
+          <div>
+            <div style="font-weight:900;font-size:15px;color:#0a1e3d;">Team Hub</div>
+            <div style="font-size:13px;color:#64748b;margin-top:2px;">Manage a full season — roster, schedule, events, and assessments all in one place.</div>
+          </div>
+          <div style="margin-left:auto;color:#94a3b8;">→</div>
+        </div>
+        <div onclick="createNewTryout ? createNewTryout() : go('home')" style="background:#fff;border:2px solid #e2e8f0;border-radius:14px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:16px;" onmouseover="this.style.borderColor='#f97316'" onmouseout="this.style.borderColor='#e2e8f0'">
+          <div style="font-size:32px;">📋</div>
+          <div>
+            <div style="font-weight:900;font-size:15px;color:#0a1e3d;">Quick Assessment</div>
+            <div style="font-size:13px;color:#64748b;margin-top:2px;">Run a standalone tryout or assessment session without a full season setup.</div>
+          </div>
+          <div style="margin-left:auto;color:#94a3b8;">→</div>
+        </div>
+        <div onclick="go('profile')" style="background:#fff;border:2px solid #e2e8f0;border-radius:14px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:16px;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'">
+          <div style="font-size:32px;">⚙️</div>
+          <div>
+            <div style="font-weight:900;font-size:15px;color:#0a1e3d;">Explore Settings</div>
+            <div style="font-size:13px;color:#64748b;margin-top:2px;">Set up your profile, plan, and preferences before creating anything.</div>
+          </div>
+          <div style="margin-left:auto;color:#94a3b8;">→</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:24px;">
+        <button onclick="_skipOnboardingWizard()" style="background:none;border:none;color:#94a3b8;font-size:13px;cursor:pointer;text-decoration:underline;">Skip — take me to the home screen</button>
+      </div>
+    </div>
+  `;
+}
+
+function _skipOnboardingWizard(){
+  // Mark that the wizard was dismissed so it doesn't re-show
+  try { localStorage.setItem("aas_onboarding_wizard_skipped", "1"); } catch {}
+  renderHomeContent();
+}
+
 function renderHomeContent(){
   const container = document.getElementById("homeTabContent");
   if(!container) return;
+
+  // Onboarding: show welcome wizard for brand-new users with no data
+  const hasData = Object.keys(DB.tryouts||{}).length > 0 || Object.keys(DB.seasons||{}).length > 0;
+  const wizardSkipped = (() => { try { return localStorage.getItem("aas_onboarding_wizard_skipped") === "1"; } catch { return false; } })();
+  if(!hasData && authState.user && !wizardSkipped){
+    renderOnboardingWizard();
+    return;
+  }
+
   const now = Date.now();
   const allSeasons = Object.values(DB.seasons || {})
     .filter(s => !s?.deleted && !s?.tombstone)
@@ -11450,7 +11567,7 @@ function renderHomeContent(){
       <div class="assessmentCompact">
         <span class="recordTypeBadge assessment">ASSESSMENT</span>
         <div class="acInfo" style="padding-top:18px;">
-          <div class="acTitleRow"><div class="acName">${escapeHTML(t.name)}</div></div>
+          <div class="acTitleRow"><div class="acName">${escapeHTML(t.name)}</div>${assessmentStatusBadge(t)}</div>
           <div class="acMeta">${escapeHTML(t.eventType||"Tryout")} ${t.tryoutDate ? " &bull; "+escapeHTML(t.tryoutDate) : ""}${t.startTime ? " "+escapeHTML(t.startTime) : ""}${t.rink ? " &bull; "+escapeHTML(t.rink) : ""}</div>
           <div class="acProgress"><div class="acProgressFill ${isComplete?'complete':''}" style="width:${completionPct}%;"></div></div>
         </div>
@@ -11479,6 +11596,13 @@ function renderHomeContent(){
   }).join("");
 
   container.innerHTML = `
+    <div style="margin-bottom:16px;">
+      <div style="position:relative;">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;">🔍</span>
+        <input id="globalSearchInput" type="search" placeholder="Search players, assessments, Athlete ID…" oninput="renderGlobalSearchResults()" style="width:100%;padding:11px 14px 11px 38px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;box-sizing:border-box;color:#0f172a;background:#fff;" autocomplete="off">
+      </div>
+      <div id="globalSearchResults" style="margin-top:6px;"></div>
+    </div>
     <div class="homeSection" style="${teamsSectionStyle}">
       <div class="card">
         <div style="
@@ -13007,6 +13131,7 @@ function renderRegistrationsBulkActions(){
         <button class="small secondary" onclick="openRegistrationEditSelected()">Edit Selected</button>
         <button class="small danger" onclick="deleteSelectedRegistrations()">Delete Selected</button>
         <button class="small ok" onclick="moveSelectedRegistrationsToRoster()">Move to Player List</button>
+        <button class="small ok" style="background:#059669;border-color:#047857;" onclick="approveAllRegistrationsToRoster()">✅ Approve All to Roster</button>
       </div>
     </div>
   `;
@@ -13146,6 +13271,40 @@ async function deleteSelectedRegistrations(){
   } catch (err){
     showActionBanner("Delete failed. Please try again.", "error");
   }
+}
+
+function approveAllRegistrationsToRoster(){
+  const t = getTryout();
+  if(!t) return;
+  const regs = (t.registrations || []).filter(r => !r.approved && !r.rejected);
+  // Also include registrationsCache (cloud-fetched registrations)
+  const cloudRegs = (registrationsCache || []).filter(r => !r.approved && !r.rejected && !r.movedToRoster);
+  const pending = regs.length > 0 ? regs : cloudRegs;
+  if(!pending.length) return showActionBanner("No pending registrations to approve.", "info");
+  if(!confirm(`Approve all ${pending.length} pending registration${pending.length===1?"":"s"} and add to roster?`)) return;
+
+  let added = 0;
+  pending.forEach(reg => {
+    // Check if already on roster (by email or name match)
+    const alreadyExists = (t.roster||[]).some(p =>
+      (p.guardianEmail && reg.guardianEmail && p.guardianEmail.toLowerCase() === reg.guardianEmail.toLowerCase()) ||
+      (p.first?.toLowerCase() === (reg.firstName||reg.first||"").toLowerCase() && p.last?.toLowerCase() === (reg.lastName||reg.last||"").toLowerCase())
+    );
+    if(!alreadyExists){
+      t.roster.push(buildRosterPlayerFromRegistration(reg, t));
+      added++;
+    }
+    if(regs.length > 0){
+      reg.approved = true;
+      reg.approvedAt = Date.now();
+    }
+  });
+
+  touchTryout(t);
+  saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  showActionBanner(`✅ ${added} player${added===1?"":"s"} added to roster (${pending.length - added} already existed).`, "success");
+  render();
 }
 
 function selectAllRegistrations(){
@@ -13427,8 +13586,8 @@ function renderRoster(){
           <div class="addPlayerSection">
             <div class="addPlayerSectionLabel">Player Identity</div>
             <div class="row">
-              <div class="col half"><label class="muted">First Name <span class="req">*</span></label><input id="pFirst" placeholder="First name"></div>
-              <div class="col half"><label class="muted">Last Name <span class="req">*</span></label><input id="pLast" placeholder="Last name"></div>
+              <div class="col half"><label class="muted">First Name <span class="req">*</span></label><input id="pFirst" placeholder="First name" oninput="markFormDirty()"></div>
+              <div class="col half"><label class="muted">Last Name <span class="req">*</span></label><input id="pLast" placeholder="Last name" oninput="markFormDirty()"></div>
               <div class="col half">
                 <label class="muted">Year of Birth <span class="req">*</span></label>
                 <select id="pYob">${(()=>{const yr=new Date().getFullYear();return '<option value="">Select year\u2026</option>'+Array.from({length:yr-1925+1},(_,i)=>`<option value="${yr-i}">${yr-i}</option>`).join('');})()}</select>
@@ -13464,7 +13623,7 @@ function renderRoster(){
             <div class="addPlayerSectionLabel">Contact Info</div>
             <div class="row">
               <div class="col third"><label class="muted">Parent / Guardian Name <span class="req">*</span></label><input id="pGuardianName" placeholder="Parent or guardian name"></div>
-              <div class="col third"><label class="muted">Parent / Guardian Email <span class="req">*</span></label><input id="pGuardianEmail" type="email" placeholder="name@email.com"></div>
+              <div class="col third"><label class="muted">Parent / Guardian Email <span class="req">*</span></label><input id="pGuardianEmail" type="email" placeholder="name@email.com" oninput="markFormDirty()"></div>
               <div class="col third"><label class="muted">Parent / Guardian Phone <span class="req">*</span></label><input id="pGuardianPhone" type="tel" placeholder="(555) 123-4567"></div>
             </div>
           </div>
@@ -13686,7 +13845,20 @@ function updateAddPlayerFormUI(){
   }
 }
 
+function markFormDirty(){ _formDirty = true; }
+function clearFormDirty(){ _formDirty = false; }
+function guardNavigationIfDirty(){
+  if(!_formDirty) return true;
+  const leave = confirm("You have unsaved player info. Leave without saving?");
+  if(leave) clearFormDirty();
+  return leave;
+}
+
 function toggleAddPlayerForm(){
+  // If collapsing and form is dirty, warn the user
+  if(addPlayerOpen && _formDirty){
+    if(!guardNavigationIfDirty()) return;
+  }
   addPlayerOpen = !addPlayerOpen;
   updateAddPlayerFormUI();
   if(addPlayerOpen){
@@ -14016,6 +14188,7 @@ function addPlayer(){
   touchTryout(t);
   saveDB();
   if(authState.user) dbSaveTryout(t.id);
+  clearFormDirty();
   showActionBanner("Player added", "success");
   renderRoster();
 }
@@ -14487,6 +14660,21 @@ function deleteTeamBuilderResult(ev){
   if(authState.user) dbSaveTryout(t.id);
   renderRosterTiles();
   showActionBanner("Assessment deleted", "success");
+}
+
+function assessmentStatusBadge(t){
+  if(!t) return "";
+  const roster = t.roster || [];
+  const evals  = t.evals  || [];
+  if(t.teamBuilder?.teams?.length > 0)
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#dbeafe;color:#1d4ed8;">🧠 Teams Ready</span>`;
+  if(!roster.length)
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#f1f5f9;color:#64748b;">⬜ Empty</span>`;
+  const scoredIds = new Set(evals.map(e => e.playerId));
+  const allScored = roster.every(p => scoredIds.has(p.id));
+  if(allScored)
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#dcfce7;color:#15803d;">🟢 Scoring Complete</span>`;
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#fef9c3;color:#a16207;">🟡 In Progress</span>`;
 }
 
 function teamBuilderTileHTML(t, canManage){
@@ -15052,6 +15240,7 @@ function renderTeamBuilderDashboard(){
           <button onclick="openImportCSVModal()" style="padding:8px 14px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📂 Import CSV</button>
           <button onclick="exportTeamBuilderCSV(event)" style="padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Export CSV</button>
           <button onclick="exportTeamBuilderPDF(event)" style="padding:8px 14px;background:#0057b8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📄 Export PDF</button>
+          <button onclick="shareTeamBuilderResults(event)" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">🔗 Share Link</button>
           <button onclick="closeTeamBuilderDashboard()" style="padding:8px 14px;background:rgba(220,38,38,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✕ Close</button>
         </div>
       </div>
@@ -15141,7 +15330,49 @@ function executePlayerTrade(playerId, fromTeamId){
   if(authState.user) dbSaveTryout(t.id);
   closeTradeModal();
   renderTeamBuilderDashboard();
+  _lastTrade = { playerId, fromTeamId: toTeamId, toTeamId: fromTeamId };
+  // Floating undo button
+  document.getElementById("tradeUndoBtn")?.remove();
+  const _ub = document.createElement("div");
+  _ub.id = "tradeUndoBtn";
+  _ub.style.cssText = "position:fixed;bottom:84px;left:50%;transform:translateX(-50%);background:#0a1e3d;color:#fff;padding:10px 20px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:700;z-index:3000;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:flex;align-items:center;gap:12px;white-space:nowrap;";
+  _ub.innerHTML = `<span onclick="undoLastTrade()">↩ Undo Trade</span><button onclick="document.getElementById('tradeUndoBtn').remove()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:999px;width:20px;height:20px;cursor:pointer;font-size:11px;padding:0;display:flex;align-items:center;justify-content:center;">✕</button>`;
+  document.body.appendChild(_ub);
+  setTimeout(() => document.getElementById("tradeUndoBtn")?.remove(), 8000);
   showActionBanner("✅ Trade Complete — " + escapeHTML(playerName) + " moved to " + escapeHTML(toTeam.name), "success");
+}
+
+function undoLastTrade(){
+  if(!_lastTrade) return;
+  const { playerId, fromTeamId, toTeamId } = _lastTrade;
+  _lastTrade = null;
+  document.getElementById("tradeUndoBtn")?.remove();
+  // Re-use executePlayerTrade logic directly
+  const t = getTryout();
+  if(!t?.teamBuilder?.teams) return;
+  const data = t.teamBuilder;
+  const fromTeam = (data.teams||[]).find(tm => tm.id === fromTeamId);
+  const toTeam   = (data.teams||[]).find(tm => tm.id === toTeamId);
+  if(!fromTeam || !toTeam) return;
+  const sport = getSportFromTryout(t);
+  const player = (t.roster||[]).find(p => p.id === playerId);
+  if(!player) return;
+  const isGoalie = isSpecialPosition(player.pos, sport);
+  fromTeam.players = (fromTeam.players||[]).filter(id => id !== playerId);
+  fromTeam.skaters = (fromTeam.skaters||[]).filter(id => id !== playerId);
+  fromTeam.goalies = (fromTeam.goalies||[]).filter(id => id !== playerId);
+  toTeam.players = [...(toTeam.players||[]), playerId];
+  if(isGoalie) toTeam.goalies = [...(toTeam.goalies||[]), playerId];
+  else toTeam.skaters = [...(toTeam.skaters||[]), playerId];
+  if(fromTeam.details?.[playerId]){
+    toTeam.details = toTeam.details || {};
+    toTeam.details[playerId] = fromTeam.details[playerId];
+    delete fromTeam.details[playerId];
+  }
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  renderTeamBuilderDashboard();
+  showActionBanner("↩ Trade undone", "success");
 }
 
 function renameTBTeam(teamId){
@@ -15486,6 +15717,67 @@ function confirmCSVImport(){
 
 // ═══════════════════════════════════════════════════════════════════════════
 
+async function shareTeamBuilderResults(ev){
+  if(ev) ev.stopPropagation();
+  const t = getTryout();
+  if(!t?.teamBuilder?.teams?.length) return showActionBanner("No teams to share yet.", "error");
+  const token = await getFreshAuthToken().catch(()=>null);
+  if(!token) return showActionBanner("Sign in to create a share link.", "error");
+
+  showActionBanner("Creating share link…", "info");
+
+  const shareData = {
+    assessmentName: t.name || "Assessment",
+    teams: (t.teamBuilder.teams||[]).map(team => ({
+      name: team.name,
+      players: (team.players||[]).map(pid => {
+        const p = (t.roster||[]).find(x => x.id === pid);
+        const det = (team.details||{})[pid] || {};
+        return {
+          name: det.name || (p ? `${p.first||""} ${p.last||""}`.trim() : pid),
+          jersey: p?.jersey || "—",
+          pos: det.position || p?.pos || "—",
+          overall: det.overall ?? null,
+          athleteId: p?.athleteId || null,
+        };
+      })
+    })),
+    generatedAt: t.teamBuilder.generatedAt || Date.now(),
+  };
+
+  try {
+    const res = await fetch("/api/share-results", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ data: shareData, label: `${t.name || "Assessment"} — Teams` })
+    });
+    const payload = await res.json();
+    if(!res.ok) throw new Error(payload.error || "Share failed");
+
+    const shareUrl = `${location.origin}/?share=${payload.token}`;
+    // Copy to clipboard
+    try { await navigator.clipboard.writeText(shareUrl); } catch {}
+    showActionBanner(`🔗 Share link copied! Expires in 7 days.`, "success");
+
+    // Show the link in a modal
+    const modal = document.createElement("div");
+    modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;box-sizing:border-box;";
+    modal.innerHTML = `<div style="background:#fff;border-radius:16px;padding:28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 8px;color:#0a1e3d;">🔗 Share Link Created</h3>
+      <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Anyone with this link can view the team assignments in read-only mode. Expires in 7 days.</div>
+      <div style="background:#f1f5f9;border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;word-break:break-all;color:#0f172a;margin-bottom:16px;">${escapeHTML(shareUrl)}</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:13px;">Close</button>
+        <button onclick="navigator.clipboard.writeText('${escapeJS(shareUrl)}').then(()=>showActionBanner('Copied!','success'))" style="padding:10px 18px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;">📋 Copy Again</button>
+      </div>
+    </div>`;
+    modal.addEventListener("click", e => { if(e.target===modal) modal.remove(); });
+    document.body.appendChild(modal);
+  } catch(err) {
+    showActionBanner("Could not create share link. Try again.", "error");
+  }
+}
+
 function exportTeamBuilderPDF(ev){
   if(ev) ev.stopPropagation();
   if(!checkFeature("canExportPDF", "PDF Export Locked", "PDF export is available on Club plans and above.", "📄")) return;
@@ -15820,6 +16112,7 @@ function renderRosterTiles(){
   if(!roster.length){
     const isFiltered = rosterScoringFilter !== "all" || document.getElementById("rosterSearch")?.value?.trim();
     host.innerHTML = `
+      ${assessorIdentityBannerHTML()}
       <div class="tileGrid">${libraryTile}${dummyRosterTile}${teamBuilderTile}</div>
       ${isFiltered ? `
         <div class="emptyStateCard" style="margin-top:10px;">
@@ -15853,6 +16146,7 @@ function renderRosterTiles(){
   }
 
   host.innerHTML = `
+    ${assessorIdentityBannerHTML()}
     <div class="tileGrid">
       ${libraryTile}
       ${dummyRosterTile}
@@ -16205,6 +16499,18 @@ function renderCompare(){
 /** -------------------------
  *  PLAYER HUB
  * ------------------------- */
+function getAdjacentPlayerIds(currentPid){
+  const t = getTryout();
+  if(!t) return { prev: null, next: null, idx: 0, total: 0 };
+  const roster = t.roster || [];
+  const idx = roster.findIndex(p => p.id === currentPid);
+  return {
+    prev: idx > 0 ? roster[idx - 1].id : null,
+    next: idx < roster.length - 1 ? roster[idx + 1].id : null,
+    idx, total: roster.length
+  };
+}
+
 function renderPlayerHub(){
   const t = getTryout();
   if(!t) return goHome();
@@ -16282,10 +16588,17 @@ function renderPlayerHub(){
     </div>
   `;
 
+  const nav = getAdjacentPlayerIds(p.id);
+
   app.innerHTML = `
     ${topTabsHTML()}
 
     <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;" id="playerNavRow">
+        ${nav.prev ? `<button class="secondary small" style="width:auto;" onclick="openPlayerHub('${nav.prev}')">← Prev</button>` : `<span></span>`}
+        <span style="font-size:12px;color:#94a3b8;">${nav.idx+1} of ${nav.total}</span>
+        ${nav.next ? `<button class="secondary small" style="width:auto;" onclick="openPlayerHub('${nav.next}')">Next →</button>` : `<span></span>`}
+      </div>
       <button class="secondary small" onclick="go('roster')">⬅ Back to Player List</button>
       <h2 style="margin:8px 0;">${escapeHTML(playerDisplayName(p))}
         <span class="badge">${escapeHTML(p.pos)} • ${escapeHTML(p.shoots||"—")}</span>
@@ -16332,6 +16645,32 @@ function renderPlayerHub(){
     </div>
   `;
   initTopbarCollapse();
+
+  // Touch swipe support
+  let _swipeStartX = 0;
+  const _swipeEl = document.getElementById("playerNavRow")?.closest(".card") || app.firstElementChild;
+  if(_swipeEl){
+    _swipeEl.addEventListener("touchstart", e => { _swipeStartX = e.touches[0].clientX; }, { passive: true });
+    _swipeEl.addEventListener("touchend", e => {
+      const dx = e.changedTouches[0].clientX - _swipeStartX;
+      if(Math.abs(dx) < 50) return;
+      const { prev, next } = getAdjacentPlayerIds(currentPlayerId);
+      if(dx > 0 && prev) openPlayerHub(prev);
+      else if(dx < 0 && next) openPlayerHub(next);
+    }, { passive: true });
+  }
+
+  // Keyboard navigation
+  const _onKeyDown = (e) => {
+    if(e.key === "ArrowRight" || e.key === "ArrowDown"){
+      const { next } = getAdjacentPlayerIds(currentPlayerId);
+      if(next){ document.removeEventListener("keydown", _onKeyDown); openPlayerHub(next); }
+    } else if(e.key === "ArrowLeft" || e.key === "ArrowUp"){
+      const { prev } = getAdjacentPlayerIds(currentPlayerId);
+      if(prev){ document.removeEventListener("keydown", _onKeyDown); openPlayerHub(prev); }
+    }
+  };
+  document.addEventListener("keydown", _onKeyDown);
 }
 
 function renderEvalRow(e, p){
@@ -20905,6 +21244,45 @@ const seasonHubCloudState = {
   error: null
 };
 
+function buildHubTimelineHTML(season, seasonTryouts, events){
+  if(!season) return "";
+  // Merge events and assessments into one sorted list
+  const items = [];
+  (events||[]).forEach(ev => {
+    items.push({ type:"event", date: ev.date||"", time: ev.startTime||"", label: ev.title||ev.type||"Event", sub: ev.location||"", color:"#0057b8", icon:"📅", id: ev.id });
+  });
+  (seasonTryouts||[]).forEach(t => {
+    items.push({ type:"assessment", date: t.date||"", time: t.startTime||"", label: t.name||"Assessment", sub: assessmentStatusBadge(t).replace(/<[^>]+>/g,"").trim(), color:"#f97316", icon:"📋", id: t.id });
+  });
+  items.sort((a,b) => {
+    const da = a.date ? new Date(a.date+"T"+(a.time||"00:00")).getTime() : 0;
+    const db2 = b.date ? new Date(b.date+"T"+(b.time||"00:00")).getTime() : 0;
+    return da - db2;
+  });
+  if(!items.length) return "";
+  return `
+    <div class="card">
+      <h3 class="teamHubSectionTitle" style="margin:0 0 12px;">📆 Season Timeline</h3>
+      <div style="position:relative;padding-left:20px;">
+        <div style="position:absolute;left:7px;top:0;bottom:0;width:2px;background:#e2e8f0;border-radius:999px;"></div>
+        ${items.map(item => `
+          <div style="position:relative;margin-bottom:14px;cursor:pointer;" onclick="${item.type==="assessment" ? `openSeasonTryoutView('${escapeJS(item.id)}','roster')` : `openSeasonSchedule('${escapeJS(season.id)}')`}">
+            <div style="position:absolute;left:-16px;top:3px;width:10px;height:10px;border-radius:50%;background:${item.color};border:2px solid #fff;box-shadow:0 0 0 2px ${item.color}33;"></div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#0f172a;">${item.icon} ${escapeHTML(item.label)}</div>
+                ${item.date ? `<div style="font-size:11px;color:#64748b;margin-top:1px;">${escapeHTML(item.date)}${item.time?" · "+escapeHTML(item.time):""}</div>` : `<div style="font-size:11px;color:#94a3b8;">No date set</div>`}
+                ${item.sub ? `<div style="font-size:11px;color:#94a3b8;">${escapeHTML(item.sub)}</div>` : ""}
+              </div>
+              <span style="font-size:10px;padding:2px 7px;border-radius:999px;background:${item.color}18;color:${item.color};font-weight:700;white-space:nowrap;">${item.type==="assessment"?"Assessment":"Event"}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderSeasonHubState(message, tone="info"){
   showPersistentLogo(true);
   const isError = tone === "error";
@@ -21115,7 +21493,7 @@ function renderSeasonHub(){
             <div style="padding:10px 0;border-bottom:1px solid var(--border);">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
                 <div>
-                  <b>${escapeHTML(t.name || "Assessment")}</b>
+                  <b>${escapeHTML(t.name || "Assessment")}</b> ${assessmentStatusBadge(t)}
                   <div class="tiny">${assessmentMetaLine(t)}</div>
                   ${teamHubAssessmentQrInlineHTML(t)}
                 </div>
@@ -21132,6 +21510,8 @@ function renderSeasonHub(){
             </div>
           `).join("") : `<div class="muted" style="margin-top:8px;">No team assessments yet. Create one above.</div>`}
         </div>
+
+        ${buildHubTimelineHTML(season, seasonTryouts, events)}
 
         ${upcoming.slice(0, 4).length > 0 ? `
           <div class="card">
