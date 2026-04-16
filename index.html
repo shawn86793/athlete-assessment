@@ -16602,7 +16602,20 @@ function generateRandomAssessments(options = {}){
 
   function makePlayer(pos){
     let jersey;
-    do { jersey = String(randInt(1, 99)); } while(usedJerseys.has(jersey));
+    // Expand range beyond 99 if the roster is large enough to exhaust 1-99,
+    // otherwise the do/while loops forever and freezes the tab.
+    const maxJersey = Math.max(99, (usedJerseys.size + 10) * 2);
+    let jerseyAttempts = 0;
+    do {
+      jersey = String(randInt(1, maxJersey));
+      jerseyAttempts++;
+    } while(usedJerseys.has(jersey) && jerseyAttempts < 500);
+    // Absolute fallback: sequential scan to guarantee uniqueness
+    if(usedJerseys.has(jersey)){
+      for(let n = 1; n <= 9999; n++){
+        if(!usedJerseys.has(String(n))){ jersey = String(n); break; }
+      }
+    }
     usedJerseys.add(jersey);
     const first = randPick(firstNames);
     const last = randPick(lastNames);
