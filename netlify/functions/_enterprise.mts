@@ -152,16 +152,48 @@ export const requireEnterpriseAdmin = async (
   const email = String(claims.email || '').trim().toLowerCase()
   if (!email) return jsonRes({ error: 'Unauthorized.' }, 401)
 
-  const orgSlug = getOrgSlugHeader(req)
+  const orgSlug = getOrgSlugHeader(req) || ''
+
+  // Super-admin: bypass org requirement entirely — check BEFORE loadOrgConfig
+  // so a missing/fake orgSlug never blocks access.
+  if (isSuperAdminEmail(email)) {
+    const orgConfig = orgSlug ? await loadOrgConfig(orgSlug) : null
+    const effectiveConfig: OrgConfig = orgConfig ?? {
+      orgSlug: orgSlug || 'admin',
+      orgName: 'Super Admin',
+      sport: 'Hockey',
+      primaryColor: '#f97316',
+      logoUrl: '',
+      contactEmail: email,
+      contactName: 'Super Admin',
+      address: '',
+      timezone: 'America/Toronto',
+      fiscalYearStartMonth: 1,
+      memberUserIds: [],
+      planTier: 'organization',
+      currency: 'CAD',
+      taxEnabled: false,
+      taxRate: 0,
+      taxId: '',
+      refundPolicyText: '',
+      latePaymentThresholdDays: 30,
+      paymentReminderDays: 7,
+      emailFromName: 'Tryout',
+      emailReplyTo: email,
+      mfaRequired: 'owners',
+      sessionTimeoutMinutes: 480,
+      ipAllowlist: [],
+      loginLockoutAttempts: 5,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }
+    return { email, role: 'owner', orgSlug: orgSlug || 'admin', orgConfig: effectiveConfig }
+  }
+
   if (!orgSlug) return jsonRes({ error: 'Missing X-Org-Slug header.' }, 400)
 
   const orgConfig = await loadOrgConfig(orgSlug)
   if (!orgConfig) return jsonRes({ error: 'Organization not found.' }, 404)
-
-  // Super-admin: unrestricted owner access to any org — no admin list required
-  if (isSuperAdminEmail(email)) {
-    return { email, role: 'owner', orgSlug, orgConfig }
-  }
 
   const admins = await loadOrgAdmins(orgSlug)
   const admin = admins.find(a => a.email === email && a.status === 'active')
