@@ -7743,7 +7743,7 @@ let seasonTestDataPanelOpen = false;
 let seasonAddPlayerFormOpen = false;
 let seasonRosterBuildState = { selectedTryoutIds: [], playersByKey: {}, playerOrder: [] };
 let seasonPortalInviteState = null;
-let addPlayerOpen = true;
+let addPlayerOpen = false;
 let rosterLibrarySelection = new Set();
 let aiPlayerLoading = new Set();
 let aiCompareLoading = false;
@@ -14320,6 +14320,10 @@ function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sort
 }
 
 function openTeamBuilderWizard(){
+  // Redirect to the modern full-screen Team Builder — old wizard is retired
+  openFreshTeamBuilder();
+}
+function _openTeamBuilderWizardLegacy(){
   const t = getTryout();
   if(!t) return;
   if(!checkFeature("canUseTeamBuilder", "Team Builder Locked", "Team Builder is available on Club plans and above.", "🧠")) return;
@@ -14459,7 +14463,7 @@ function teamBuilderTileHTML(t, canManage){
     ? `<div class="tiny" style="color:var(--warn);">${escapeHTML(data.warnings[0])}</div>`
     : "";
   return `
-    <div class="playerTile libraryTile" onclick="${canManage ? "openTeamBuilderWizard()" : ""}">
+    <div class="playerTile libraryTile" onclick="${canManage ? "openFreshTeamBuilder(event)" : ""}">
       <div class="ptTop">
         <div>
           <div class="ptName">Team Builder</div>
@@ -15305,14 +15309,15 @@ function openImportCSVModal(){
       <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">CSV must include a header row. Recognized columns (case-insensitive):<br>
         <code style="background:#f1f5f9;padding:2px 4px;border-radius:4px;font-size:11px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild</code><br>
         Unknown columns are ignored.</div>
-      <label style="display:block;border:2px dashed #bfdbfe;border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#0057b8;font-size:14px;margin-bottom:14px;font-weight:700;">
-        📁 Click to select a CSV file
+      <label style="display:block;border:2px dashed #bfdbfe;border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#0057b8;font-size:14px;margin-bottom:14px;font-weight:700;background:#f0f9ff;" id="csvFilePickerLabel">
+        📁 Tap here to select a CSV file
+        <div style="font-size:11px;font-weight:400;color:#64748b;margin-top:4px;">Works on phone or desktop</div>
         <input type="file" accept=".csv,text/csv" onchange="handleCSVImport(event)" style="display:none;">
       </label>
-      <div id="csvImportPreview" style="max-height:160px;overflow-y:auto;font-size:12px;color:#334155;margin-bottom:14px;"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button onclick="document.getElementById('csvImportModal').remove()" style="padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;cursor:pointer;font-size:13px;">Cancel</button>
-        <button id="csvImportConfirmBtn" onclick="confirmCSVImport()" disabled style="padding:10px 18px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:13px;opacity:0.5;">Import Players</button>
+      <div id="csvImportPreview" style="display:none;max-height:160px;overflow-y:auto;font-size:12px;color:#334155;margin-bottom:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+        <button onclick="document.getElementById('csvImportModal').remove()" style="padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;color:#334155;cursor:pointer;font-size:13px;font-weight:600;">Cancel</button>
+        <button id="csvImportConfirmBtn" onclick="confirmCSVImport()" disabled style="padding:10px 20px;background:#94a3b8;color:#fff;border:none;border-radius:8px;cursor:not-allowed;font-weight:700;font-size:13px;">Import Players</button>
       </div>
     </div>
   `;
@@ -15334,16 +15339,21 @@ function handleCSVImport(ev){
     const preview = document.getElementById("csvImportPreview");
     const btn = document.getElementById("csvImportConfirmBtn");
     if(preview){
+      preview.style.display = "block";
       if(!players.length){
         preview.innerHTML = '<span style="color:#dc2626;">⚠️ No valid rows found. Check your CSV format and make sure column headers match.</span>';
       } else {
         const sampleRows = players.slice(0,5).map(p =>
-          `<div style="padding:2px 0;border-bottom:1px solid #f1f5f9;">#${escapeHTML(String(p.jersey||"?"))} <strong>${escapeHTML(playerDisplayName(p))}</strong> · ${escapeHTML(p.pos||"—")}</div>`
+          `<div style="padding:4px 0;border-bottom:1px solid #e2e8f0;color:#0f172a;">#${escapeHTML(String(p.jersey||"?"))} <strong>${escapeHTML(playerDisplayName(p))}</strong> · ${escapeHTML(p.pos||"—")}</div>`
         ).join("");
         preview.innerHTML = `<div style="color:#16a34a;font-weight:700;margin-bottom:6px;">✓ ${players.length} player${players.length!==1?"s":""} ready to import</div>${sampleRows}${players.length>5?`<div style="color:#64748b;margin-top:4px;">…and ${players.length-5} more</div>`:""}`;
       }
     }
-    if(btn){ btn.disabled = !players.length; btn.style.opacity = players.length ? "1" : "0.5"; }
+    if(btn){
+      btn.disabled = !players.length;
+      btn.style.background  = players.length ? "#16a34a" : "#94a3b8";
+      btn.style.cursor      = players.length ? "pointer"  : "not-allowed";
+    }
   };
   reader.readAsText(file);
 }
