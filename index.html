@@ -14478,8 +14478,6 @@ function teamBuilderTileHTML(t, canManage){
       <div class="ptCompareRow">
         ${canManage ? `<button class="compareTile" style="background:#f97316;color:#fff;border-color:#f97316;font-weight:900;" onclick="openFreshTeamBuilder(event)">🧠 Team Builder</button>` : ``}
         ${canManage && data ? `<button class="compareTile danger" onclick="deleteTeamBuilderResult(event)">Delete</button>` : ``}
-        ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderPDF(event)">PDF</button>` : ``}
-        ${canExport ? `<button class="compareTile" onclick="exportTeamBuilderCSV(event)">CSV</button>` : ``}
       </div>
     </div>
   `;
