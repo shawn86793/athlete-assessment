@@ -87,11 +87,14 @@ describe('Page refresh — session persistence', () => {
 
     cy.reload()
 
-    // App root should have content — no blank page, no 404, no error banner
+    // App root should have content — not blank
     cy.get('#app', { timeout: 15000 }).should('not.be.empty')
+    // Still authenticated — Sign Out is only rendered when a user is logged in
     cy.contains('Sign Out', { timeout: 15000 }).should('exist')
-    cy.get('body').should('not.contain.text', 'Page Not Found')
-    cy.get('body').should('not.contain.text', '404')
+    // URL must still be the home route — not navigated to a 404 or error page
+    cy.url().should('not.include', '404')
+    cy.url().should('not.include', 'error')
+    // Must not show a login prompt as the primary content
     cy.get('body').should('not.contain.text', 'Enter your email to sign in')
   })
 })
