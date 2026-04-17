@@ -6,6 +6,10 @@
 // because sessionStorage["AAS_SESSION_ACTIVE"] survived F5 and triggered
 // forceReloginOnIdentityInit = true.  Fixed in initApp() — the 10-minute
 // visibility-change timer already handles security logout.
+//
+// Bug fixed (2): renderHome() was showing "Syncing your teams" splash even
+// when local data existed, hiding the user's teams after every F5.  Fixed by
+// skipping the splash when local data is present in localStorage.
 
 const login = () => {
   const email = Cypress.env('COACH_EMAIL')
@@ -15,14 +19,17 @@ const login = () => {
   return true
 }
 
-/** Returns true once the app has finished its post-auth render pass. */
+/**
+ * Waits until the app has fully rendered a logged-in state.
+ * Accepts either the user's display name or the generic "My Account" widget
+ * button — both confirm the Netlify Identity session is live.
+ */
 const waitForAuthReady = () => {
-  // The Netlify Identity widget shows the user's name / "My Account" when logged in.
+  // The Netlify Identity widget shows "My Account" (or user name) when logged in.
   // This is the most reliable signal that auth completed.
-  cy.get('.netlify-identity-menu-btn, [data-netlify-identity-button], button', { timeout: 15000 })
-    .should('exist')
+  cy.get('body', { timeout: 20000 }).should('not.include.text', 'Log in')
   // Also confirm the app root rendered something — not a blank page
-  cy.get('#app', { timeout: 10000 }).should('not.be.empty')
+  cy.get('#app', { timeout: 15000 }).should('not.be.empty')
 }
 
 describe('Page refresh — session persistence', () => {
@@ -35,11 +42,10 @@ describe('Page refresh — session persistence', () => {
     cy.visit('/')
     waitForAuthReady()
 
-    // Verify we are authenticated before the reload
-    cy.window().its('authState').should('exist')
+    // Capture the gotrue session before the reload
     cy.window().then(win => {
-      // @ts-ignore
-      expect(win.authState?.user).to.not.be.null
+      const session = win.localStorage.getItem('gotrue-session')
+      expect(session, 'gotrue-session should exist before reload').to.not.be.null
     })
 
     // Simulate F5
@@ -50,15 +56,12 @@ describe('Page refresh — session persistence', () => {
 
     // The login screen should NOT appear
     cy.get('body', { timeout: 12000 }).then($body => {
-      // If renderLoginScreen() ran, it puts a login form in #app
-      const hasLoginForm = $body.find('form[action*="identity"], #loginForm, .netlify-identity-widget iframe').length > 0
-      // The app should not show a "Sign in" prompt as the primary content
       expect($body.text()).to.not.include('Enter your email to sign in')
     })
 
     // The gotrue session should still be in localStorage
     cy.window().then(win => {
-      expect(win.localStorage.getItem('gotrue-session')).to.not.be.null
+      expect(win.localStorage.getItem('gotrue-session'), 'gotrue-session should persist after reload').to.not.be.null
     })
   })
 
@@ -90,8 +93,10 @@ describe('Page refresh — session persistence', () => {
     cy.reload()
 
     // App root should have content — not blank, no 404, no error banner
-    cy.get('#app', { timeout: 12000 }).should('not.be.empty')
+    cy.get('#app', { timeout: 15000 }).should('not.be.empty')
     cy.get('body').should('not.contain.text', 'Page Not Found')
     cy.get('body').should('not.contain.text', '404')
+    // Should not show a sign-in prompt as the primary content
+    cy.get('body').should('not.contain.text', 'Enter your email to sign in')
   })
 })

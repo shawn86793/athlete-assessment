@@ -11186,7 +11186,15 @@ function renderHome(){
   if(authState.user && !dbSyncState.syncing){
     dbFullSync();
   }
-  if(authState.user && dbSyncState.syncing && !dbSyncState.lastSync){
+  // Only show the syncing splash when there is genuinely no local data yet.
+  // If the user has seasons / teams / assessments cached in localStorage, render
+  // them immediately and let the cloud sync update silently in the background.
+  const _hasLocalData = (
+    Object.values(DB.seasons || {}).some(s => !s?.deleted && !s?.tombstone) ||
+    getTeams().some(t => !t.deleted && !t.tombstone) ||
+    Object.keys(DB.tryouts || {}).length > 0
+  );
+  if(authState.user && dbSyncState.syncing && !dbSyncState.lastSync && !_hasLocalData){
     app.innerHTML = `
       <div class="card" style="text-align:center; padding:28px 16px;">
         <h2 style="margin:0 0 8px;">Syncing your teams</h2>
