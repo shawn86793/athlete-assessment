@@ -19,27 +19,36 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
       - name: Write cypress.env.json
+        # Use Node to write JSON — handles special chars in passwords safely
         run: |
-          cat > cypress.env.json <<EOF
-          {
-            "COACH_EMAIL": "${{ secrets.CYPRESS_COACH_EMAIL }}",
-            "COACH_PASSWORD": "${{ secrets.CYPRESS_COACH_PASSWORD }}",
-            "ADMIN_EMAIL": "${{ secrets.CYPRESS_ADMIN_EMAIL }}",
-            "ADMIN_PASSWORD": "${{ secrets.CYPRESS_ADMIN_PASSWORD }}"
-          }
-          EOF
+          node -e "
+            const fs = require('fs');
+            fs.writeFileSync('cypress.env.json', JSON.stringify({
+              COACH_EMAIL:    process.env.CYPRESS_COACH_EMAIL    || '',
+              COACH_PASSWORD: process.env.CYPRESS_COACH_PASSWORD || '',
+              ADMIN_EMAIL:    process.env.CYPRESS_ADMIN_EMAIL    || '',
+              ADMIN_PASSWORD: process.env.CYPRESS_ADMIN_PASSWORD || ''
+            }, null, 2));
+            console.log('cypress.env.json written');
+          "
+        env:
+          CYPRESS_COACH_EMAIL:    ${{ secrets.CYPRESS_COACH_EMAIL }}
+          CYPRESS_COACH_PASSWORD: ${{ secrets.CYPRESS_COACH_PASSWORD }}
+          CYPRESS_ADMIN_EMAIL:    ${{ secrets.CYPRESS_ADMIN_EMAIL }}
+          CYPRESS_ADMIN_PASSWORD: ${{ secrets.CYPRESS_ADMIN_PASSWORD }}
 
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
         with:
           # Tests run against the live production site — no server spin-up needed
+          install: false   # we already ran npm ci above
           browser: chrome
           headed: false
         env:
@@ -51,12 +60,5 @@ jobs:
         with:
           name: cypress-screenshots
           path: cypress/screenshots
-          retention-days: 7
-
-      - name: Upload videos on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cypress-videos
-          path: cypress/videos
+          if-no-files-found: ignore
           retention-days: 7

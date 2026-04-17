@@ -24,7 +24,7 @@ describe('Team Builder Dashboard', () => {
     cy.contains(/team builder/i, { timeout: 8000 }).click()
     // Full-screen overlay should appear
     cy.get('#freshTBOverlay', { timeout: 6000 }).should('be.visible')
-    cy.contains('⚡ Build Teams').should('be.visible')
+    cy.contains('⚡ Create Teams').should('be.visible')
   })
 
   it('shows players listed alphabetically by last name', () => {
@@ -100,7 +100,7 @@ describe('Team Builder Dashboard', () => {
     cy.get('#ftbTeamCount').clear().type('4')
     cy.get('#ftbSkaters').clear().type('5')
 
-    cy.contains('⚡ Build Teams').click()
+    cy.contains('⚡ Create Teams').click()
 
     // Fresh TB overlay should close
     cy.get('#freshTBOverlay').should('not.exist')
@@ -118,7 +118,7 @@ describe('Team Builder Dashboard', () => {
     cy.get('#freshTBOverlay', { timeout: 6000 })
     cy.get('#ftbTeamCount').clear().type('2')
     cy.get('#ftbSkaters').clear().type('3')
-    cy.contains('⚡ Build Teams').click()
+    cy.contains('⚡ Create Teams').click()
 
     cy.get('#teamBuilderDashboardOverlay', { timeout: 8000 }).should('be.visible')
 

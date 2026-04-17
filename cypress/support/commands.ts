@@ -18,6 +18,9 @@ declare global {
 }
 
 Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
+  // 1. Visit the app first so we have a domain to attach localStorage to
+  cy.visit('/')
+
   cy.request({
     method: 'POST',
     url: '/.netlify/identity/token',
@@ -35,8 +38,10 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
         `Make sure COACH_EMAIL / COACH_PASSWORD are set in cypress.env.json`
       )
     }
-    // Netlify Identity widget reads from localStorage key "gotrue-session"
-    window.localStorage.setItem('gotrue-session', JSON.stringify(res.body))
+    // Set the session token in the AUT (browser) localStorage, not the runner window
+    cy.window().then((win) => {
+      win.localStorage.setItem('gotrue-session', JSON.stringify(res.body))
+    })
   })
 })
 
