@@ -2202,6 +2202,132 @@
       border-radius:12px;
     }
 
+    /* ── Dashboard Summary Cards ─────────── */
+    .homeSummaryCards{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-bottom:14px;
+    }
+    .summaryCard{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px 12px 12px;
+      text-align:center;
+      box-shadow:0 2px 8px rgba(10,30,61,0.06);
+      transition:transform 0.18s ease,box-shadow 0.18s ease;
+      cursor:default;
+    }
+    .summaryCard:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(10,30,61,0.12);}
+    .summaryCardIcon{font-size:22px;margin-bottom:4px;line-height:1;}
+    .summaryCardValue{font-size:1.55rem;font-weight:900;color:#0a1e3d;line-height:1.1;letter-spacing:-0.02em;}
+    .summaryCardLabel{font-size:10px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;}
+    .summaryCard.sc-blue .summaryCardIcon{filter:drop-shadow(0 0 4px #0057b840);}
+    .summaryCard.sc-blue .summaryCardValue{color:#0057B8;}
+    .summaryCard.sc-teal .summaryCardValue{color:#0d9488;}
+    .summaryCard.sc-gold .summaryCardValue{color:#b45309;font-size:1.1rem;}
+    .summaryCard.sc-purple .summaryCardValue{color:#6366f1;}
+    [data-theme="dark"] .summaryCard{background:var(--tile);border-color:var(--border);}
+    [data-theme="dark"] .summaryCardValue{color:#e2e8f0;}
+    [data-theme="dark"] .summaryCard.sc-blue .summaryCardValue{color:#60a5fa;}
+    [data-theme="dark"] .summaryCard.sc-teal .summaryCardValue{color:#2dd4bf;}
+    [data-theme="dark"] .summaryCard.sc-gold .summaryCardValue{color:#fbbf24;}
+    [data-theme="dark"] .summaryCard.sc-purple .summaryCardValue{color:#a5b4fc;}
+    @media(max-width:600px){
+      .homeSummaryCards{grid-template-columns:repeat(2,1fr);}
+      .summaryCardValue{font-size:1.3rem;}
+    }
+
+    /* ── Score Ring on Player Tile ────────── */
+    .ptScoreRing{flex-shrink:0;margin-left:4px;}
+    .ptScoreRingBg{stroke:rgba(10,30,61,0.08);}
+    .ptScoreRingFill{stroke-linecap:round;transition:stroke-dasharray 0.4s ease;}
+    [data-theme="dark"] .ptScoreRingBg{stroke:rgba(255,255,255,0.1);}
+
+    /* ── Radar Chart ───────────────────────── */
+    .radarWrap{margin:12px 0;display:flex;flex-direction:column;align-items:center;}
+    .radarWrap svg{overflow:visible;}
+    .radarLabel{font-size:9.5px;font-weight:700;fill:#475569;text-anchor:middle;}
+    .radarGrid{fill:none;stroke:#e2e8f0;stroke-width:1;}
+    .radarPoly{fill:rgba(0,87,184,0.18);stroke:#0057B8;stroke-width:2;stroke-linejoin:round;}
+    .radarDot{fill:#0057B8;}
+    [data-theme="dark"] .radarGrid{stroke:rgba(255,255,255,0.1);}
+    [data-theme="dark"] .radarPoly{fill:rgba(96,165,250,0.2);stroke:#60a5fa;}
+    [data-theme="dark"] .radarDot{fill:#60a5fa;}
+    [data-theme="dark"] .radarLabel{fill:#94a3b8;}
+
+    /* ── Live Assessment Mode ──────────────── */
+    #liveAssessOverlay{
+      position:fixed;inset:0;z-index:9999;
+      background:#0a1e3d;
+      display:flex;flex-direction:column;
+      overflow:hidden;
+    }
+    .liveAssessHeader{
+      padding:10px 16px;
+      background:rgba(255,255,255,0.06);
+      border-bottom:1px solid rgba(255,255,255,0.1);
+      display:flex;align-items:center;justify-content:space-between;
+      flex-shrink:0;
+    }
+    .liveAssessPlayer{
+      display:flex;align-items:center;gap:14px;
+    }
+    .liveAssessJersey{
+      width:54px;height:54px;border-radius:50%;
+      background:linear-gradient(135deg,#0057B8,#00AEEF);
+      display:flex;align-items:center;justify-content:center;
+      font-size:20px;font-weight:900;color:#fff;flex-shrink:0;
+    }
+    .liveAssessName{font-size:18px;font-weight:900;color:#fff;}
+    .liveAssessMeta{font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px;}
+    .liveAssessProgress{font-size:12px;color:rgba(255,255,255,0.45);}
+    .liveAssessBody{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
+    .liveRubricCard{
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.1);
+      border-radius:14px;
+      padding:14px 16px;
+    }
+    .liveRubricLabel{font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);margin-bottom:10px;}
+    .liveScoreBtns{display:flex;gap:8px;flex-wrap:wrap;}
+    .liveScoreBtn{
+      flex:1;min-width:48px;padding:14px 8px;
+      border:2px solid rgba(255,255,255,0.18);
+      border-radius:12px;background:rgba(255,255,255,0.05);
+      color:rgba(255,255,255,0.7);font-size:18px;font-weight:900;cursor:pointer;
+      transition:all 0.15s ease;text-align:center;
+    }
+    .liveScoreBtn:hover{background:rgba(0,87,184,0.4);border-color:#0057B8;color:#fff;}
+    .liveScoreBtn.sel{background:#0057B8;border-color:#0057B8;color:#fff;transform:scale(1.06);}
+    .liveAssessFooter{
+      padding:12px 16px;display:flex;gap:10px;
+      border-top:1px solid rgba(255,255,255,0.1);
+      background:rgba(0,0,0,0.2);flex-shrink:0;
+    }
+    .liveAssessSaveBtn{
+      flex:1;padding:16px;border-radius:14px;background:#0057B8;
+      border:none;color:#fff;font-size:17px;font-weight:900;cursor:pointer;
+      transition:background 0.15s;
+    }
+    .liveAssessSaveBtn:hover{background:#0047a0;}
+    .liveAssessNextBtn{
+      flex:1;padding:16px;border-radius:14px;background:rgba(255,255,255,0.08);
+      border:1px solid rgba(255,255,255,0.18);color:#fff;font-size:17px;font-weight:800;cursor:pointer;
+    }
+    .liveAssessExitBtn{
+      padding:16px 20px;border-radius:14px;background:transparent;
+      border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.6);font-size:14px;cursor:pointer;
+    }
+
+    /* ── Team Builder Drag-and-Drop ──────── */
+    .tbPlayerRow{cursor:grab;user-select:none;transition:opacity 0.15s,background 0.12s;}
+    .tbPlayerRow:active{cursor:grabbing;}
+    .tbPlayerRow.dragging{opacity:0.35;}
+    .tbTeamDropZone{transition:border-color 0.15s,background 0.15s;}
+    .tbTeamDropZone.dragover{border-color:#0057B8 !important;background:rgba(0,87,184,0.07) !important;}
+
     /* ── Home Dashboard ─────────────────── */
     .homeDashLogo{
       max-width:min(800px, 96vw);
@@ -11328,6 +11454,60 @@ function renderHome(){
     `;
   }).join("");
 
+  // ── Dashboard summary stats ──────────────────────────────────────────────
+  let _dTotalPlayers = 0, _dTopName = "—", _dTopScore = -1, _dScoreSum = 0, _dScoreCnt = 0;
+  const _dTryouts = Object.values(DB.tryouts || {}).filter(t => !isArchivedTryout(t));
+  for(const _dt of _dTryouts){
+    _dTotalPlayers += (Array.isArray(_dt.roster) ? _dt.roster.length : 0);
+    for(const _dp of (Array.isArray(_dt.roster) ? _dt.roster : [])){
+      const _dpe = (Array.isArray(_dt.evals) ? _dt.evals : []).filter(e => e.playerId === _dp.id);
+      if(!_dpe.length) continue;
+      let _dpSum = 0, _dpCnt = 0;
+      for(const _dev of _dpe){
+        for(const _dv of Object.values(_dev.scores || {})){
+          if(typeof _dv === "number" && _dv > 0){ _dpSum += _dv; _dpCnt++; }
+        }
+      }
+      if(_dpCnt > 0){
+        const _dpAvg = _dpSum / _dpCnt;
+        _dScoreSum += _dpAvg; _dScoreCnt++;
+        if(_dpAvg > _dTopScore){
+          _dTopScore = _dpAvg;
+          const _dfn = String(_dp.first || _dp.firstName || "").trim();
+          const _dln = String(_dp.last  || _dp.lastName  || "").trim();
+          _dTopName = _dln ? `${_dfn} ${_dln.charAt(0)}.` : (_dfn || "—");
+        }
+      }
+    }
+  }
+  const _dAvgScore = _dScoreCnt > 0 ? (_dScoreSum / _dScoreCnt).toFixed(1) : "—";
+  const _dTeams = getTeams().length;
+  const _dShowStats = _dTotalPlayers > 0 || _dTeams > 0;
+  const _dashSummaryHTML = _dShowStats ? `
+    <div class="homeSummaryCards">
+      <div class="summaryCard sc-blue">
+        <div class="summaryCardIcon">👥</div>
+        <div class="summaryCardValue">${_dTotalPlayers}</div>
+        <div class="summaryCardLabel">Players Assessed</div>
+      </div>
+      <div class="summaryCard sc-teal">
+        <div class="summaryCardIcon">⭐</div>
+        <div class="summaryCardValue">${_dAvgScore}</div>
+        <div class="summaryCardLabel">Avg Score</div>
+      </div>
+      <div class="summaryCard sc-gold">
+        <div class="summaryCardIcon">🏆</div>
+        <div class="summaryCardValue">${escapeHTML(_dTopName)}</div>
+        <div class="summaryCardLabel">Top Performer</div>
+      </div>
+      <div class="summaryCard sc-purple">
+        <div class="summaryCardIcon">⚡</div>
+        <div class="summaryCardValue">${_dTeams}</div>
+        <div class="summaryCardLabel">Teams Built</div>
+      </div>
+    </div>
+  ` : "";
+
   app.innerHTML = `
     <div class="profilePlanBar">
       <div>
@@ -11363,6 +11543,7 @@ function renderHome(){
       </div>
     </div>
   ${orgAvailabilityHTML}
+    ${_dashSummaryHTML}
     ${showOnboarding ? `<div id="homeOnboardingMount"></div>` : ``}
 
     <div id="homeTabContent"></div>
@@ -15213,16 +15394,25 @@ function renderTeamBuilderDashboard(){
         : "";
       const overallStr = (det.overall !== null && det.overall !== undefined && Number.isFinite(Number(det.overall))) ? num2(det.overall) : "—";
       const displayName = det.name || playerDisplayName(player) || `#${player.jersey||"?"}`;
-      return `<div onclick="openTradeModal('${escapeAttr(pid)}','${escapeAttr(team.id)}')" style="display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:3px;background:#fafafa;cursor:pointer;transition:background 0.12s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='#fafafa'">
+      return `<div class="tbPlayerRow" draggable="true"
+        ondragstart="tbDragStart('${escapeAttr(pid)}','${escapeAttr(team.id)}',event)"
+        ondragend="tbDragEnd(event)"
+        onclick="openTradeModal('${escapeAttr(pid)}','${escapeAttr(team.id)}')"
+        style="display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:3px;background:#fafafa;"
+        title="Drag to move to another team, or click to trade">
         <div style="flex:1;min-width:0;overflow:hidden;">
           <span style="font-size:12px;font-weight:700;color:#0f172a;">#${escapeHTML(String(player.jersey||det.jersey||"?"))} ${escapeHTML(displayName)}</span>${pkgTag}
           <div style="font-size:10px;color:#64748b;">${escapeHTML(det.position||player.pos||"")} &nbsp;·&nbsp; Avg ${overallStr}</div>
         </div>
-        <span style="flex-shrink:0;font-size:10px;color:#94a3b8;">↔</span>
+        <span style="flex-shrink:0;font-size:10px;color:#94a3b8;">⠿</span>
       </div>`;
     }).join("");
 
-    return `<div style="background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:14px;">
+    return `<div class="tbTeamDropZone" data-team-id="${escapeAttr(team.id)}"
+      ondragover="tbDragOver(event)"
+      ondragleave="tbDragLeave(event)"
+      ondrop="tbDrop('${escapeAttr(team.id)}',event)"
+      style="background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <div>
           <div style="font-size:14px;font-weight:900;color:#0a1e3d;">${escapeHTML(team.name)}</div>
@@ -15230,7 +15420,7 @@ function renderTeamBuilderDashboard(){
         </div>
         <button onclick="renameTBTeam('${escapeAttr(team.id)}')" style="font-size:10px;padding:2px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;" title="Rename team">✏️</button>
       </div>
-      ${playersHTML || '<div style="color:#94a3b8;font-size:12px;padding:4px 0;">No players assigned.</div>'}
+      ${playersHTML || '<div style="color:#94a3b8;font-size:12px;padding:4px 0;">Drop a player here or use ↔ Trade</div>'}
     </div>`;
   }).join("");
 
@@ -15259,6 +15449,63 @@ function renderTeamBuilderDashboard(){
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+// ── Team Builder Drag-and-Drop ────────────────────────────────────────────────
+let _tbDragPid = null, _tbDragFromTeam = null;
+
+function tbDragStart(pid, fromTeamId, ev){
+  _tbDragPid = pid;
+  _tbDragFromTeam = fromTeamId;
+  ev.dataTransfer.effectAllowed = "move";
+  ev.dataTransfer.setData("text/plain", pid);
+  ev.currentTarget.classList.add("dragging");
+}
+
+function tbDragEnd(ev){
+  ev.currentTarget.classList.remove("dragging");
+}
+
+function tbDragOver(ev){
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = "move";
+  ev.currentTarget.closest(".tbTeamDropZone")?.classList.add("dragover");
+}
+
+function tbDragLeave(ev){
+  // Only remove highlight when leaving the drop zone itself (not a child)
+  if(!ev.currentTarget.contains(ev.relatedTarget)){
+    ev.currentTarget.classList.remove("dragover");
+  }
+}
+
+function tbDrop(toTeamId, ev){
+  ev.preventDefault();
+  ev.currentTarget.closest(".tbTeamDropZone")?.classList.remove("dragover");
+  const pid = _tbDragPid;
+  const fromTeamId = _tbDragFromTeam;
+  _tbDragPid = null; _tbDragFromTeam = null;
+  if(!pid || !fromTeamId || fromTeamId === toTeamId) return;
+
+  const t = getTryout();
+  if(!t?.teamBuilder?.teams) return;
+
+  // Move player from source team to target team
+  const teams = t.teamBuilder.teams;
+  const fromTeam = teams.find(tm => tm.id === fromTeamId);
+  const toTeam   = teams.find(tm => tm.id === toTeamId);
+  if(!fromTeam || !toTeam) return;
+
+  fromTeam.players = (fromTeam.players||[]).filter(id => id !== pid);
+  if(fromTeam.details) delete fromTeam.details[pid];
+  if(!(toTeam.players||[]).includes(pid)){
+    if(!toTeam.players) toTeam.players = [];
+    toTeam.players.push(pid);
+  }
+
+  saveCurrentTryout();
+  showBannerTemporary("synced", `✓ Player moved to ${toTeam.name}`);
+  renderTeamBuilderDashboard();
 }
 
 // ── Trade modal ──────────────────────────────────────────────────────────────
@@ -16184,6 +16431,10 @@ function renderRosterTiles(){
         }
         const avatarClass = getPositionAvatarClass(p.pos, getSportFromTryout(t));
         const avatarInitials = getPositionInitials(p.pos);
+        // Score ring: map position class → fill colour, compute arc length (scale 0-5, r=18 → circ≈113)
+        const _ptAvatarBgMap = {'pos-forward':'#0057B8','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'};
+        const _ptAvatarBg = _ptAvatarBgMap[avatarClass] || '#6366f1';
+        const _ptRingFill = overall > 0 ? Math.min((overall/5)*113,113).toFixed(1) : "0";
         const jerseyDisplay = p.jersey ? String(p.jersey) : "";
         const fc = friendColors[p.id];
         const friendBar = fc ? `<div class="friendPkgBar" style="background:${fc.bar};"></div>` : "";
@@ -16199,7 +16450,17 @@ function renderRosterTiles(){
                   <div class="ptSub">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos||"—")}${p.athleteId ? ` • <span style="font-family:monospace;font-size:10px;color:#94a3b8;letter-spacing:0.04em;">ID ${escapeHTML(p.athleteId)}</span>` : ""}</div>
                   <div class="ptSub">Assigned: <b style="color:var(--black-font-replacement)">${escapeHTML(assigned)}</b></div>
                 </div>
-                <div class="ptAvatar ${avatarClass}">${escapeHTML(avatarInitials)}</div>
+                <div class="ptScoreRing" aria-label="Score ${fmt2(overall)} out of 5">
+                  <svg width="44" height="44" viewBox="0 0 44 44">
+                    <circle class="ptScoreRingBg" cx="22" cy="22" r="18" stroke-width="3" fill="none"/>
+                    <circle class="ptScoreRingFill" cx="22" cy="22" r="18" stroke-width="3" fill="none"
+                      stroke="${_ptAvatarBg}" stroke-dasharray="${_ptRingFill} 113"
+                      transform="rotate(-90 22 22)"/>
+                    <circle cx="22" cy="22" r="13" fill="${_ptAvatarBg}"/>
+                    <text x="22" y="26.5" text-anchor="middle" font-size="9.5" font-weight="800" fill="#fff"
+                      font-family="Manrope,Space Grotesk,Arial,sans-serif">${escapeHTML(avatarInitials)}</text>
+                  </svg>
+                </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
                 <div class="ptPill">${evCount} evals</div>
@@ -16596,6 +16857,44 @@ function renderPlayerHub(){
     </div>
   `;
 
+  // ── Radar chart ───────────────────────────────────────────────────────────
+  const _rcKeys  = catOrder.slice(0, 6);
+  const _rcCx = 90, _rcCy = 90, _rcR = 62;
+  const _rcN = _rcKeys.length;
+  const _rcAngle = i => (2 * Math.PI * i / _rcN) - Math.PI / 2;
+  const _rcPt = (i, frac) => {
+    const a = _rcAngle(i);
+    return `${(_rcCx + frac * _rcR * Math.cos(a)).toFixed(1)},${(_rcCy + frac * _rcR * Math.sin(a)).toFixed(1)}`;
+  };
+  const _rcGridLines = [0.2,0.4,0.6,0.8,1].map(f =>
+    `<polygon class="radarGrid" points="${_rcKeys.map((_,i)=>_rcPt(i,f)).join(" ")}"/>`
+  ).join("");
+  const _rcAxes = _rcKeys.map((_,i) => {
+    const [x2,y2] = _rcPt(i,1).split(",");
+    return `<line x1="${_rcCx}" y1="${_rcCy}" x2="${x2}" y2="${y2}" stroke="#e2e8f0" stroke-width="1"/>`;
+  }).join("");
+  const _rcDataPts = _rcKeys.map((key,i) => _rcPt(i, Math.min(1,(cats[key]||0)/5))).join(" ");
+  const _rcDots = _rcKeys.map((key,i) => {
+    const [cx,cy] = _rcPt(i, Math.min(1,(cats[key]||0)/5)).split(",");
+    return `<circle class="radarDot" cx="${cx}" cy="${cy}" r="4"/>`;
+  }).join("");
+  const _rcLabels = _rcKeys.map((key,i) => {
+    const [lx,ly] = _rcPt(i, 1.26).split(",");
+    return `<text class="radarLabel" x="${lx}" y="${parseFloat(ly)+4}">${escapeHTML(catLabels[key]||key)}</text>`;
+  }).join("");
+  const _hasRadarData = _rcKeys.some(k => (cats[k]||0) > 0);
+  const _radarHTML = _hasRadarData ? `
+    <div class="radarWrap">
+      <svg width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Skill radar chart for ${escapeAttr(playerDisplayName(p))}">
+        ${_rcGridLines}
+        ${_rcAxes}
+        <polygon class="radarPoly" points="${_rcDataPts}"/>
+        ${_rcDots}
+        ${_rcLabels}
+      </svg>
+    </div>
+  ` : "";
+
   const nav = getAdjacentPlayerIds(p.id);
 
   app.innerHTML = `
@@ -16634,6 +16933,7 @@ function renderPlayerHub(){
 
     <div class="card">
       <h3>Averages</h3>
+      ${_radarHTML}
       ${catTiles}
     </div>
 
@@ -16827,6 +17127,89 @@ function getRubricCatClass(catKey){
   return "cat-default";
 }
 
+// ── Live Assessment Mode ──────────────────────────────────────────────────
+function openLiveAssessMode(pid){
+  const t = getTryout();
+  const p = playerById(pid || currentPlayerId);
+  if(!t || !p) return;
+  const sport = getSportFromTryout(t);
+  const isGoalie = isSpecialPosition(p.pos, sport);
+  const cats = isGoalie ? getGoalieCats() : getSkaterCats();
+  const catOrder = isGoalie ? getSportGoCatOrder(sport) : getSportSkCatOrder(sport);
+  const catLabels = isGoalie ? getSportGoCatLabels(sport) : getSportSkCatLabels(sport);
+  const roster = Array.isArray(t.roster) ? t.roster : [];
+  const pidx = roster.findIndex(r => r.id === p.id);
+  const nextP = pidx >= 0 && pidx < roster.length - 1 ? roster[pidx + 1] : null;
+
+  // Build rubric cards
+  const rubricCards = catOrder.map(catKey => {
+    const rubrics = (cats[catKey] || []);
+    return rubrics.map(r => {
+      const max = (r.scale === "1-10 Extended") ? 10 : 5;
+      const current = workingScores[r.key] || 0;
+      const btns = Array.from({length:max}, (_,i) => i+1).map(n =>
+        `<button class="liveScoreBtn${current===n?" sel":""}" onclick="liveSetScore('${escapeJS(r.key)}',${n},this)">${n}</button>`
+      ).join("");
+      return `<div class="liveRubricCard">
+        <div class="liveRubricLabel">${escapeHTML(catLabels[catKey]||catKey)} — ${escapeHTML(r.label||r.key)}</div>
+        <div class="liveScoreBtns">${btns}</div>
+      </div>`;
+    }).join("");
+  }).join("");
+
+  let overlay = document.getElementById("liveAssessOverlay");
+  if(overlay) overlay.remove();
+  overlay = document.createElement("div");
+  overlay.id = "liveAssessOverlay";
+  overlay.innerHTML = `
+    <div class="liveAssessHeader">
+      <div class="liveAssessPlayer">
+        <div class="liveAssessJersey">#${escapeHTML(p.jersey||"?")}</div>
+        <div>
+          <div class="liveAssessName">${escapeHTML(playerDisplayName(p))}</div>
+          <div class="liveAssessMeta">${escapeHTML(p.pos||"—")} • ${escapeHTML(t.name||"Assessment")}</div>
+        </div>
+      </div>
+      <div class="liveAssessProgress">${pidx+1} of ${roster.length}</div>
+    </div>
+    <div class="liveAssessBody">${rubricCards}</div>
+    <div class="liveAssessFooter">
+      <button class="liveAssessSaveBtn" onclick="liveSaveAndClose()">💾 Save</button>
+      ${nextP ? `<button class="liveAssessNextBtn" onclick="liveSaveAndNext('${escapeJS(nextP.id)}')">Next →</button>` : ""}
+      <button class="liveAssessExitBtn" onclick="closeLiveAssessMode()">✕</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  // Prevent body scroll
+  document.body.style.overflow = "hidden";
+}
+
+function liveSetScore(key, value, btn){
+  workingScores[key] = value;
+  // Highlight selected button in its group
+  const row = btn.closest(".liveScoreBtns");
+  if(row) row.querySelectorAll(".liveScoreBtn").forEach(b => b.classList.toggle("sel", b === btn));
+}
+
+function closeLiveAssessMode(){
+  const overlay = document.getElementById("liveAssessOverlay");
+  if(overlay) overlay.remove();
+  document.body.style.overflow = "";
+}
+
+function liveSaveAndClose(){
+  saveAssessment();
+  closeLiveAssessMode();
+}
+
+function liveSaveAndNext(nextPid){
+  saveAssessment();
+  closeLiveAssessMode();
+  openPlayerHub(nextPid);
+  // Auto-open live mode for the next player after a brief delay
+  setTimeout(() => openLiveAssessMode(nextPid), 400);
+}
+
 function renderScore(){
   const t = getTryout();
   if(!t) return goHome();
@@ -16871,6 +17254,7 @@ function renderScore(){
         <div class="scorePlayerMeta">${escapeHTML(displayPosition || "—")} • ${escapeHTML(p.shoots||"—")} • ${escapeHTML(t.name || "Assessment")}</div>
       </div>
       <button class="secondary" style="width:auto;padding:8px 12px;font-size:13px;background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.25);color:#fff;" onclick="openPlayerHub('${p.id}')">← Back</button>
+      <button class="secondary" style="width:auto;padding:8px 12px;font-size:13px;background:rgba(0,87,184,0.7);border-color:rgba(0,87,184,0.8);color:#fff;" onclick="openLiveAssessMode('${p.id}')">⚡ Live Mode</button>
     </div>
 
     <div class="card">
