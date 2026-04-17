@@ -7,7 +7,8 @@
  * Run: npx cypress run --env eventCode=TEST99
  */
 
-const BASE = Cypress.env('baseUrl') || 'http://localhost:8888'
+// baseUrl comes from cypress.config.ts / CYPRESS_baseUrl env — use config(), not env()
+const BASE = (Cypress.config('baseUrl') as string) || 'http://localhost:8888'
 const EVENT_CODE = Cypress.env('eventCode') || 'TEST99'
 
 describe('Registration flow', () => {

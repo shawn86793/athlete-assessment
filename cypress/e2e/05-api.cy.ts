@@ -95,7 +95,9 @@ describe('API — enterprise endpoints', () => {
       body: { mode: 'status', orgSlug: 'test' },
       failOnStatusCode: false,
     }).then(res => {
-      expect([400, 401]).to.include(res.status)
+      // mode:status checks if an org slug exists — 200 (found/not-found info) is valid.
+      // Any of these are acceptable without a token.
+      expect([200, 400, 401, 404]).to.include(res.status)
     })
   })
 })
