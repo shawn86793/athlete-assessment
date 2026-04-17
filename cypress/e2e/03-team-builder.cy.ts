@@ -16,15 +16,16 @@ describe('Team Builder Dashboard', () => {
     cy.visit('/')
     cy.contains('My Teams', { timeout: 12000 })
     // Skip all team-builder tests if the account has no assessments yet
-    cy.get('.assessmentTile, .teamTile, [onclick*="openAssessment"], [onclick*="openTryout"]', { timeout: 8000 })
-      .then($tiles => {
-        if ($tiles.length === 0) {
-          cy.log('⚠️  No assessments found — skipping Team Builder tests')
-          this.skip()
-        } else {
-          cy.wrap($tiles.first()).click()
-        }
-      })
+    // Use cy.get('body') so Cypress doesn't throw when the selector finds nothing
+    cy.get('body').then($body => {
+      const TILE = '.assessmentTile, .teamTile, [onclick*="openAssessment"], [onclick*="openTryout"]'
+      if ($body.find(TILE).length === 0) {
+        cy.log('⚠️  No assessments found — skipping Team Builder tests')
+        this.skip()
+      } else {
+        cy.get(TILE).first().click()
+      }
+    })
   })
 
   it('opens the Team Builder screen', () => {
