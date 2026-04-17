@@ -34,7 +34,8 @@ jobs:
               COACH_EMAIL:    process.env.CYPRESS_COACH_EMAIL    || '',
               COACH_PASSWORD: process.env.CYPRESS_COACH_PASSWORD || '',
               ADMIN_EMAIL:    process.env.CYPRESS_ADMIN_EMAIL    || '',
-              ADMIN_PASSWORD: process.env.CYPRESS_ADMIN_PASSWORD || ''
+              ADMIN_PASSWORD: process.env.CYPRESS_ADMIN_PASSWORD || '',
+              QR_EVENT_CODE:  process.env.CYPRESS_QR_EVENT_CODE  || ''
             }, null, 2));
             console.log('cypress.env.json written');
           "
@@ -43,6 +44,7 @@ jobs:
           CYPRESS_COACH_PASSWORD: ${{ secrets.CYPRESS_COACH_PASSWORD }}
           CYPRESS_ADMIN_EMAIL:    ${{ secrets.CYPRESS_ADMIN_EMAIL }}
           CYPRESS_ADMIN_PASSWORD: ${{ secrets.CYPRESS_ADMIN_PASSWORD }}
+          CYPRESS_QR_EVENT_CODE:  ${{ secrets.CYPRESS_QR_EVENT_CODE }}
 
       - name: Run Cypress tests
         uses: cypress-io/github-action@v6
