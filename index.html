@@ -27431,13 +27431,12 @@ async function bootAdminPortal(){
 async function initApp(){
   startGlobalHomeNavObserver();
   try {
-    // Check if a session was previously active in this browser tab.
-    // sessionStorage survives a refresh (F5) but is cleared when the tab is closed.
-    // This means: refresh = forced relogin, close tab = fresh login on next open.
-    const sessionWasActive = sessionStorage.getItem(SESSION_ACTIVE_KEY) === "1";
-    forceReloginOnIdentityInit = sessionWasActive;
-    // Mark this session as active from this point forward
+    // Mark this session as active. The 10-minute visibility-change timer (below)
+    // handles security logout when the user leaves the app for an extended period.
+    // We no longer force-logout on F5/refresh — that was causing users to lose
+    // their session every time they refreshed the page (UX bug).
     sessionStorage.setItem(SESSION_ACTIVE_KEY, "1");
+    forceReloginOnIdentityInit = false;
   } catch {
     forceReloginOnIdentityInit = false;
   }
