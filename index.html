@@ -15644,7 +15644,12 @@ function renderTeamBuilderDashboard(){
   if(!t?.teamBuilder) return;
   const data = t.teamBuilder;
   const rosterMap = new Map((t.roster||[]).map(p => [p.id, p]));
-  const pkgs = Array.isArray(t.friendPackages) ? t.friendPackages : [];
+  const dashFPLookup = buildFPLookupForExport(t);
+  // Keep explicit package refs for highlight colour
+  const explicitPkgsByPlayerId = new Map();
+  (Array.isArray(t.friendPackages) ? t.friendPackages : []).forEach(pkg => {
+    (pkg.playerIds||[]).forEach(id => { if(!explicitPkgsByPlayerId.has(id)) explicitPkgsByPlayerId.set(id, pkg); });
+  });
 
   const teamsHTML = (data.teams||[]).map(team => {
     const avg = calcTeamAvgScore(team);
@@ -15653,11 +15658,10 @@ function renderTeamBuilderDashboard(){
       const player = rosterMap.get(pid);
       if(!player) return "";
       const det = (team.details||{})[pid] || {};
-      const pkgIdx = pkgs.findIndex(pk => (pk.playerIds||[]).includes(pid));
-      const pkg = pkgIdx >= 0 ? pkgs[pkgIdx] : null;
-      const fpLabel = pkg ? `FP${pkgIdx + 1}` : "";
-      const pkgTag = pkg
-        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${pkg.highlighted ? '#f97316' : '#0057b8'};margin-left:4px;vertical-align:middle;" title="${escapeAttr(pkg.name)}">${escapeHTML(fpLabel)}</span>`
+      const fpLabel = dashFPLookup.get(pid) || "";
+      const explicitPkg = explicitPkgsByPlayerId.get(pid);
+      const pkgTag = fpLabel
+        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${explicitPkg?.highlighted ? '#f97316' : '#0057b8'};margin-left:4px;vertical-align:middle;" title="${escapeAttr(explicitPkg?.name || fpLabel)}">${escapeHTML(fpLabel)}</span>`
         : "";
       const overallStr = (det.overall !== null && det.overall !== undefined && Number.isFinite(Number(det.overall))) ? num2(det.overall) : "—";
       const displayName = det.name || playerDisplayName(player) || `#${player.jersey||"?"}`;
@@ -16300,6 +16304,68 @@ async function shareTeamBuilderResults(ev){
   }
 }
 
+/**
+ * Build a playerId → "FP1" / "FP2" … lookup for exports.
+ * Covers BOTH explicit t.friendPackages entries AND auto-detected
+ * friend1Name/friend2Name links so the export always matches what
+ * the team-builder algorithm used when it assembled the teams.
+ *
+ * Explicit packages are numbered by their position in t.friendPackages
+ * (FP1 = first package, FP2 = second, …) to stay consistent with the
+ * on-screen dashboard badge.  Auto-detected groups that aren't already
+ * covered by an explicit package are appended after them.
+ */
+function buildFPLookupForExport(t){
+  const fpMap = new Map();   // playerId → "FPn"
+
+  // ── 1. Explicit packages (numbered by index) ──────────────
+  const explicitPkgs = Array.isArray(t.friendPackages) ? t.friendPackages : [];
+  let autoStart = explicitPkgs.length; // next counter for auto-detected groups
+  explicitPkgs.forEach((pkg, idx) => {
+    (pkg.playerIds || []).forEach(id => {
+      if(!fpMap.has(id)) fpMap.set(id, `FP${idx + 1}`);
+    });
+  });
+
+  // ── 2. Auto-detected from friend1Name / friend2Name ───────
+  // Union-find over roster players not already assigned to an explicit package
+  const roster = Array.isArray(t.roster) ? t.roster : [];
+  const nameIndex = {};
+  roster.forEach(p => {
+    const full = `${String(p.first||"").trim()} ${String(p.last||"").trim()}`.trim().toLowerCase();
+    if(full) nameIndex[full] = p.id;
+    const disp = playerDisplayName(p).trim().toLowerCase();
+    if(disp) nameIndex[disp] = p.id;
+  });
+
+  const parent = {};
+  roster.forEach(p => { parent[p.id] = p.id; });
+  const find = id => { while(parent[id] !== id){ parent[id] = parent[parent[id]] || parent[id]; id = parent[id]; } return id; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if(ra !== rb) parent[rb] = ra; };
+
+  roster.forEach(p => {
+    [p.friend1Name, p.friend2Name].filter(Boolean).forEach(name => {
+      const matchId = nameIndex[String(name).trim().toLowerCase()];
+      if(matchId && matchId !== p.id) union(p.id, matchId);
+    });
+  });
+
+  // Collect groups with 2+ members that aren't already in an explicit package
+  const groups = {};
+  roster.forEach(p => {
+    if(fpMap.has(p.id)) return;   // already assigned to explicit package
+    const root = find(p.id);
+    if(!groups[root]) groups[root] = [];
+    groups[root].push(p.id);
+  });
+  Object.values(groups).filter(g => g.length > 1).forEach(g => {
+    autoStart++;
+    g.forEach(id => fpMap.set(id, `FP${autoStart}`));
+  });
+
+  return fpMap;
+}
+
 function exportTeamBuilderPDF(ev){
   if(ev) ev.stopPropagation();
   if(!checkFeature("canExportPDF", "PDF Export Locked", "PDF export is available on Club plans and above.", "📄")) return;
@@ -16322,11 +16388,8 @@ function exportTeamBuilderPDF(ev){
   const customHeaders = customRubrics.map(r=>`<th>${escapeHTML(r.label || r.key)}</th>`).join("");
   const customRankHeaders = customRubrics.map(r=>`<th>R-${escapeHTML(r.label || r.key)}</th>`).join("");
 
-  const pkgs = Array.isArray(t.friendPackages) ? t.friendPackages : [];
-  const getFPLabel = (playerId) => {
-    const idx = pkgs.findIndex(pk => (pk.playerIds||[]).includes(playerId));
-    return idx >= 0 ? `FP${idx + 1}` : "";
-  };
+  const fpLookup = buildFPLookupForExport(t);
+  const getFPLabel = (playerId) => fpLookup.get(playerId) || "";
 
   const teamSections = data.teams.map(team=>{
     const rows = team.players.map(playerId=>{
@@ -16434,11 +16497,8 @@ function exportTeamBuilderCSV(ev){
   const rosterMap = new Map((t.roster || []).map(player=>[player.id, player]));
   const sport = getSportFromTryout(t);
   const customRubrics = getCustomRubricsFromTryout(t);
-  const csvPkgs = Array.isArray(t.friendPackages) ? t.friendPackages : [];
-  const getCSVFPLabel = (playerId) => {
-    const idx = csvPkgs.findIndex(pk => (pk.playerIds||[]).includes(playerId));
-    return idx >= 0 ? `FP${idx + 1}` : "";
-  };
+  const csvFPLookup = buildFPLookupForExport(t);
+  const getCSVFPLabel = (playerId) => csvFPLookup.get(playerId) || "";
 
   const headers = [
     "Team", "Player", "FP", "Position", "Role", "Gender", "Overall Score", "Overall Rank", "Evals",
