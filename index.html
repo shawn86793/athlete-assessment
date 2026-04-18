@@ -4518,6 +4518,78 @@
       color:#b91c1c;
     }
 
+    /* ── Mobile Mode ──────────────────────────────────────────────── */
+    body.mobile-mode{ padding-top:38px; padding-bottom:72px; }
+    .mobileBanner{
+      position:fixed;top:0;left:0;right:0;z-index:9999;
+      background:linear-gradient(90deg,#0057B8,#6366f1);
+      color:#fff;display:flex;align-items:center;justify-content:space-between;
+      padding:8px 14px;font-size:13px;font-weight:700;
+      box-shadow:0 2px 8px rgba(0,0,0,0.18);
+    }
+    .mobileBanner button{
+      background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.35);
+      color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;font-weight:700;
+    }
+    .mobileBottomNav{
+      position:fixed;bottom:0;left:0;right:0;z-index:9998;
+      background:var(--card-bg,#fff);border-top:1px solid var(--border);
+      display:grid;grid-template-columns:repeat(4,1fr);
+      padding-bottom:env(safe-area-inset-bottom,0px);
+      box-shadow:0 -4px 20px rgba(0,0,0,0.09);
+    }
+    .mobileNavBtn{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      padding:8px 4px 10px;border:none;background:transparent;cursor:pointer;gap:2px;
+      color:var(--muted,#64748b);transition:color 0.12s;
+    }
+    .mobileNavBtn.active,.mobileNavBtn:active{ color:#0057B8; }
+    .mobileNavIcon{ font-size:22px;line-height:1; }
+    .mobileNavLabel{ font-size:10px;font-weight:700;letter-spacing:0.3px; }
+    .mobilePlayerRow{
+      display:flex;align-items:center;gap:10px;padding:12px 10px;
+      border-radius:10px;border:1px solid var(--border);
+      margin-bottom:8px;cursor:pointer;background:var(--card-bg,#fff);
+      transition:background 0.1s;
+    }
+    .mobilePlayerRow:active{ background:var(--hover,#f1f5f9); }
+    .mobilePlayerAvatar{
+      width:42px;height:42px;border-radius:50%;background:#0057B8;
+      color:#fff;display:flex;align-items:center;justify-content:center;
+      font-weight:900;font-size:14px;flex-shrink:0;
+    }
+    .mobileAssessBtn{
+      width:100%;text-align:left;padding:14px;border:1px solid var(--border);
+      border-radius:12px;background:var(--card-bg,#fff);margin-bottom:8px;cursor:pointer;
+    }
+    .mobileAssessBtn:active{ background:var(--hover,#f1f5f9); }
+    .mobileScoreHeader{
+      display:flex;align-items:center;justify-content:space-between;
+      margin-bottom:16px;gap:8px;flex-wrap:wrap;
+    }
+    .mobileCatCard{
+      background:var(--card-bg,#fff);border:1px solid var(--border);
+      border-radius:14px;padding:16px;margin-bottom:10px;
+    }
+    .mobileCatLabel{ font-weight:900;font-size:16px;margin-bottom:12px; }
+    .mobileBtnRow{
+      display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
+    }
+    .mobileBigBtn{
+      padding:16px 4px;border:2px solid var(--border,#e5e7eb);border-radius:12px;
+      font-size:22px;font-weight:900;background:var(--card-bg,#fff);
+      cursor:pointer;transition:all 0.1s;color:var(--ink,#0a1e3d);
+    }
+    .mobileBigBtn.selected{
+      background:#0057B8;border-color:#0057B8;color:#fff;
+      box-shadow:0 4px 12px rgba(0,87,184,0.35);
+    }
+    .mobileBigBtn:active{ transform:scale(0.92); }
+    .mobileToggleBtn{
+      background:linear-gradient(135deg,#0057B8,#6366f1) !important;
+      color:#fff !important;border-color:transparent !important;
+    }
+
     /* ── Attendance Dashboard ─────────────────────────────────────── */
     .attendStatGrid{
       display:grid;
@@ -10896,6 +10968,8 @@ function render(){
   else if(currentView==="seasonCalendar") renderSeasonCalendar();
   else if(currentView==="seasonAvailability") renderSeasonAvailability();
   else if(currentView==="attendanceDash") renderAttendanceDash();
+  else if(currentView==="mobileScore") renderMobileScore();
+  else if(currentView==="mobileScorePlayer") renderMobileScorePlayer();
   else if(currentView==="addEvent") renderSeasonAddEvent();
   else if(currentView==="editEvent") renderSeasonEditEvent();
   else renderHome();
@@ -11702,6 +11776,7 @@ function renderHome(){
         <div class="profileNameRow">
           <div class="profileName">${escapeHTML(userName)}</div>
           <div class="profileInlineActions">
+            <button class="profileInlineBtn ${mobileMode ? 'mobileToggleBtn' : ''}" onclick="toggleMobileMode()" title="${mobileMode ? 'Exit mobile mode' : 'Enable mobile mode for rinkside scoring'}">📱 ${mobileMode ? 'Mobile On' : 'Mobile'}</button>
             <button class="profileInlineBtn" onclick="go('profile')">Profile</button>
             ${showSuperAdmin ? `<button class="profileSuperAdminBtn" onclick="openSuperAdminFromProfileBar()" aria-label="Open Super Admin Dashboard">🛡 Super Admin</button>` : ``}
             ${showSuperAdmin ? `<button class="profileSuperAdminBtn" style="background:#0a1e3d;border-color:#0a1e3d;" onclick="window.open('/admin','_blank')" aria-label="Open Executive Dashboard">📊 Executive Dashboard</button>` : ``}
@@ -28267,9 +28342,255 @@ async function bootAdminPortal(){
   window.location.href = "/";
 }
 
+// ── Mobile Mode ───────────────────────────────────────────────────────────────
+let mobileMode = false;
+let _mobileModeManual = false;
+
+function initMobileMode(){
+  const stored = sessionStorage.getItem("AAS_MOBILE_MODE");
+  if(stored === "on"){ mobileMode = true; _mobileModeManual = true; }
+  else if(stored === "off"){ mobileMode = false; _mobileModeManual = true; }
+  else { mobileMode = window.innerWidth <= 768; _mobileModeManual = false; }
+  applyMobileModeUI();
+  window.addEventListener("resize", ()=>{
+    if(!_mobileModeManual){
+      const isMobile = window.innerWidth <= 768;
+      if(isMobile !== mobileMode){ mobileMode = isMobile; applyMobileModeUI(); }
+    }
+  });
+}
+
+function toggleMobileMode(){
+  mobileMode = !mobileMode;
+  _mobileModeManual = true;
+  sessionStorage.setItem("AAS_MOBILE_MODE", mobileMode ? "on" : "off");
+  applyMobileModeUI();
+  if(currentView === "home") render();
+}
+
+function exitMobileMode(){
+  mobileMode = false;
+  _mobileModeManual = true;
+  sessionStorage.setItem("AAS_MOBILE_MODE", "off");
+  applyMobileModeUI();
+  if(currentView === "home") render();
+}
+
+function applyMobileModeUI(){
+  document.body.classList.toggle("mobile-mode", mobileMode);
+
+  // Banner
+  let banner = document.getElementById("mobileBanner");
+  if(mobileMode){
+    if(!banner){
+      banner = document.createElement("div");
+      banner.id = "mobileBanner";
+      banner.className = "mobileBanner";
+      document.body.insertBefore(banner, document.body.firstChild);
+    }
+    banner.innerHTML = `<span>📱 Mobile Mode — Rinkside Ready</span><button onclick="exitMobileMode()">✕ Exit</button>`;
+  } else {
+    banner?.remove();
+  }
+
+  // Bottom nav
+  let nav = document.getElementById("mobileBottomNav");
+  if(mobileMode){
+    if(!nav){
+      nav = document.createElement("nav");
+      nav.id = "mobileBottomNav";
+      nav.className = "mobileBottomNav";
+      document.body.appendChild(nav);
+    }
+    const active = (id) => currentView === id ? "active" : "";
+    nav.innerHTML = `
+      <button class="mobileNavBtn ${currentView==="home"?"active":""}" onclick="goHome()">
+        <span class="mobileNavIcon">🏠</span><span class="mobileNavLabel">Home</span>
+      </button>
+      <button class="mobileNavBtn ${currentView==="mobileScore"||currentView==="mobileScorePlayer"?"active":""}" onclick="go('mobileScore')">
+        <span class="mobileNavIcon">🏒</span><span class="mobileNavLabel">Score</span>
+      </button>
+      <button class="mobileNavBtn ${currentView==="seasonList"?"active":""}" onclick="go('seasonList')">
+        <span class="mobileNavIcon">🏆</span><span class="mobileNavLabel">Teams</span>
+      </button>
+      <button class="mobileNavBtn ${currentView==="seasonSchedule"?"active":""}" onclick="go('seasonSchedule')">
+        <span class="mobileNavIcon">📅</span><span class="mobileNavLabel">Schedule</span>
+      </button>
+    `;
+  } else {
+    nav?.remove();
+  }
+}
+
+function refreshMobileNav(){
+  if(!mobileMode) return;
+  const nav = document.getElementById("mobileBottomNav");
+  if(!nav) return;
+  nav.querySelector('[onclick="goHome()"]')?.classList.toggle("active", currentView==="home");
+  nav.querySelectorAll(".mobileNavBtn").forEach(btn => btn.classList.remove("active"));
+  if(currentView==="home") nav.querySelectorAll(".mobileNavBtn")[0]?.classList.add("active");
+  else if(currentView==="mobileScore"||currentView==="mobileScorePlayer") nav.querySelectorAll(".mobileNavBtn")[1]?.classList.add("active");
+  else if(currentView==="seasonList") nav.querySelectorAll(".mobileNavBtn")[2]?.classList.add("active");
+  else if(currentView==="seasonSchedule") nav.querySelectorAll(".mobileNavBtn")[3]?.classList.add("active");
+}
+
+// ── Mobile Scoring ────────────────────────────────────────────────────────────
+function renderMobileScore(){
+  const tryouts = Object.values(DB.tryouts || {}).filter(t => t && !isArchivedTryout(t));
+  const t = getTryout();
+  if(!t || !DB.tryouts?.[currentTryoutId]){
+    // Assessment selector
+    app.innerHTML = `
+      <div style="padding:4px;">
+        <h2 style="margin:0 0 4px;font-size:20px;">🏒 Rinkside Scoring</h2>
+        <div class="muted" style="margin-bottom:16px;">Select an assessment to score players:</div>
+        ${tryouts.length === 0
+          ? `<div class="muted" style="padding:24px;text-align:center;">No assessments found. Create one from the home screen first.</div>`
+          : tryouts.map(tr=>`
+              <button class="mobileAssessBtn" onclick="currentTryoutId='${escapeJS(tr.id)}';workingScores={};go('mobileScore')">
+                <div style="font-weight:800;font-size:15px;">${escapeHTML(tr.name||"Assessment")}</div>
+                <div class="tiny" style="margin-top:2px;">${escapeHTML(tr.tryoutDate||"")}${tr.rink?" · "+escapeHTML(tr.rink):""} · ${(tr.roster||[]).length} players</div>
+              </button>
+            `).join("")
+        }
+      </div>
+    `;
+    refreshMobileNav();
+    return;
+  }
+
+  const roster = getRoster().slice().sort((a,b)=>{
+    const na = String(a.last||a.first||"").toLowerCase();
+    const nb = String(b.last||b.first||"").toLowerCase();
+    return na.localeCompare(nb);
+  });
+
+  const avatarColors = {"pos-forward":"#0057B8","pos-defence":"#0d9488","pos-goalie":"#f97316","pos-other":"#6366f1"};
+
+  app.innerHTML = `
+    <div style="padding:4px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;">
+        <div>
+          <div style="font-weight:900;font-size:17px;">${escapeHTML(t.name||"Assessment")}</div>
+          <div class="tiny">${roster.length} players</div>
+        </div>
+        <button class="secondary small" style="width:auto;" onclick="currentTryoutId=null;go('mobileScore')">Switch ↓</button>
+      </div>
+      ${roster.map(player=>{
+        const pid = player.id;
+        const sport = getSportFromTryout(t);
+        const evals = evalsForPlayer(pid);
+        const overall = evals.length ? (evals.reduce((s,e)=>s+calcOverall(e),0)/evals.length) : null;
+        const avatarClass = getPositionAvatarClass(player.pos, sport);
+        const avatarColor = avatarColors[avatarClass] || "#6366f1";
+        const initials = ((player.first||"")[0]||"") + ((player.last||"")[0]||"");
+        const scored = evals.length > 0;
+        return `
+          <div class="mobilePlayerRow" onclick="currentPlayerId='${escapeJS(pid)}';workingScores={};go('mobileScorePlayer')">
+            <div class="mobilePlayerAvatar" style="background:${avatarColor};">${escapeHTML(initials.toUpperCase()||"?")}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(playerDisplayName(player))}</div>
+              <div class="tiny">#${escapeHTML(player.jersey||"—")} · ${escapeHTML(player.pos||"—")}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:20px;font-weight:900;color:${scored?"#0057B8":"#cbd5e1"};">${overall!==null?num2(overall):"—"}</div>
+              <div class="tiny" style="color:${scored?"#16a34a":"#94a3b8"};">${scored?"✓ Scored":"Not scored"}</div>
+            </div>
+            <span style="color:#cbd5e1;font-size:20px;margin-left:4px;">›</span>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+  refreshMobileNav();
+}
+
+function renderMobileScorePlayer(){
+  const t = getTryout();
+  const player = playerById(currentPlayerId);
+  if(!t || !player){ go("mobileScore"); return; }
+
+  // Load existing scores if workingScores is empty
+  if(Object.keys(workingScores).length === 0){
+    const existing = evalsForPlayer(currentPlayerId)[0];
+    if(existing) workingScores = {...(existing.scores||{})};
+  }
+
+  const sport = getSportFromTryout(t);
+  const isGoalie = isSpecialPosition(player.pos, sport);
+  const cats = isGoalie ? getSportGoCatOrder(sport) : getSportSkCatOrder(sport);
+  const labels = isGoalie ? getSportGoCatLabels(sport) : getSportSkCatLabels(sport);
+  const nav = getAdjacentPlayerIds(currentPlayerId);
+  const name = playerDisplayName(player);
+
+  // Completion indicator
+  const scored = cats.filter(k => workingScores[k] !== undefined && workingScores[k] !== "").length;
+  const total = cats.length;
+  const pct = total > 0 ? Math.round((scored/total)*100) : 0;
+
+  app.innerHTML = `
+    <div style="padding:4px;">
+      <div class="mobileScoreHeader">
+        <button class="secondary small" style="width:auto;" onclick="go('mobileScore')">← List</button>
+        <div style="text-align:center;flex:1;">
+          <div style="font-weight:900;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(name)}</div>
+          <div class="tiny">#${escapeHTML(player.jersey||"—")} · ${escapeHTML(player.pos||"—")} · ${nav.idx+1} of ${nav.total}</div>
+        </div>
+        <button class="ok small" style="width:auto;background:#16a34a;border-color:#16a34a;" onclick="saveMobileScore()">Save ✓</button>
+      </div>
+
+      <div style="background:var(--border,#e5e7eb);border-radius:999px;height:6px;margin-bottom:14px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#0057B8,#6366f1);border-radius:999px;transition:width 0.3s;"></div>
+      </div>
+      <div class="tiny" style="text-align:right;margin-top:-10px;margin-bottom:12px;color:var(--muted);">${scored}/${total} categories scored</div>
+
+      ${cats.map(key=>{
+        const label = labels[key] || key;
+        const current = Number(workingScores[key]) || 0;
+        return `
+          <div class="mobileCatCard">
+            <div class="mobileCatLabel">${escapeHTML(label)}</div>
+            <div class="mobileBtnRow">
+              ${[1,2,3,4,5].map(n=>`
+                <button class="mobileBigBtn ${current===n?"selected":""}"
+                  onclick="setScore('${escapeJS(key)}',${n},false);renderMobileScorePlayer();">${n}</button>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }).join("")}
+
+      <div style="display:flex;gap:10px;margin-top:16px;padding-bottom:8px;">
+        ${nav.prev
+          ? `<button class="secondary" style="flex:1;padding:14px;" onclick="saveMobileScoreAndGo('${escapeJS(nav.prev)}')">← Prev</button>`
+          : `<div style="flex:1;"></div>`}
+        <button class="ok" style="flex:2;padding:14px;font-weight:900;font-size:15px;" onclick="saveMobileScore()">💾 Save</button>
+        ${nav.next
+          ? `<button class="ok" style="flex:1;padding:14px;background:#0f766e;border-color:#0f766e;" onclick="saveMobileScoreAndGo('${escapeJS(nav.next)}')">Next →</button>`
+          : `<div style="flex:1;"></div>`}
+      </div>
+    </div>
+  `;
+  refreshMobileNav();
+}
+
+function saveMobileScore(){
+  saveAssessment();
+  showBannerTemporary("synced","✓ Saved");
+  renderMobileScorePlayer();
+}
+
+function saveMobileScoreAndGo(pid){
+  saveAssessment();
+  workingScores = {};
+  currentPlayerId = pid;
+  go("mobileScorePlayer");
+}
+
 /** Boot */
 async function initApp(){
   startGlobalHomeNavObserver();
+  initMobileMode();
   try {
     // Mark this session as active. The 10-minute visibility-change timer (below)
     // handles security logout when the user leaves the app for an extended period.
