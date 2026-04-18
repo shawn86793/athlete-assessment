@@ -2161,6 +2161,9 @@
       gap:10px;
       margin:10px 0;
     }
+    .teamHubTileGrid3{
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
     .teamHubTile{
       width:100%;
       min-height:126px;
@@ -3826,6 +3829,7 @@
       .teamHubBannerTitle{ font-size:20px; }
       .teamHubStatBadge{ padding:4px 8px; font-size:11px; }
       .teamHubTileGrid{ gap:8px; margin:8px 0; }
+      .teamHubTileGrid3{ grid-template-columns:repeat(2,minmax(0,1fr)); }
       .teamHubTile{ min-height:110px; padding:12px 10px; }
       .teamHubQuickActions{ gap:6px; }
       .teamHubQuickActions button{ padding:9px 6px; font-size:12px; }
@@ -4367,6 +4371,116 @@
       border-radius:14px;
       background:var(--card-bg,#fff);
       padding:18px;
+    }
+    /* ── Parent Portal Visual Polish ─────────────────────────────── */
+    .portalHeader{
+      background:linear-gradient(135deg,#0057B8 0%,#6366f1 100%);
+      border-radius:12px;
+      padding:20px 18px 16px;
+      color:#fff;
+      margin-bottom:14px;
+    }
+    .portalHeaderTeam{
+      font-size:20px;
+      font-weight:900;
+      letter-spacing:-0.3px;
+      margin-bottom:2px;
+    }
+    .portalHeaderSub{
+      font-size:13px;
+      opacity:0.82;
+    }
+    .portalPlayerChip{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      background:rgba(255,255,255,0.18);
+      border-radius:999px;
+      padding:7px 14px 7px 8px;
+      margin-top:12px;
+    }
+    .portalPlayerAvatar{
+      width:34px;height:34px;
+      border-radius:50%;
+      background:rgba(255,255,255,0.3);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:900;font-size:13px;
+      flex-shrink:0;
+    }
+    .portalPlayerName{ font-weight:800; font-size:15px; }
+    .portalPlayerJersey{ font-size:12px; opacity:0.8; }
+    .portalEventCard{
+      border:1px solid var(--border,#e5e7eb);
+      border-radius:12px;
+      padding:13px 14px 11px;
+      margin-bottom:10px;
+      background:var(--card-bg,#fff);
+    }
+    .portalEventCard:last-child{ margin-bottom:0; }
+    .portalEventTypeBadge{
+      display:inline-block;
+      padding:2px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:700;
+      color:#fff;
+      margin-bottom:6px;
+    }
+    .portalEventTitle{
+      font-weight:800;
+      font-size:15px;
+      margin-bottom:2px;
+    }
+    .portalEventMeta{
+      font-size:12px;
+      color:var(--muted,#64748b);
+      margin-bottom:8px;
+    }
+    .portalRsvpRow{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:6px;
+      margin-top:8px;
+    }
+    .portalRsvpBtn{
+      border:2px solid var(--border,#e5e7eb);
+      border-radius:10px;
+      padding:10px 6px;
+      background:var(--card-bg,#fff);
+      font-weight:800;
+      font-size:13px;
+      cursor:pointer;
+      transition:all 0.12s;
+      text-align:center;
+    }
+    .portalRsvpBtn.prYes.active{background:#dcfce7;border-color:#16a34a;color:#15803d;}
+    .portalRsvpBtn.prMaybe.active{background:#fef9c3;border-color:#ca8a04;color:#92400e;}
+    .portalRsvpBtn.prNo.active{background:#fee2e2;border-color:#dc2626;color:#b91c1c;}
+    .portalRsvpBtn:not(.active):hover{background:var(--hover,#f1f5f9);}
+    .portalCalBtns{
+      display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px;
+    }
+    .portalCalBtns button{
+      flex:1 1 120px;
+      padding:11px 10px;
+      border-radius:10px;
+      font-weight:800;
+      font-size:13px;
+    }
+    .portalSectionTitle{
+      font-weight:900;
+      font-size:14px;
+      text-transform:uppercase;
+      letter-spacing:0.6px;
+      color:var(--muted,#64748b);
+      margin:16px 0 8px;
+    }
+    .portalSavedBadge{
+      display:inline-block;
+      font-size:11px;
+      font-weight:700;
+      color:#16a34a;
+      margin-left:6px;
     }
     .publicAvailabilityActions{
       display:grid;
@@ -21843,22 +21957,34 @@ function renderSeasonHub(){
           `}
         </div>
 
-        <div class="teamHubTileGrid">
-          <button class="teamHubTile" style="background:linear-gradient(145deg,#0d9488,#0f766e);" onclick="openSeasonRoster('${escapeJS(season.id)}')">
-            <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">◈</div>
-            <div>
-              <div class="teamHubTileLabel">Roster</div>
-              <div class="teamHubTileStat">${playerCount} player${playerCount === 1 ? "" : "s"} on team</div>
-            </div>
-          </button>
-          <button class="teamHubTile" style="background:linear-gradient(145deg,#F97316,#ea580c);" onclick="openSeasonSchedule('${escapeJS(season.id)}')">
-            <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">⊙</div>
-            <div>
-              <div class="teamHubTileLabel">Schedule &amp; Calendar</div>
-              <div class="teamHubTileStat">${nextEvent ? "Next: " + escapeHTML(nextEventDate) : "No next event yet"}</div>
-            </div>
-          </button>
-        </div>
+        ${(()=>{
+          const _portalInvited = (season.roster||[]).filter(p=>Array.isArray(p.portalInviteEmails)&&p.portalInviteEmails.length>0).length;
+          const _portalStat = playerCount === 0 ? "Add players to invite" : _portalInvited === 0 ? "No families invited yet" : `${_portalInvited} of ${playerCount} invited`;
+          return `
+          <div class="teamHubTileGrid teamHubTileGrid3">
+            <button class="teamHubTile" style="background:linear-gradient(145deg,#0d9488,#0f766e);" onclick="openSeasonRoster('${escapeJS(season.id)}')">
+              <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">◈</div>
+              <div>
+                <div class="teamHubTileLabel">Roster</div>
+                <div class="teamHubTileStat">${playerCount} player${playerCount === 1 ? "" : "s"} on team</div>
+              </div>
+            </button>
+            <button class="teamHubTile" style="background:linear-gradient(145deg,#F97316,#ea580c);" onclick="openSeasonSchedule('${escapeJS(season.id)}')">
+              <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">⊙</div>
+              <div>
+                <div class="teamHubTileLabel">Schedule &amp; Calendar</div>
+                <div class="teamHubTileStat">${nextEvent ? "Next: " + escapeHTML(nextEventDate) : "No next event yet"}</div>
+              </div>
+            </button>
+            <button class="teamHubTile" style="background:linear-gradient(145deg,#6366f1,#4f46e5);" onclick="openSeasonRoster('${escapeJS(season.id)}')">
+              <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">🔗</div>
+              <div>
+                <div class="teamHubTileLabel">Guardian Portal</div>
+                <div class="teamHubTileStat">${escapeHTML(_portalStat)}</div>
+              </div>
+            </button>
+          </div>`;
+        })()}
 
         <div class="card warmAccent">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
@@ -23604,6 +23730,7 @@ function renderSeasonRoster(){
           </div>
           <div style="display:flex; gap:6px; flex-wrap:wrap;">
             <button class="secondary tinyBtn" onclick="openSeasonPlayer('${escapeJS(c.id)}')">Open</button>
+            <button class="ok tinyBtn" style="background:#6366f1;border-color:#4f46e5;" onclick="openSeasonPortalInviteSelector({playerId:'${escapeJS(c.id)}'})">📲 Invite</button>
             <button class="danger tinyBtn" onclick="handleDeleteContact('${escapeJS(c.id)}')">Remove</button>
           </div>
         </div>
@@ -25596,34 +25723,79 @@ function renderPublicAvailability(){
     `;
   };
 
+  // Build new polished portal event card renderer
+  const renderPortalEventCard = (event) => {
+    const eventId = String(event.id || "");
+    const selected = normalizeAvailabilityValue(event?.availability?.value || "");
+    const meta = event?.availability?.meta || null;
+    const saving = Boolean(state.savingByEvent?.[eventId]);
+    const typeColor = colorByType[event.type] || "#2563eb";
+    const timeStr = [event.startTime, event.endTime].filter(Boolean).join(" – ");
+    const metaLine = meta?.lastUpdatedBy
+      ? `Updated by ${escapeHTML(meta.lastUpdatedBy)}${meta.lastUpdatedAt ? " · " + new Date(meta.lastUpdatedAt).toLocaleDateString() : ""}`
+      : "";
+    const isPast = String(event.date || "") < todayStr;
+    return `
+      <div id="portalEvent_${escapeAttr(eventId)}" class="portalEventCard" style="${isPast ? "opacity:0.65;" : ""}">
+        <span class="portalEventTypeBadge" style="background:${typeColor};">${escapeHTML(event.type || "Event")}</span>
+        <div class="portalEventTitle">${escapeHTML(event.title || event.type || "Event")}</div>
+        <div class="portalEventMeta">
+          ${event.date ? escapeHTML(new Date(event.date + "T12:00:00").toLocaleDateString(undefined, {weekday:"short",month:"short",day:"numeric"})) : ""}
+          ${timeStr ? " · " + escapeHTML(timeStr) : ""}
+          ${event.location ? `<br>📍 ${escapeHTML(event.location)}` : ""}
+        </div>
+        ${renderDirectionsButtons(event.location)}
+        <div class="portalRsvpRow" role="group" aria-label="Set attendance for ${escapeAttr(event.title || "event")}">
+          <button type="button" class="portalRsvpBtn prYes ${selected === "yes" ? "active" : ""}"
+            onclick="submitPublicAvailability('${escapeJS(eventId)}','yes')" ${saving ? "disabled" : ""}>✓ Yes</button>
+          <button type="button" class="portalRsvpBtn prMaybe ${selected === "maybe" ? "active" : ""}"
+            onclick="submitPublicAvailability('${escapeJS(eventId)}','maybe')" ${saving ? "disabled" : ""}>? Maybe</button>
+          <button type="button" class="portalRsvpBtn prNo ${selected === "no" ? "active" : ""}"
+            onclick="submitPublicAvailability('${escapeJS(eventId)}','no')" ${saving ? "disabled" : ""}>✕ No</button>
+        </div>
+        ${metaLine ? `<div style="font-size:11px;color:var(--muted,#64748b);margin-top:5px;">${metaLine}</div>` : ""}
+        ${saving ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">Saving…</div>` : ""}
+      </div>
+    `;
+  };
+
+  // Player initials for avatar
+  const _nameParts = String(player.name || "").split(/\s+/).filter(Boolean);
+  const _initials = (_nameParts[0]?.[0] || "") + (_nameParts[1]?.[0] || "");
+
   host.innerHTML = `
     <div class="publicAvailabilityCard">
-      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-        <div>
-          <img src="assets/tryout-main-logo-optimized.webp" alt="Tryout logo" style="height:32px; width:auto; margin-bottom:8px;" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='assets/tryout-logo.png';">
-          <h2 style="margin:0 0 4px;">${escapeHTML(data.teamName || data.seasonName || "Team")}</h2>
-          <div class="muted">${escapeHTML([data.year, data.sport].filter(Boolean).join(" • "))}</div>
+      <div class="portalHeader">
+        <img src="assets/tryout-main-logo-optimized.webp" alt="Team logo" style="height:26px;width:auto;margin-bottom:10px;opacity:0.92;" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='assets/tryout-logo.png';">
+        <div class="portalHeaderTeam">${escapeHTML(data.teamName || data.seasonName || "Team")}</div>
+        <div class="portalHeaderSub">${escapeHTML([data.year, data.sport].filter(Boolean).join(" · "))}</div>
+        <div class="portalPlayerChip">
+          <div class="portalPlayerAvatar">${escapeHTML(_initials.toUpperCase() || "👤")}</div>
+          <div>
+            <div class="portalPlayerName">${escapeHTML(player.name || "Player")}${player.jersey ? ` <span class="portalPlayerJersey">#${escapeHTML(player.jersey)}</span>` : ""}</div>
+            <div class="portalPlayerJersey">${escapeHTML(data.portalNote || "Tap Yes / Maybe / No to update attendance")}</div>
+          </div>
         </div>
       </div>
-      <div style="border:1px solid var(--border); border-radius:12px; padding:12px; margin-top:12px;">
-        <div style="font-weight:800; margin-bottom:4px;">${escapeHTML(player.name || "Player")} ${player.jersey ? "• #" + escapeHTML(player.jersey) : ""}</div>
-        <div class="tiny">${escapeHTML(data.portalNote || "Use this link to view the schedule and confirm attendance for upcoming events.")}</div>
+
+      <div class="portalCalBtns">
+        <button class="ok" type="button" data-portal-calendar="apple" onclick="downloadPortalAppleCalendar()">🍎 Apple Calendar</button>
+        <button class="secondary" type="button" data-portal-calendar="google" onclick="openPortalGoogleCalendar()">📅 Google Calendar</button>
       </div>
-      <div class="portalCalendarActions">
-        <button class="ok small" type="button" data-portal-calendar="apple" onclick="downloadPortalAppleCalendar()">Add to Apple Calendar</button>
-        <button class="secondary small" type="button" data-portal-calendar="google" onclick="openPortalGoogleCalendar()">Add to Google Calendar</button>
-      </div>
-      <div style="margin-top:14px;">
-        <h3 style="margin:0 0 8px;">Upcoming Events</h3>
-        ${upcoming.length ? upcoming.map(renderEventRow).join("") : `<div class="muted">No upcoming events scheduled.</div>`}
-      </div>
-      <details style="margin-top:12px;">
-        <summary style="cursor:pointer; font-weight:700;">Past Events (${past.length})</summary>
-        <div style="margin-top:8px;">
-          ${past.length ? past.map(renderEventRow).join("") : `<div class="muted">No past events yet.</div>`}
-        </div>
-      </details>
-      <div class="tiny" style="margin-top:10px; color:var(--muted,#64748b);">${escapeHTML(state.status || "Responses save instantly.")}</div>
+
+      <div class="portalSectionTitle">Upcoming (${upcoming.length})</div>
+      ${upcoming.length ? upcoming.map(renderPortalEventCard).join("") : `<div class="muted" style="padding:12px 0;">No upcoming events scheduled.</div>`}
+
+      ${past.length ? `
+        <details style="margin-top:12px;">
+          <summary style="cursor:pointer;font-weight:700;font-size:13px;color:var(--muted,#64748b);">Past Events (${past.length})</summary>
+          <div style="margin-top:8px;">
+            ${past.map(renderPortalEventCard).join("")}
+          </div>
+        </details>
+      ` : ""}
+
+      ${state.status ? `<div class="tiny" style="margin-top:10px;color:var(--muted,#64748b);">${escapeHTML(state.status)}</div>` : ""}
     </div>
   `;
   dedupePortalCalendarButtons(host);
