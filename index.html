@@ -4518,6 +4518,79 @@
       color:#b91c1c;
     }
 
+    /* ── Attendance Dashboard ─────────────────────────────────────── */
+    .attendStatGrid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin-bottom:16px;
+    }
+    @media(max-width:640px){ .attendStatGrid{ grid-template-columns:repeat(2,1fr); } }
+    .attendStat{
+      border-radius:14px;
+      padding:14px 12px;
+      text-align:center;
+      color:#fff;
+    }
+    .attendStatVal{ font-size:28px; font-weight:900; line-height:1; }
+    .attendStatLabel{ font-size:11px; font-weight:700; opacity:0.82; margin-top:4px; text-transform:uppercase; letter-spacing:0.5px; }
+    .attendMatrixWrap{
+      overflow-x:auto;
+      border-radius:12px;
+      border:1px solid var(--border);
+    }
+    .attendMatrix{
+      border-collapse:collapse;
+      min-width:100%;
+      font-size:12px;
+    }
+    .attendMatrix th, .attendMatrix td{
+      border:1px solid var(--border);
+      padding:6px 8px;
+      white-space:nowrap;
+    }
+    .attendMatrix thead th{
+      background:var(--card-bg,#f8faff);
+      font-weight:800;
+      text-align:center;
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    .attendMatrix tbody tr:hover td{ background:rgba(0,87,184,0.04); }
+    .attendPlayerCell{
+      font-weight:700;
+      text-align:left;
+      position:sticky;
+      left:0;
+      background:var(--card-bg,#fff);
+      z-index:2;
+      min-width:130px;
+      max-width:180px;
+    }
+    .attendMatrix thead th:first-child{
+      position:sticky;
+      left:0;
+      z-index:3;
+    }
+    .attendChip{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:30px;
+      height:24px;
+      border-radius:6px;
+      font-weight:800;
+      font-size:11px;
+    }
+    .attendChip.yes{ background:#dcfce7; color:#15803d; }
+    .attendChip.maybe{ background:#fef9c3; color:#92400e; }
+    .attendChip.no{ background:#fee2e2; color:#b91c1c; }
+    .attendChip.none{ background:var(--border,#e5e7eb); color:var(--muted,#94a3b8); }
+    .attendSummaryCell{ font-weight:800; text-align:center; font-size:11px; }
+    .attendEventHeader{ max-width:80px; overflow:hidden; text-overflow:ellipsis; }
+    .attendFooterRow td{ background:var(--card-bg,#f8faff); font-weight:700; }
+
     /* Reduce main-thread rendering work for long lists on first load */
     @supports (content-visibility: auto){
       .teamCard,
@@ -10822,6 +10895,7 @@ function render(){
   else if(currentView==="seasonSchedule") renderSeasonSchedule();
   else if(currentView==="seasonCalendar") renderSeasonCalendar();
   else if(currentView==="seasonAvailability") renderSeasonAvailability();
+  else if(currentView==="attendanceDash") renderAttendanceDash();
   else if(currentView==="addEvent") renderSeasonAddEvent();
   else if(currentView==="editEvent") renderSeasonEditEvent();
   else renderHome();
@@ -22001,7 +22075,14 @@ function renderSeasonHub(){
                 <div class="teamHubTileStat">${escapeHTML(_portalStat)}</div>
               </div>
             </button>
-          </div>`;
+          </div>
+          <button class="teamHubTile" style="background:linear-gradient(145deg,#0f766e,#134e4a);grid-column:1/-1;" onclick="openAttendanceDash('${escapeJS(season.id)}')">
+            <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">📋</div>
+            <div>
+              <div class="teamHubTileLabel">Attendance Dashboard</div>
+              <div class="teamHubTileStat">${events.length} events · ${playerCount} players · ${events.length>0&&playerCount>0 ? "View full matrix →" : "Add events and players to get started"}</div>
+            </div>
+          </button>`;
         })()}
 
         <div class="card warmAccent">
@@ -23002,6 +23083,7 @@ function renderSeasonSchedule(){
           <div class="tabs">
             <button class="ok small" onclick="go('seasonList')">HUB</button>
             <button class="ok small" onclick="go('seasonRoster')">Roster</button>
+            <button class="ok small" style="background:#0f766e;border-color:#0f766e;" onclick="openAttendanceDash()">📋 Attendance</button>
           </div>
         </div>
       </div>
@@ -23323,6 +23405,182 @@ function renderSeasonAvailability(){
           </div>
         `;
       }).join("")}
+    </div>
+  `;
+}
+
+function openAttendanceDash(seasonId){
+  if(seasonId) currentSeasonId = seasonId;
+  go("attendanceDash");
+}
+
+function renderAttendanceDash(){
+  const season = getSeasonById(currentSeasonId);
+  if(!season){ go("seasonList"); return; }
+
+  const roster = (season.roster || []).slice().sort((a,b)=>seasonRosterPlayerName(a).localeCompare(seasonRosterPlayerName(b)));
+  const events = (season.events || [])
+    .filter(ev => ev && ev.date)
+    .slice()
+    .sort((a,b)=> new Date(a.date + (a.startTime?"T"+a.startTime:"")).getTime() - new Date(b.date + (b.startTime?"T"+b.startTime:"")).getTime());
+
+  const typeColor = { Game:"#0057B8", Practice:"#0f766e", Event:"#b45309" };
+
+  // ── Stats ────────────────────────────────────────────────
+  let totalResponses = 0, totalPossible = 0;
+  let playerYesCounts = {};
+  let eventYesCounts = {};
+  for(const ev of events){
+    let evYes = 0;
+    for(const player of roster){
+      const pid = player.id;
+      const val = getEventAvailabilityValue(ev, pid);
+      if(val) totalResponses++;
+      if(val === "yes"){ evYes++; (playerYesCounts[pid] = (playerYesCounts[pid]||0)+1); }
+      totalPossible++;
+    }
+    eventYesCounts[ev.id] = evYes;
+  }
+  const responseRate = totalPossible > 0 ? Math.round((totalResponses / totalPossible) * 100) : 0;
+  const bestPid = Object.keys(playerYesCounts).sort((a,b)=>playerYesCounts[b]-playerYesCounts[a])[0];
+  const bestPlayer = bestPid ? roster.find(p=>p.id===bestPid) : null;
+  const bestEventId = Object.keys(eventYesCounts).sort((a,b)=>eventYesCounts[b]-eventYesCounts[a])[0];
+  const bestEvent = bestEventId ? events.find(e=>e.id===bestEventId) : null;
+  const nextEvent = events.find(ev=> ev.date >= new Date().toISOString().slice(0,10));
+  const nextCounts = nextEvent ? getSeasonEventAvailabilityCounts(season, nextEvent) : null;
+
+  const statsHTML = `
+    <div class="attendStatGrid">
+      <div class="attendStat" style="background:linear-gradient(135deg,#0057B8,#2563eb);">
+        <div class="attendStatVal">${events.length}</div>
+        <div class="attendStatLabel">Total Events</div>
+      </div>
+      <div class="attendStat" style="background:linear-gradient(135deg,#0d9488,#0f766e);">
+        <div class="attendStatVal">${responseRate}%</div>
+        <div class="attendStatLabel">Response Rate</div>
+      </div>
+      <div class="attendStat" style="background:linear-gradient(135deg,#f97316,#ea580c);">
+        <div class="attendStatVal">${nextCounts ? nextCounts.yes : "—"}</div>
+        <div class="attendStatLabel">Next Event: Yes</div>
+      </div>
+      <div class="attendStat" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">
+        <div class="attendStatVal">${bestPlayer ? escapeHTML(seasonRosterPlayerName(bestPlayer).split(" ")[0]) : "—"}</div>
+        <div class="attendStatLabel">Most Confirmed</div>
+      </div>
+    </div>
+  `;
+
+  // ── Matrix ───────────────────────────────────────────────
+  const chipHTML = (val) => {
+    if(val === "yes")   return `<span class="attendChip yes">✓</span>`;
+    if(val === "maybe") return `<span class="attendChip maybe">?</span>`;
+    if(val === "no")    return `<span class="attendChip no">✕</span>`;
+    return `<span class="attendChip none">—</span>`;
+  };
+
+  const eventHeaders = events.map(ev=>{
+    const dateShort = ev.date ? new Date(ev.date+"T12:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"}) : "";
+    const color = typeColor[ev.type] || "#555";
+    return `<th class="attendEventHeader" title="${escapeAttr(ev.title||ev.type||"")} • ${escapeAttr(ev.date||"")}">
+      <span style="display:inline-block;background:${color};color:#fff;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700;margin-bottom:2px;">${escapeHTML(ev.type||"")}</span><br>
+      <span style="font-size:11px;font-weight:700;">${escapeHTML(dateShort)}</span>
+    </th>`;
+  }).join("");
+
+  const playerRows = roster.map(player=>{
+    const pid = player.id;
+    let yes=0, maybe=0, no=0;
+    const cells = events.map(ev=>{
+      const val = getEventAvailabilityValue(ev, pid);
+      if(val==="yes") yes++;
+      else if(val==="maybe") maybe++;
+      else if(val==="no") no++;
+      return `<td style="text-align:center;">${chipHTML(val)}</td>`;
+    }).join("");
+    const responded = yes+maybe+no;
+    const summaryColor = responded === 0 ? "var(--muted)" : yes >= responded*0.7 ? "#15803d" : "#b91c1c";
+    return `<tr>
+      <td class="attendPlayerCell">
+        <div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(seasonRosterPlayerName(player))}</div>
+        <div style="font-size:10px;color:var(--muted);">#${escapeHTML(player.jersey||"—")} · ${escapeHTML(player.position||player.pos||"—")}</div>
+      </td>
+      ${cells}
+      <td class="attendSummaryCell" style="color:${summaryColor};">
+        <span style="color:#15803d;">${yes}</span> / <span style="color:#92400e;">${maybe}</span> / <span style="color:#b91c1c;">${no}</span>
+      </td>
+    </tr>`;
+  }).join("");
+
+  // Footer totals row
+  const footerCells = events.map(ev=>{
+    const c = getSeasonEventAvailabilityCounts(season, ev);
+    return `<td style="text-align:center;font-size:11px;">
+      <span style="color:#15803d;font-weight:700;">${c.yes}</span>
+      <span style="color:#94a3b8;">·</span>
+      <span style="color:#92400e;">${c.maybe}</span>
+      <span style="color:#94a3b8;">·</span>
+      <span style="color:#b91c1c;">${c.no}</span>
+    </td>`;
+  }).join("");
+
+  const matrixHTML = events.length === 0 || roster.length === 0
+    ? `<div class="muted" style="padding:24px;text-align:center;">${events.length===0 ? "No events scheduled yet." : "No players on the team list yet."}</div>`
+    : `<div class="attendMatrixWrap">
+        <table class="attendMatrix">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Player</th>
+              ${eventHeaders}
+              <th style="text-align:center;font-size:11px;">✓ / ? / ✕</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${playerRows}
+          </tbody>
+          <tfoot>
+            <tr class="attendFooterRow">
+              <td style="font-weight:800;font-size:11px;text-align:left;">Totals</td>
+              ${footerCells}
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+
+  app.innerHTML = `
+    ${teamHubChrome(season, "Attendance")}
+
+    <div class="card" style="background:linear-gradient(150deg,rgba(10,30,61,0.07),rgba(0,174,239,0.12));border-color:rgba(0,174,239,0.25);">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div>
+          <h2 style="margin:0 0 2px;">Attendance Dashboard</h2>
+          <div class="muted">${escapeHTML(season.teamName||season.name)} · ${events.length} events · ${roster.length} players</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="secondary small" style="width:auto;" onclick="go('seasonSchedule')">← Schedule</button>
+          <button class="ok small" style="width:auto;" onclick="go('seasonList')">HUB</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      ${statsHTML}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:900;font-size:14px;">Full Attendance Matrix</div>
+          <div class="tiny">
+            <span style="color:#15803d;font-weight:700;">✓ Yes</span>
+            &nbsp;·&nbsp;
+            <span style="color:#92400e;font-weight:700;">? Maybe</span>
+            &nbsp;·&nbsp;
+            <span style="color:#b91c1c;font-weight:700;">✕ No</span>
+            &nbsp;·&nbsp;
+            <span style="color:#94a3b8;">— No response</span>
+          </div>
+        </div>
+        ${nextEvent ? `<button class="ok small" style="width:auto;background:#0f766e;border-color:#0f766e;" onclick="openSeasonAvailability('${escapeJS(nextEvent.id)}')">Edit Next Event</button>` : ""}
+      </div>
+      ${matrixHTML}
     </div>
   `;
 }
