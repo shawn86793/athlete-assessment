@@ -17,6 +17,8 @@
   <link rel="apple-touch-icon" href="assets/tryout_t_icon-128.webp" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- SheetJS — loaded async; only used on demand by Excel export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
   <link rel="preload" as="image" href="assets/tryout-main-logo-optimized.webp" type="image/webp" fetchpriority="high" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" /></noscript>
@@ -20312,6 +20314,211 @@ function exportAttendanceCSV(){
   showActionBanner("CSV export started", "info");
 }
 
+// ── Excel (.xlsx) export ─────────────────────────────────────────────────────
+function exportFullResultsXLSX(role){
+  if(!checkFeature("canExportCSV", "Export Locked", "Excel export is available on Starter plans and above.", "📊")) return;
+  if(typeof XLSX === "undefined") return showActionBanner("Excel library not loaded — check your internet connection.", "error");
+  const data = buildFullResultsExportData(role);
+  if(!data) return showActionBanner("No assessment selected.", "error");
+  addExportHistoryRecord("Full Results Excel");
+  showActionBanner("Building Excel workbook…", "info");
+  const { t, roleLabel, players } = data;
+
+  const wb = XLSX.utils.book_new();
+
+  // ── Summary sheet ──────────────────────────────────────────
+  const catHeaders = players[0]?.catAverages.map(c=>c.label) || [];
+  const customHeaders = players[0]?.customAverages.map(c=>c.label) || [];
+  const summaryRows = [
+    ["Assessment", t.name||"", "Date", t.tryoutDate||"", "Sport", sportLabel(t), "Role", roleLabel],
+    ["Generated", new Date().toLocaleString()],
+    [],
+    ["Rank", "Name", "Jersey", "Position", "Shoots", "Overall", ...catHeaders, ...customHeaders, "Evaluations", "Recommendation", "Strengths", "Areas to Improve"]
+  ];
+  const sortedPlayers = players.slice().sort((a,b)=>(a.overallRank||9999)-(b.overallRank||9999));
+  sortedPlayers.forEach((p, idx) => {
+    summaryRows.push([
+      p.overallRank || (idx+1),
+      p.name,
+      p.jersey,
+      p.position,
+      p.shoots,
+      p.overall != null ? parseFloat(num2(p.overall)) : "",
+      ...p.catAverages.map(c => c.value != null ? parseFloat(num2(c.value)) : ""),
+      ...p.customAverages.map(c => c.value != null ? parseFloat(num2(c.value)) : ""),
+      p.evalCount,
+      p.recommendation,
+      p.strengthsText,
+      p.improveText
+    ]);
+  });
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  summarySheet["!cols"] = [
+    {wch:6},{wch:24},{wch:8},{wch:12},{wch:8},{wch:8},
+    ...catHeaders.map(()=>({wch:10})),
+    ...customHeaders.map(()=>({wch:10})),
+    {wch:8},{wch:18},{wch:40},{wch:40}
+  ];
+  XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
+
+  // ── Per-player detail sheets (up to 30 players) ───────────
+  sortedPlayers.slice(0, 30).forEach(p => {
+    const rows = [
+      ["Player", p.name, "Jersey", p.jersey, "Position", p.position, "Shoots", p.shoots],
+      ["Overall Score", p.overall != null ? parseFloat(num2(p.overall)) : "", "Rank", p.overallRankText||"", "Evaluations", p.evalCount],
+      ["Recommendation", p.recommendation||""],
+      ["Strengths", p.strengthsText||""],
+      ["Areas to Improve", p.improveText||""],
+      [],
+      ["Eval #", "Date", "Evaluator", "Session", "Recommendation", ...p.allRubrics.map(r=>r.label||r.key)]
+    ];
+    p.evalRows.forEach(ev => {
+      rows.push([ev.evalNo, ev.date, ev.evaluator, ev.session, ev.recommendation, ...ev.scores]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{wch:6},{wch:14},{wch:20},{wch:12},{wch:18},...p.allRubrics.map(()=>({wch:8}))];
+    const sheetName = p.name.replace(/[:\\/\[\]*?]/g,"").slice(0,31) || `Player${p.overallRank||""}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  XLSX.writeFile(wb, `${safeName(t.name||"Assessment")}_${roleLabel}_Results.xlsx`);
+  showActionBanner("Excel file downloaded ✓", "synced");
+}
+
+// ── Player Report Cards PDF ───────────────────────────────────────────────────
+function exportPlayerReportCardsPDF(role){
+  if(!checkFeature("canExportPDF", "PDF Export Locked", "PDF export is available on Club plans and above.", "📄")) return;
+  const data = buildFullResultsExportData(role);
+  if(!data) return showActionBanner("No assessment selected.", "error");
+  addExportHistoryRecord("Player Report Cards PDF");
+  showActionBanner("Building report cards…", "info");
+  const { t, roleLabel, players } = data;
+  const sortedPlayers = players.slice().sort((a,b)=>(a.overallRank||9999)-(b.overallRank||9999));
+  const win = window.open("", "_blank");
+  if(!win) return showActionBanner("Popup blocked. Please allow popups to export PDF.", "error");
+  try { win.opener = null; } catch(e){}
+  const assessmentMeta = [t.name||"", t.tryoutDate||"", t.rink||"", `${sportLabel(t)} — ${roleLabel}`].filter(Boolean).join(" · ");
+
+  const cards = sortedPlayers.map(p => {
+    const catBars = p.catAverages.map(c => {
+      const pct = c.value != null ? Math.round((c.value/5)*100) : 0;
+      const rankBadge = c.rankText ? `<span class="rankBadge">${escapeHTML(c.rankText)}</span>` : "";
+      return `<div class="catRow">
+        <div class="catLabel">${escapeHTML(c.label)} ${rankBadge}</div>
+        <div class="barTrack"><div class="barFill" style="width:${pct}%"></div></div>
+        <div class="catScore">${c.value != null ? num2(c.value) : "—"}</div>
+      </div>`;
+    }).join("");
+    const customBars = p.customAverages.map(c => {
+      const pct = c.value != null ? Math.round((c.value/5)*100) : 0;
+      return `<div class="catRow">
+        <div class="catLabel">${escapeHTML(c.label)}</div>
+        <div class="barTrack"><div class="barFill" style="width:${pct}%;background:#6366f1;"></div></div>
+        <div class="catScore">${c.value != null ? num2(c.value) : "—"}</div>
+      </div>`;
+    }).join("");
+    const recColor = p.recommendation==="Yes"?"#15803d":p.recommendation==="No"?"#b91c1c":"#92400e";
+    const recBg = p.recommendation==="Yes"?"#dcfce7":p.recommendation==="No"?"#fee2e2":"#fef9c3";
+    const overallPct = p.overall != null ? Math.round((p.overall/5)*100) : 0;
+    return `<div class="reportCard">
+      <div class="rcHeader">
+        <div class="rcLeft">
+          <div class="rcName">${escapeHTML(p.name)}</div>
+          <div class="rcMeta">${escapeHTML(p.position||"—")} · #${escapeHTML(p.jersey||"—")} · ${escapeHTML(p.shoots ? "Shoots "+p.shoots : "")}</div>
+          <div class="rcAssmt">${escapeHTML(assessmentMeta)}</div>
+        </div>
+        <div class="rcRight">
+          <div class="rcOverallLabel">Overall</div>
+          <div class="rcOverall">${p.overall != null ? num2(p.overall) : "—"}<span class="rcOf">/5</span></div>
+          <div class="rcRank">${p.overallRankText ? `Rank: ${escapeHTML(p.overallRankText)}` : ""}</div>
+          ${p.recommendation ? `<div class="rcRec" style="background:${recBg};color:${recColor};">${escapeHTML(p.recommendation)}</div>` : ""}
+        </div>
+      </div>
+      <div class="rcOverallBar"><div class="rcOverallFill" style="width:${overallPct}%"></div></div>
+      <div class="rcCategories">${catBars}${customBars}</div>
+      ${p.strengthsText ? `<div class="rcSection"><div class="rcSectionLabel">✓ Strengths</div><div class="rcSectionText">${escapeHTML(p.strengthsText)}</div></div>` : ""}
+      ${p.improveText ? `<div class="rcSection"><div class="rcSectionLabel">↑ Areas to Improve</div><div class="rcSectionText">${escapeHTML(p.improveText)}</div></div>` : ""}
+      <div class="rcFooter">${escapeHTML(assessmentMeta)} · Evaluations: ${p.evalCount} · Generated: ${new Date().toLocaleDateString()}</div>
+    </div>`;
+  }).join("");
+
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>${escapeHTML(t.name||"Assessment")} — Player Report Cards</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2f5;padding:16px;}
+.reportCard{background:#fff;border-radius:12px;padding:20px 22px 16px;margin:0 auto 20px;page-break-after:always;max-width:760px;box-shadow:0 1px 6px rgba(0,0,0,.12);}
+.rcHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;}
+.rcLeft{flex:1;}
+.rcName{font-size:22px;font-weight:900;color:#0A1E3D;}
+.rcMeta{font-size:13px;font-weight:700;color:#555;margin-top:2px;}
+.rcAssmt{font-size:11px;color:#888;margin-top:3px;}
+.rcRight{text-align:right;flex-shrink:0;}
+.rcOverallLabel{font-size:11px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.rcOverall{font-size:32px;font-weight:900;color:#0057B8;line-height:1;}
+.rcOf{font-size:15px;color:#888;font-weight:600;}
+.rcRank{font-size:12px;color:#555;margin-top:2px;}
+.rcRec{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:800;margin-top:4px;}
+.rcOverallBar{height:8px;background:#e5e7eb;border-radius:999px;margin-bottom:14px;}
+.rcOverallFill{height:100%;background:linear-gradient(90deg,#0057B8,#6366f1);border-radius:999px;}
+.rcCategories{margin-bottom:10px;}
+.catRow{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.catLabel{width:140px;font-size:12px;font-weight:700;color:#374151;flex-shrink:0;display:flex;align-items:center;gap:4px;}
+.rankBadge{background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:0 6px;font-size:10px;font-weight:800;}
+.barTrack{flex:1;height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;}
+.barFill{height:100%;background:linear-gradient(90deg,#0057B8,#2563eb);border-radius:999px;}
+.catScore{width:36px;text-align:right;font-size:12px;font-weight:800;color:#0057B8;}
+.rcSection{margin-top:8px;padding:8px 10px;background:#f9fafb;border-radius:8px;}
+.rcSectionLabel{font-size:11px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.rcSectionText{font-size:12px;color:#374151;line-height:1.5;}
+.rcFooter{margin-top:12px;font-size:10px;color:#aaa;text-align:center;border-top:1px solid #e5e7eb;padding-top:8px;}
+@media print{body{background:#fff;padding:0;}.reportCard{box-shadow:none;border-radius:0;}}
+</style></head><body>
+${cards}
+<script>window.onload=function(){window.print();};<\/script>
+</body></html>`);
+  win.document.close();
+}
+
+// ── Attendance Matrix CSV export ──────────────────────────────────────────────
+function exportAttendanceCSV(){
+  const season = getSeasonById(currentSeasonId);
+  if(!season) return showActionBanner("No active season. Open a season first.", "error");
+  const roster = (season.roster||[]).slice().sort((a,b)=>seasonRosterPlayerName(a).localeCompare(seasonRosterPlayerName(b)));
+  const events = (season.events||[])
+    .filter(ev=>ev&&ev.date)
+    .slice()
+    .sort((a,b)=>new Date(a.date+(a.startTime?"T"+a.startTime:"")).getTime()-new Date(b.date+(b.startTime?"T"+b.startTime:"")).getTime());
+  if(!events.length) return showActionBanner("No events in this season.", "error");
+
+  const evHeaders = events.map(ev=>`${ev.type||"Event"} ${ev.date||""}${ev.startTime?" "+ev.startTime:""}`);
+  const header = ["Player","Position",...evHeaders,"Yes","Maybe","No","No Response"];
+  const rows = [header];
+  for(const player of roster){
+    const pid = player.id;
+    let yes=0, maybe=0, no=0, none=0;
+    const cells = events.map(ev=>{
+      const val = getEventAvailabilityValue(ev, pid);
+      if(val==="yes") yes++;
+      else if(val==="maybe") maybe++;
+      else if(val==="no") no++;
+      else none++;
+      return val==="yes"?"Yes":val==="maybe"?"Maybe":val==="no"?"No":"";
+    });
+    rows.push([seasonRosterPlayerName(player),player.position||"",...cells,yes,maybe,no,none]);
+  }
+  // Totals footer
+  const totals = ["TOTAL","",...events.map(ev=>{
+    const c = getSeasonEventAvailabilityCounts(season, ev);
+    return `Y:${c.yes} M:${c.maybe} N:${c.no}`;
+  }),"","","",""];
+  rows.push(totals);
+
+  const text = rows.map(row=>row.map(csvEscape).join(",")).join("\n");
+  downloadText(`${safeName(season.name||"Season")}_Attendance.csv`, text);
+  showActionBanner("Attendance CSV downloaded ✓", "synced");
+}
+
 function renderExport(){
   showSkeleton(2, "Export");
   const t = getTryout();
@@ -20366,6 +20573,44 @@ function renderExport(){
             </div>
           </div>
         </div>
+
+        <div style="border:1px solid #bbf7d0;border-radius:14px;padding:16px;background:linear-gradient(135deg,#f0fdf4 0%,#fff 100%);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:900;font-size:17px;">📊 Excel Spreadsheet (.xlsx)</div>
+              <div class="muted">Formatted workbook — Summary tab ranked by overall + one tab per player with all eval scores. Opens natively in Excel and Google Sheets.</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="ok" style="width:auto;padding:12px 22px;font-weight:800;background:#16a34a;border-color:#15803d;" onclick="runExportWithPreflight('association_csv','Full Results Excel',()=>exportFullResultsXLSX('S'))">Excel (${escapeHTML(fieldRoleLabel)})</button>
+              ${hasSpecialRole ? `<button class="ok" style="width:auto;padding:12px 22px;font-weight:800;background:#16a34a;border-color:#15803d;" onclick="runExportWithPreflight('association_csv','Full Results Excel',()=>exportFullResultsXLSX('G'))">Excel (${escapeHTML(specialRole)})</button>` : ``}
+            </div>
+          </div>
+        </div>
+
+        <div style="border:1px solid #bfdbfe;border-radius:14px;padding:16px;background:linear-gradient(135deg,#eff6ff 0%,#fff 100%);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:900;font-size:17px;">🪪 Player Report Cards PDF</div>
+              <div class="muted">One page per player — overall score, per-category bar charts with ranks, strengths & areas to improve. Great for parent feedback or coaching debrief.</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="ok" style="width:auto;padding:12px 22px;font-weight:800;" onclick="runExportWithPreflight('association_pdf','Player Report Cards PDF',()=>exportPlayerReportCardsPDF('S'))">Report Cards (${escapeHTML(fieldRoleLabel)})</button>
+              ${hasSpecialRole ? `<button class="ok" style="width:auto;padding:12px 22px;font-weight:800;" onclick="runExportWithPreflight('association_pdf','Player Report Cards PDF',()=>exportPlayerReportCardsPDF('G'))">Report Cards (${escapeHTML(specialRole)})</button>` : ``}
+            </div>
+          </div>
+        </div>
+
+        ${currentSeasonId ? `
+        <div style="border:1px solid #fed7aa;border-radius:14px;padding:16px;background:linear-gradient(135deg,#fff7ed 0%,#fff 100%);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:900;font-size:17px;">📅 Attendance Matrix CSV</div>
+              <div class="muted">Player × event grid with Yes / Maybe / No / blank for every event. Per-player totals and per-event counts in the footer row.</div>
+            </div>
+            <button class="ok" style="width:auto;padding:12px 22px;font-weight:800;background:#ea580c;border-color:#c2410c;" onclick="exportAttendanceCSV()">Export Attendance</button>
+          </div>
+        </div>
+        ` : ``}
 
       </div>
     </div>
