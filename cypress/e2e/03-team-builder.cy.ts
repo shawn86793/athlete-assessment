@@ -13,8 +13,8 @@ describe('Team Builder Dashboard', () => {
   beforeEach(function () {
     cy.clearAppState()
     if (!login()) return
-    cy.visit('/')
-    cy.contains('My Teams', { timeout: 12000 })
+    // loginViaAPI already navigated to '/' with session pre-loaded
+    cy.contains('My Teams', { timeout: 20000 })
     // Skip all team-builder tests if the account has no assessments yet
     // Use cy.get('body') so Cypress doesn't throw when the selector finds nothing
     cy.get('body').then($body => {

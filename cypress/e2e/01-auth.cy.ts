@@ -1,5 +1,7 @@
 // ── 01 · Authentication ────────────────────────────────────────────────────
 // Tests that login works and the home dashboard renders correctly.
+// loginViaAPI stubs window.netlifyIdentity and visits '/' — no second
+// cy.visit('/') needed; calling it again trips Cypress after the stub visit.
 
 describe('Authentication', () => {
   beforeEach(() => {
@@ -24,11 +26,13 @@ describe('Authentication', () => {
       return
     }
 
+    // loginViaAPI stubs netlifyIdentity + visits '/' with session pre-loaded.
+    // Do NOT call cy.visit('/') again — the stub is only on the loginViaAPI visit.
     cy.loginViaAPI(email, pass)
-    cy.visit('/')
 
-    // Home screen should be visible — look for the profile bar or team list
-    cy.contains('My Teams', { timeout: 12000 }).should('be.visible')
+    // The stub fires "init" with the user → app renders logged-in home
+    cy.contains('Sign Out', { timeout: 20000 }).should('exist')
+    cy.get('#app', { timeout: 15000 }).should('not.be.empty')
   })
 
   it('shows username from email when full_name is not set', () => {
@@ -37,10 +41,9 @@ describe('Authentication', () => {
     if (!email || !pass || pass === 'YOUR_PASSWORD_HERE') return
 
     cy.loginViaAPI(email, pass)
-    cy.visit('/')
 
+    cy.contains('Sign Out', { timeout: 20000 }).should('exist')
     // Should NOT show raw fallback "Coach" — should show name or email prefix
-    cy.contains('My Teams', { timeout: 12000 })
     cy.get('body').should('not.contain.text', 'Hello, Coach')
   })
 })

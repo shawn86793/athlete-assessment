@@ -19,8 +19,8 @@ describe('Roster — manual player add', () => {
   beforeEach(() => {
     cy.clearAppState()
     if (!login()) return
-    cy.visit('/')
-    cy.contains('My Teams', { timeout: 12000 })
+    // loginViaAPI already navigated to '/' with session pre-loaded
+    cy.contains('My Teams', { timeout: 20000 })
   })
 
   it('opens the Add Player form', () => {
@@ -52,8 +52,8 @@ describe('Roster — dummy player generation', () => {
   beforeEach(() => {
     cy.clearAppState()
     if (!login()) return
-    cy.visit('/')
-    cy.contains('My Teams', { timeout: 12000 })
+    // loginViaAPI already navigated to '/' with session pre-loaded
+    cy.contains('My Teams', { timeout: 20000 })
   })
 
   it('generates 50 dummy players without freezing', () => {

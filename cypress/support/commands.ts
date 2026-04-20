@@ -1,16 +1,10 @@
 // ── Custom Cypress commands ────────────────────────────────────────────────
 //
 // cy.loginViaAPI(email, password)
-//   Authenticates directly against Netlify Identity (GoTrue) without touching
-//   the UI widget. Uses onBeforeLoad to:
-//   1. Pre-load gotrue-session into localStorage (before any JS runs)
-//   2. Stub window.netlifyIdentity so the REAL widget never loads
-//
-//   The app code (loadIdentityScript) checks:
-//     if(window.netlifyIdentity) return Promise.resolve(window.netlifyIdentity)
-//   so our stub prevents the real widget from loading. The stub fires the
-//   "init" event with the mock user, which is all the app needs to render
-//   the logged-in state — no token refresh network call, no race condition.
+//   Authenticates against Netlify Identity and visits '/' with the session
+//   already in localStorage. Also stubs window.netlifyIdentity so the CDN
+//   widget never loads — the stub fires the "init" event the moment the app
+//   registers its on("init", ...) handler, guaranteeing there is no race.
 //
 // cy.clearAppState()
 //   Wipes localStorage so each test starts from a clean slate.
@@ -25,17 +19,12 @@ declare global {
 }
 
 Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
-  // Step 1: obtain a GoTrue token via the password grant.
-  // cy.request works without an active page — it uses baseUrl.
+  // Step 1: obtain a GoTrue token — cy.request uses baseUrl, no page needed
   cy.request({
     method: 'POST',
     url: '/.netlify/identity/token',
     form: true,
-    body: {
-      grant_type: 'password',
-      username: email,
-      password: password,
-    },
+    body: { grant_type: 'password', username: email, password: password },
     failOnStatusCode: false,
   }).then((tokenRes) => {
     if (tokenRes.status !== 200) {
@@ -47,7 +36,7 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
 
     const token = tokenRes.body
 
-    // Step 2: fetch the full user object
+    // Step 2: fetch full user object so the session has user.id + user.email
     cy.request({
       method: 'GET',
       url: '/.netlify/identity/user',
@@ -69,21 +58,23 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
         user,
       }
 
-      // Step 3: Visit with onBeforeLoad to:
-      //   a) Pre-inject gotrue-session into localStorage before any JS runs
-      //   b) Stub window.netlifyIdentity so the real widget never loads
+      // Step 3: visit with onBeforeLoad to inject auth BEFORE any JS runs
       //
-      // The app's loadIdentityScript() returns early if window.netlifyIdentity
-      // already exists, so our stub is used in place of the CDN widget.
-      // The stub fires the "init" event with the user object, which is all
-      // the app needs to set authState.user and render the logged-in UI.
+      // The stub uses a LAZY-FIRE strategy:
+      //   • The app calls  netlifyIdentity.init()  first
+      //   • then calls     netlifyIdentity.on("init", handler)
+      //   • Our on() fires the handler immediately (via setTimeout 0) the
+      //     moment it is registered — no race, no fixed-delay guess needed.
+      //
+      // loadIdentityScript() in the app does:
+      //   if(window.netlifyIdentity) return Promise.resolve(window.netlifyIdentity)
+      // so the real CDN widget is never loaded.
       cy.visit('/', {
         onBeforeLoad(win: Cypress.AUTWindow) {
-          // Pre-load session so gotrue-session is readable on first init
+          // Pre-load session so it's readable on the very first localStorage.getItem
           win.localStorage.setItem('gotrue-session', JSON.stringify(session))
 
-          // Build a minimal netlifyIdentity stub
-          const handlers: Record<string, Array<(arg?: unknown) => void>> = {}
+          // Build mock user that matches the app's expected shape
           const mockUser = {
             ...user,
             token: {
@@ -93,24 +84,43 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
             },
           }
 
+          // Track which events have already been triggered so late on() calls
+          // still get their callback fired.
+          const handlers: Record<string, Array<(arg?: unknown) => void>> = {}
+          const triggered: Record<string, unknown> = {}
+
           ;(win as any).netlifyIdentity = {
+            /**
+             * Register a handler. If the event has already been triggered
+             * (e.g. "init" fired before the app registered its listener),
+             * replay it immediately.
+             */
             on(event: string, cb: (arg?: unknown) => void) {
               if (!handlers[event]) handlers[event] = []
               handlers[event].push(cb)
+              // Lazy-fire: if this event was already triggered, replay now
+              if (Object.prototype.hasOwnProperty.call(triggered, event)) {
+                setTimeout(() => cb(triggered[event]), 0)
+              }
             },
-            /** Called by initIdentityWidget() — fire "init" with the user */
+
+            /**
+             * Called by initIdentityWidget() to start the widget.
+             * We fire "init" immediately so it is available before or after
+             * the app registers its on("init") handler.
+             */
             init() {
-              // Defer so the app's on("init", ...) handler is registered first
-              setTimeout(() => {
-                ;(handlers['init'] || []).forEach(cb => cb(mockUser))
-              }, 50)
+              // Mark the event as triggered with the mock user
+              triggered['init'] = mockUser
+              // Fire any handlers already registered
+              ;(handlers['init'] || []).forEach(cb => cb(mockUser))
             },
-            open()    { /* no-op */ },
-            close()   { /* no-op */ },
-            logout()  {
-              setTimeout(() => {
-                ;(handlers['logout'] || []).forEach(cb => cb())
-              }, 0)
+
+            open()   { /* no-op */ },
+            close()  { /* no-op */ },
+            logout() {
+              triggered['logout'] = undefined
+              ;(handlers['logout'] || []).forEach(cb => cb())
             },
             currentUser: () => mockUser,
             refresh:     () => Promise.resolve(token.access_token),
