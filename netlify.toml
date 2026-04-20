@@ -8,7 +8,11 @@ NPM_FLAGS = "--include=dev"
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
-    X-Frame-Options = "DENY"
+    # X-Frame-Options: DENY was replaced with the CSP frame-ancestors directive
+    # below — same clickjacking protection, but X-Frame-Options: DENY was also
+    # blocking Cypress (which loads the AUT in its own iframe test runner).
+    # Browsers honour frame-ancestors over X-Frame-Options when both are present.
+    Content-Security-Policy = "frame-ancestors 'self'"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 

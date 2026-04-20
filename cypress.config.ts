@@ -13,6 +13,12 @@ export default defineConfig({
     screenshotOnRunFailure: true,
     defaultCommandTimeout: 10000,
 
+    // The production site sends X-Frame-Options: DENY which blocks Cypress
+    // from loading the app inside its own iframe-based test runner.
+    // chromeWebSecurity: false tells Chrome to ignore framing restrictions
+    // during test runs only — has no effect on production behaviour.
+    chromeWebSecurity: false,
+
     env: {
       // Set real values in cypress.env.json (gitignored) — never commit passwords
       // {
