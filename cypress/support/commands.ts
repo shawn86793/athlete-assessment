@@ -1,10 +1,17 @@
 // ── Custom Cypress commands ────────────────────────────────────────────────
 //
 // cy.loginViaAPI(email, password)
-//   Authenticates against Netlify Identity and visits '/' with the session
-//   already in localStorage. Also stubs window.netlifyIdentity so the CDN
-//   widget never loads — the stub fires the "init" event the moment the app
-//   registers its on("init", ...) handler, guaranteeing there is no race.
+//   Full login strategy using three mechanisms together:
+//
+//   1. localStorage  — pre-load gotrue-session before ANY page JS runs
+//   2. netlifyIdentity stub — prevent CDN widget from loading; fire "init"
+//      with the mock user via a lazy-fire on() implementation
+//   3. requestIdleCallback override — the app defers scheduleIdentityInit()
+//      via requestIdleCallback(start, {timeout:2500}). In Cypress the browser
+//      is never "idle" so the callback may not fire within the test window.
+//      We replace requestIdleCallback with a synchronous executor so start()
+//      runs immediately during page script execution, guaranteeing that
+//      initIdentityWidget() is called and our stub's init() fires.
 //
 // cy.clearAppState()
 //   Wipes localStorage so each test starts from a clean slate.
@@ -19,7 +26,6 @@ declare global {
 }
 
 Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
-  // Step 1: obtain a GoTrue token — cy.request uses baseUrl, no page needed
   cy.request({
     method: 'POST',
     url: '/.netlify/identity/token',
@@ -36,7 +42,6 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
 
     const token = tokenRes.body
 
-    // Step 2: fetch full user object so the session has user.id + user.email
     cy.request({
       method: 'GET',
       url: '/.netlify/identity/user',
@@ -58,23 +63,21 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
         user,
       }
 
-      // Step 3: visit with onBeforeLoad to inject auth BEFORE any JS runs
-      //
-      // The stub uses a LAZY-FIRE strategy:
-      //   • The app calls  netlifyIdentity.init()  first
-      //   • then calls     netlifyIdentity.on("init", handler)
-      //   • Our on() fires the handler immediately (via setTimeout 0) the
-      //     moment it is registered — no race, no fixed-delay guess needed.
-      //
-      // loadIdentityScript() in the app does:
-      //   if(window.netlifyIdentity) return Promise.resolve(window.netlifyIdentity)
-      // so the real CDN widget is never loaded.
       cy.visit('/', {
         onBeforeLoad(win: Cypress.AUTWindow) {
-          // Pre-load session so it's readable on the very first localStorage.getItem
+          const w = win as any
+
+          // ── 1. Pre-load session ──────────────────────────────────────────
           win.localStorage.setItem('gotrue-session', JSON.stringify(session))
 
-          // Build mock user that matches the app's expected shape
+          // ── 2. netlifyIdentity stub ──────────────────────────────────────
+          // The app's loadIdentityScript() returns early when
+          // window.netlifyIdentity already exists, so the CDN widget
+          // never loads. Our stub uses lazy-fire: init() records the
+          // event; on() fires immediately if the event already fired.
+          const handlers: Record<string, Array<(arg?: unknown) => void>> = {}
+          const triggered: Record<string, unknown> = {}
+
           const mockUser = {
             ...user,
             token: {
@@ -84,38 +87,20 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
             },
           }
 
-          // Track which events have already been triggered so late on() calls
-          // still get their callback fired.
-          const handlers: Record<string, Array<(arg?: unknown) => void>> = {}
-          const triggered: Record<string, unknown> = {}
-
-          ;(win as any).netlifyIdentity = {
-            /**
-             * Register a handler. If the event has already been triggered
-             * (e.g. "init" fired before the app registered its listener),
-             * replay it immediately.
-             */
+          w.netlifyIdentity = {
             on(event: string, cb: (arg?: unknown) => void) {
               if (!handlers[event]) handlers[event] = []
               handlers[event].push(cb)
-              // Lazy-fire: if this event was already triggered, replay now
+              // Lazy-fire: replay if event already triggered
               if (Object.prototype.hasOwnProperty.call(triggered, event)) {
                 setTimeout(() => cb(triggered[event]), 0)
               }
             },
-
-            /**
-             * Called by initIdentityWidget() to start the widget.
-             * We fire "init" immediately so it is available before or after
-             * the app registers its on("init") handler.
-             */
             init() {
-              // Mark the event as triggered with the mock user
+              // Record as triggered and call any already-registered handlers
               triggered['init'] = mockUser
-              // Fire any handlers already registered
               ;(handlers['init'] || []).forEach(cb => cb(mockUser))
             },
-
             open()   { /* no-op */ },
             close()  { /* no-op */ },
             logout() {
@@ -124,6 +109,21 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
             },
             currentUser: () => mockUser,
             refresh:     () => Promise.resolve(token.access_token),
+          }
+
+          // ── 3. requestIdleCallback override ─────────────────────────────
+          // The app calls: requestIdleCallback(start, {timeout:2500})
+          // In an active Cypress browser the idle callback may never fire,
+          // so initIdentityWidget() — and our stub's init() — would never
+          // be called. Replacing requestIdleCallback with a synchronous
+          // executor forces start() to run during the page's own script
+          // execution, guaranteeing initIdentityWidget() is called.
+          w.requestIdleCallback = (
+            cb: IdleRequestCallback,
+            _opts?: IdleRequestOptions
+          ) => {
+            cb({ didTimeout: false, timeRemaining: () => 50 } as IdleDeadline)
+            return 0
           }
         },
       })
