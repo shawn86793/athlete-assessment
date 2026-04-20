@@ -3,6 +3,8 @@
 // roster/assessment view (beside the Team Builder tile), and that clicking
 // it opens the CSV import modal so coaches can bulk-import players without
 // first opening the Team Builder.
+// loginViaAPI now injects the session via onBeforeLoad so we land on '/'
+// already signed in — no second cy.visit('/') needed.
 // Requires COACH_EMAIL + COACH_PASSWORD in cypress.env.json.
 
 const login = () => {
@@ -11,17 +13,6 @@ const login = () => {
   if (!email || !pass || pass === 'YOUR_PASSWORD_HERE') return false
   cy.loginViaAPI(email, pass)
   return true
-}
-
-// Helper: navigate into any available assessment/sort-out
-const openFirstAssessment = () => {
-  return cy.get('body').then($body => {
-    // The home page shows assessment tiles — look for any clickable one
-    const tile = $body.find('[onclick*="openTryout"], .teamHubTile, [onclick*="go(\'score"]').first()
-    if (!tile.length) return cy.wrap(false)
-    cy.wrap(tile).click()
-    return cy.wrap(true)
-  })
 }
 
 // ── Tile visibility ────────────────────────────────────────────────────────
@@ -33,7 +24,7 @@ describe('Import Player List — tile is visible beside Team Builder', () => {
       return
     }
 
-    cy.visit('/')
+    // loginViaAPI already navigated to '/' with session pre-loaded
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
     cy.get('body').then($body => {
@@ -55,7 +46,6 @@ describe('Import Player List — tile is visible beside Team Builder', () => {
   it('Import Player List tile appears even when the roster already has players', () => {
     if (!login()) return
 
-    cy.visit('/')
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
     cy.get('body').then($body => {
@@ -82,7 +72,6 @@ describe('Import Player List — modal opens and validates CSV', () => {
       return
     }
 
-    cy.visit('/')
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
     cy.get('body').then($body => {
@@ -111,7 +100,6 @@ describe('Import Player List — modal opens and validates CSV', () => {
   it('import modal can be closed with the Cancel button', () => {
     if (!login()) return
 
-    cy.visit('/')
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
     cy.get('body').then($body => {
@@ -125,7 +113,6 @@ describe('Import Player List — modal opens and validates CSV', () => {
       cy.get('#importPlayerListBtn', { timeout: 12000 }).click()
       cy.get('#csvImportModal', { timeout: 8000 }).should('be.visible')
 
-      // Cancel closes the modal
       cy.get('#csvImportModal').contains('Cancel').click()
       cy.get('#csvImportModal').should('not.exist')
     })
@@ -141,7 +128,6 @@ describe('Import Player List — accessible without opening Team Builder', () =>
       return
     }
 
-    cy.visit('/')
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
     cy.get('body').then($body => {
@@ -153,7 +139,6 @@ describe('Import Player List — accessible without opening Team Builder', () =>
       cy.get('[onclick*="openTryout"], .teamHubTile').first().click()
 
       // The import button must be on the page WITHOUT needing to open any overlay
-      // Confirm no Team Builder overlay is open
       cy.get('#freshTBOverlay').should('not.exist')
       cy.get('#teamBuilderDashboardOverlay').should('not.exist')
 

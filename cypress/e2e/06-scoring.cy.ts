@@ -41,7 +41,7 @@ describe('Scoring — dark mode toggle persists', () => {
   it('dark mode class is applied and survives a reload', () => {
     if (!login()) return
 
-    cy.visit('/')
+    // loginViaAPI already navigated to '/' with session pre-loaded
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
     // Toggle dark mode — button says "☾ Dark" in light mode

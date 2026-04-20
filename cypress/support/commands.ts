@@ -2,8 +2,9 @@
 //
 // cy.loginViaAPI(email, password)
 //   Authenticates directly against Netlify Identity (GoTrue) without touching
-//   the UI widget. Injects the session into localStorage so the app boots
-//   already signed in on the next cy.visit().
+//   the UI widget. Injects the session into localStorage via onBeforeLoad so
+//   the Netlify Identity Widget reads it on its very first init — before any
+//   token-refresh logic can clear it.
 //
 // cy.clearAppState()
 //   Wipes localStorage so each test starts from a clean slate.
@@ -18,10 +19,8 @@ declare global {
 }
 
 Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
-  // Step 1: visit the app so Cypress has a domain to write localStorage against
-  cy.visit('/')
-
-  // Step 2: obtain a GoTrue token via the password grant
+  // Step 1: obtain a GoTrue token via the password grant.
+  // cy.request works without an active page — it uses baseUrl.
   cy.request({
     method: 'POST',
     url: '/.netlify/identity/token',
@@ -42,9 +41,9 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
 
     const token = tokenRes.body
 
-    // Step 3: fetch the full user object so gotrue-session is complete.
-    // netlify-identity-widget validates that the session has a `user` field
-    // with an `id` and `email`; if it's missing the widget silently logs out.
+    // Step 2: fetch the full user object — the widget validates that the
+    // stored session has a user.id + user.email; without them it silently
+    // clears the session on init.
     cy.request({
       method: 'GET',
       url: '/.netlify/identity/user',
@@ -52,7 +51,6 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
       failOnStatusCode: false,
     }).then((userRes) => {
       const user = userRes.status === 200 ? userRes.body : {
-        // Minimal fallback user object so the widget accepts the session
         id: 'cypress-user',
         email,
         user_metadata: {},
@@ -60,19 +58,26 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
         role:          '',
       }
 
-      // Step 4: build a session object that matches the shape gotrue-js
-      // writes to localStorage. The critical fields are:
-      //   • expires_at  — epoch seconds; without it the widget treats the
-      //                   session as expired and clears it on next init
-      //   • user        — full user object with id + email
+      // Step 3: build a session object matching the shape gotrue-js writes.
+      // expires_at must be a future epoch-seconds value so the widget treats
+      // the token as valid (not expired) on its first init and does NOT attempt
+      // a refresh call that could race with the test.
       const session = {
         ...token,
         expires_at: Math.round(Date.now() / 1000) + (token.expires_in || 3600),
         user,
       }
 
-      cy.window().then((win) => {
-        win.localStorage.setItem('gotrue-session', JSON.stringify(session))
+      // Step 4: visit the app with onBeforeLoad to inject the session into
+      // localStorage BEFORE any page JavaScript runs. This ensures the Netlify
+      // Identity Widget reads a valid, non-expired session on first init and
+      // fires the "init" event with the user object — avoiding the race
+      // condition where the widget initialized with an empty session before
+      // our setItem() call.
+      cy.visit('/', {
+        onBeforeLoad(win) {
+          win.localStorage.setItem('gotrue-session', JSON.stringify(session))
+        },
       })
     })
   })

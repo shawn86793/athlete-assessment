@@ -1,6 +1,8 @@
 // ── 11 · Resilience & Offline ──────────────────────────────────────────────
 // Tests that the app degrades gracefully when network is unavailable and that
 // scores entered before a hard reload survive the page restore.
+// loginViaAPI now injects the session via onBeforeLoad so we land on '/'
+// already signed in — no second cy.visit('/') needed.
 // Requires COACH_EMAIL + COACH_PASSWORD in cypress.env.json.
 
 const login = () => {
@@ -18,7 +20,7 @@ describe('Offline banner', () => {
       return
     }
 
-    cy.visit('/')
+    // loginViaAPI already navigated to '/' with session pre-loaded
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
     // Block all Netlify Blobs / cloud-sync network requests
@@ -33,7 +35,6 @@ describe('Offline banner', () => {
     cy.wait(3000)
 
     // The offline / error banner should appear somewhere on screen.
-    // The app shows an "offline" banner or a synced/error action banner.
     cy.get('body').then($body => {
       const hasOfflineBanner = $body.find('#offlineBanner, .offlineBanner, [id*="offline"]').length > 0
       const hasErrorText     = $body.text().toLowerCase().includes('offline') ||
@@ -50,12 +51,10 @@ describe('Score persistence across refresh', () => {
   it('localStorage retains gotrue-session after a hard reload', () => {
     if (!login()) return
 
-    cy.visit('/')
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
-    // Capture a key localStorage value that proves state survived
+    // Write a sentinel value simulating an in-progress score
     cy.window().then(win => {
-      // Write a sentinel value simulating an in-progress score
       win.localStorage.setItem('aas_resilience_test', 'sentinel-value')
     })
 
@@ -76,7 +75,6 @@ describe('Score persistence across refresh', () => {
   it('app does not navigate to a 404 or error page on reload', () => {
     if (!login()) return
 
-    cy.visit('/')
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
     cy.reload()
 
