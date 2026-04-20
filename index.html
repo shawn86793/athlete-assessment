@@ -16992,11 +16992,29 @@ function renderRosterTiles(){
   ` : "";
   const teamBuilderTile = teamBuilderTileHTML(t, canManage);
 
+  const importPlayerListTile = canManage ? `
+    <div id="importPlayerListTile" class="playerTile libraryTile" onclick="openImportCSVModal()">
+      <div class="ptTop">
+        <div>
+          <div class="ptName">Import Player List</div>
+          <div class="ptSub">Upload a CSV file to add players</div>
+        </div>
+        <div class="ptPill">CSV</div>
+      </div>
+      <div class="ptBottom">
+        <div class="ptPill">Bulk import</div>
+      </div>
+      <div class="ptCompareRow">
+        <button id="importPlayerListBtn" class="compareTile" onclick="event.stopPropagation();openImportCSVModal()">📂 Import CSV</button>
+      </div>
+    </div>
+  ` : "";
+
   if(!roster.length){
     const isFiltered = rosterScoringFilter !== "all" || document.getElementById("rosterSearch")?.value?.trim();
     host.innerHTML = `
       ${assessorIdentityBannerHTML()}
-      <div class="tileGrid">${libraryTile}${dummyRosterTile}${teamBuilderTile}</div>
+      <div class="tileGrid">${libraryTile}${dummyRosterTile}${importPlayerListTile}${teamBuilderTile}</div>
       ${isFiltered ? `
         <div class="emptyStateCard" style="margin-top:10px;">
           <span class="emptyStateIcon">🔍</span>
@@ -17033,6 +17051,7 @@ function renderRosterTiles(){
     <div class="tileGrid">
       ${libraryTile}
       ${dummyRosterTile}
+      ${importPlayerListTile}
       ${teamBuilderTile}
       ${roster.map(p=>{
         const playerEvals = evalsForPlayer(p.id);
