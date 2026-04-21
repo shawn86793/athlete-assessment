@@ -76,24 +76,31 @@ describe('Export page — buttons are present', () => {
 
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
 
+    // Navigate directly into an assessment first, then go to Export.
+    // We look for the "Open" button inside an assessment card — that's the
+    // deterministic path rather than hunting for "Export" text anywhere on the page.
     cy.get('body').then($body => {
-      if (!$body.text().includes('Export')) {
-        cy.log('⚠️  No Export tab visible — open an assessment first')
+      // Assessment "Open" buttons appear once cloud sync loads real data.
+      // We look for the onclick="openTryout(...)" handler on any button labeled "Open".
+      const openBtn = $body.find('[onclick*="openTryout"]').first()
+      if (!openBtn.length) {
+        cy.log('⚠️  No assessments found — skipping export buttons test')
         return
       }
-      cy.contains('Export').first().click()
+
+      cy.wrap(openBtn).click()
+
+      // Once inside the assessment the top-tab nav appears with an "Export" button.
+      cy.get('[onclick*="go(\'export\')"]', { timeout: 10000 }).should('exist').click()
+
+      // Export page should render Full Results PDF and CSV cards.
       cy.get('body', { timeout: 8000 }).then($ex => {
         const hasPDF   = $ex.text().includes('Full Results PDF')
-        const hasCSV   = $ex.text().includes('Full Results CSV') || $ex.text().includes('CSV')
+        const hasCSV   = $ex.text().includes('Full Results CSV')
         const hasExcel = $ex.text().includes('Excel') || $ex.text().includes('xlsx')
-        cy.log(`Export buttons — PDF:${hasPDF} CSV:${hasCSV} Excel:${hasExcel}`)
-        // Graceful skip: export buttons only appear when an assessment is open.
-        // If none are found the click landed outside an assessment context — log and accept.
-        if (!hasPDF && !hasCSV && !hasExcel) {
-          cy.log('⚠️  No export buttons found — assessment may not be open. Skipping assertion.')
-          return
-        }
-        expect(hasPDF || hasCSV || hasExcel, 'At least one export button should be present').to.be.true
+        cy.log(`Export page — PDF:${hasPDF} CSV:${hasCSV} Excel:${hasExcel}`)
+        expect(hasPDF || hasCSV || hasExcel,
+          'Export page should show at least one export option').to.be.true
       })
     })
   })
