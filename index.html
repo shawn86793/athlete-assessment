@@ -16400,14 +16400,14 @@ function openImportCSVModal(){
   modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:3000;padding:20px;box-sizing:border-box;";
   modal.innerHTML = `
     <div style="background:#fff;border-radius:16px;padding:28px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-      <h3 style="margin:0 0 8px;color:#0a1e3d;font-size:17px;">📂 Import Players from CSV</h3>
-      <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">CSV must include a header row. Recognized columns (case-insensitive):<br>
+      <h3 style="margin:0 0 8px;color:#0a1e3d;font-size:17px;">📂 Import Players from CSV or Excel</h3>
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">Accepts <strong>.csv</strong> or <strong>.xlsx</strong> files. Must include a header row with player names. Recognized columns (case-insensitive, typos OK):<br>
         <code style="background:#f1f5f9;padding:2px 4px;border-radius:4px;font-size:11px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild</code><br>
         Unknown columns are ignored.</div>
       <label style="display:block;border:2px dashed #bfdbfe;border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#0057b8;font-size:14px;margin-bottom:14px;font-weight:700;background:#f0f9ff;transition:border-color 0.15s,background 0.15s;" id="csvFilePickerLabel">
-        📁 Tap to select or drag &amp; drop a CSV file here
-        <div style="font-size:11px;font-weight:400;color:#64748b;margin-top:4px;">Works on phone or desktop</div>
-        <input type="file" accept=".csv,text/csv" onchange="handleCSVImport(event)" style="display:none;">
+        📁 Tap to select or drag &amp; drop a CSV or Excel file here
+        <div style="font-size:11px;font-weight:400;color:#64748b;margin-top:4px;">Works on phone or desktop · .csv and .xlsx supported</div>
+        <input type="file" accept=".csv,.xlsx,text/csv" onchange="handleCSVImport(event)" style="display:none;">
       </label>
       <div id="csvImportPreview" style="display:none;max-height:160px;overflow-y:auto;font-size:12px;color:#334155;margin-bottom:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
@@ -16450,92 +16450,205 @@ function openImportCSVModal(){
 
 window._csvPendingPlayers = [];
 
+// ── Import preview helpers ────────────────────────────────────────────────
+
+function _showImportPreview(players){
+  window._csvPendingPlayers = players;
+  const preview = document.getElementById("csvImportPreview");
+  const btn     = document.getElementById("csvImportConfirmBtn");
+  if(preview){
+    preview.style.display = "block";
+    if(!players.length){
+      preview.innerHTML = '<span style="color:#dc2626;">⚠️ No valid rows found. Make sure your file has "First name" and "Last name" columns (or similar).</span>';
+    } else {
+      const sampleRows = players.slice(0,5).map(p =>
+        `<div style="padding:4px 0;border-bottom:1px solid #e2e8f0;color:#0f172a;">#${escapeHTML(String(p.jersey||"?"))} <strong>${escapeHTML(playerDisplayName(p))}</strong> · ${escapeHTML(p.pos||"—")}</div>`
+      ).join("");
+      preview.innerHTML = `<div style="color:#16a34a;font-weight:700;margin-bottom:6px;">✓ ${players.length} player${players.length!==1?"s":""} ready to import</div>${sampleRows}${players.length>5?`<div style="color:#64748b;margin-top:4px;">…and ${players.length-5} more</div>`:""}`;
+    }
+  }
+  if(btn){
+    btn.disabled = !players.length;
+    btn.style.background = players.length ? "#16a34a" : "#94a3b8";
+    btn.style.cursor     = players.length ? "pointer"  : "not-allowed";
+  }
+}
+
+function _showImportError(msg){
+  window._csvPendingPlayers = [];
+  const preview = document.getElementById("csvImportPreview");
+  const btn     = document.getElementById("csvImportConfirmBtn");
+  if(preview){ preview.style.display="block"; preview.innerHTML=`<span style="color:#dc2626;">⚠️ ${escapeHTML(msg)}</span>`; }
+  if(btn){ btn.disabled=true; btn.style.background="#94a3b8"; btn.style.cursor="not-allowed"; }
+}
+
+function _loadXLSX(cb){
+  if(window.XLSX){ cb(); return; }
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+  s.onload  = cb;
+  s.onerror = () => _showImportError("Could not load Excel parser. Check your internet connection and try again.");
+  document.head.appendChild(s);
+}
+
+// ── Main import handler ───────────────────────────────────────────────────
+
 function handleCSVImport(ev){
   const file = ev.target?.files?.[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const text = e.target?.result;
-    if(typeof text !== "string") return;
-    const players = parseCSVToPlayers(text);
-    window._csvPendingPlayers = players;
-    const preview = document.getElementById("csvImportPreview");
-    const btn = document.getElementById("csvImportConfirmBtn");
-    if(preview){
-      preview.style.display = "block";
-      if(!players.length){
-        preview.innerHTML = '<span style="color:#dc2626;">⚠️ No valid rows found. Check your CSV format and make sure column headers match.</span>';
-      } else {
-        const sampleRows = players.slice(0,5).map(p =>
-          `<div style="padding:4px 0;border-bottom:1px solid #e2e8f0;color:#0f172a;">#${escapeHTML(String(p.jersey||"?"))} <strong>${escapeHTML(playerDisplayName(p))}</strong> · ${escapeHTML(p.pos||"—")}</div>`
-        ).join("");
-        preview.innerHTML = `<div style="color:#16a34a;font-weight:700;margin-bottom:6px;">✓ ${players.length} player${players.length!==1?"s":""} ready to import</div>${sampleRows}${players.length>5?`<div style="color:#64748b;margin-top:4px;">…and ${players.length-5} more</div>`:""}`;
-      }
-    }
-    if(btn){
-      btn.disabled = !players.length;
-      btn.style.background  = players.length ? "#16a34a" : "#94a3b8";
-      btn.style.cursor      = players.length ? "pointer"  : "not-allowed";
-    }
-  };
-  reader.readAsText(file);
+  const name   = (file.name || "").toLowerCase();
+  const isXLSX = name.endsWith(".xlsx") || name.endsWith(".xls");
+
+  if(isXLSX){
+    _loadXLSX(() => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try{
+          const data = new Uint8Array(e.target.result);
+          const wb   = XLSX.read(data, { type: "array" });
+          const ws   = wb.Sheets[wb.SheetNames[0]];
+          // header:1 → array of arrays; defval:'' so empty cells are ""
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+          _showImportPreview(parseRowsToPlayers(rows));
+        } catch(err){
+          _showImportError("Could not read Excel file: " + (err.message || err));
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = e.target?.result;
+      if(typeof text !== "string") return;
+      _showImportPreview(parseCSVToPlayers(text));
+    };
+    reader.readAsText(file);
+  }
 }
+
+// ── Core parsing: accepts array-of-arrays (from CSV or SheetJS) ───────────
+
+function parseRowsToPlayers(rows){
+  if(!rows || rows.length < 2) return [];
+
+  // Find the first row that looks like a header (≥ 2 non-empty strings)
+  let headerRowIdx = 0;
+  for(let i = 0; i < Math.min(5, rows.length); i++){
+    if(rows[i].filter(c => String(c).trim()).length >= 2){ headerRowIdx = i; break; }
+  }
+
+  // Normalise headers: lowercase, strip spaces and punctuation for fuzzy matching
+  const norm = s => String(s||"").toLowerCase().replace(/[\s_\-\.]+/g,"").replace(/[^a-z0-9]/g,"");
+  const rawHeaders = rows[headerRowIdx].map(norm);
+
+  // Lookup helper: searches normalised header list for any of the candidate strings
+  const colIdx = (...names) => {
+    for(const name of names){
+      const n = norm(name);
+      const idx = rawHeaders.indexOf(n);
+      if(idx >= 0) return idx;
+      // Also try "contains" for multi-word typos (e.g. "gaurdianphonenumber" contains "phonenumber")
+      const partial = rawHeaders.findIndex(h => h.includes(n) || (n.includes(h) && n.length > 3));
+      if(partial >= 0) return partial;
+    }
+    return -1;
+  };
+  const getCol = (row, ...names) => {
+    const idx = colIdx(...names);
+    if(idx < 0) return "";
+    return String(row[idx]||"").trim();
+  };
+
+  // Pre-compute indices for columns that need special combination logic
+  const guardFirstIdx = rawHeaders.findIndex(h =>
+    (h.includes("guardian") || h.includes("gaurdian") || h.includes("parent")) && h.includes("first")
+  );
+  const guardLastIdx  = rawHeaders.findIndex(h =>
+    (h.includes("guardian") || h.includes("gaurdian") || h.includes("parent")) && h.includes("last")
+  );
+
+  const players = [];
+  for(let i = headerRowIdx + 1; i < rows.length; i++){
+    const row   = rows[i];
+    const first = getCol(row, "first", "firstname", "first name", "given name", "givenname");
+    const last  = getCol(row, "last",  "lastname",  "last name",  "surname",    "familyname", "family name");
+    if(!first && !last) continue;
+
+    // Guardian name: combined field wins; fall back to separate first+last columns
+    let guardianName = getCol(row,
+      "guardianname",   "guardian name",
+      "gaurdianname",   "gaurdian name",   "gaurdian",
+      "parentname",     "parent name",     "parent",
+      "guardian"
+    );
+    if(!guardianName && guardFirstIdx >= 0){
+      const gf = String(row[guardFirstIdx]||"").trim();
+      const gl = guardLastIdx >= 0 ? String(row[guardLastIdx]||"").trim() : "";
+      guardianName = [gf, gl].filter(Boolean).join(" ");
+    }
+
+    players.push({
+      id:  uid(),
+      athleteId: getCol(row,"athleteid","athlete id","playerid","player id") || generateAthleteId(),
+      first:  first || "Unknown",
+      last:   last  || "",
+      anonymous: false,
+      jersey:       getCol(row,"jersey","number","#","jerseynum","jersey number","jersey #") || String(i),
+      jerseyColour: getCol(row,"jerseycolour","jerseycolor","colour","color") || "",
+      pos:          getCol(row,"pos","position") || "F",
+      shoots:       getCol(row,"shoots","hand") || "R",
+      assignedAssessor: "",
+      guardianName,
+      guardianEmail: getCol(row,
+        "guardianemail",  "guardian email",
+        "gaurdianemail",  "gaurdian email",
+        "parentemail",    "parent email",
+        "email"
+      ) || "",
+      guardianPhone: getCol(row,
+        "guardianphone",       "guardian phone",
+        "gaurdianphone",       "gaurdian phone",
+        "guardianphonenumber", "guardian phone number",
+        "gaurdianphonenumber", "gaurdian phone number",
+        "parentphone",         "parent phone",
+        "phone"
+      ) || "",
+      yearOfBirth: getCol(row,
+        "yearofbirth","year of birth","yob","birthyear","birth year","yearborn","born"
+      ) || "",
+      currentTeam:  getCol(row,"currentteam","current team","team") || "",
+      currentLevel: getCol(row,"currentlevel","current level","level","division") || "",
+      aboutChild:   getCol(row,"aboutchild","about child","about","notes","bio") || "",
+      waiverAcceptedAt: Date.now(),
+      registrationSource: "csv",
+      createdAt: Date.now(),
+    });
+  }
+  return players;
+}
+
+// ── CSV text → players (delegates to parseRowsToPlayers) ─────────────────
 
 function parseCSVToPlayers(text){
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if(lines.length < 2) return [];
-  // Simple CSV parser (handles quoted values)
+  // RFC 4180-ish CSV parser (handles quoted values and commas inside quotes)
   function parseLine(line){
     const result = [];
     let cur = "", inQuote = false;
     for(let i = 0; i < line.length; i++){
       const ch = line[i];
-      if(ch === '"' && (i === 0 || line[i-1] === ',')){ inQuote = true; }
+      if(ch === '"' && !inQuote && (i === 0 || line[i-1] === ','||line[i-1] === '"')){ inQuote = true; }
+      else if(ch === '"' && inQuote && line[i+1] === '"'){ cur += '"'; i++; }
       else if(ch === '"' && inQuote){ inQuote = false; }
-      else if(ch === ',' && !inQuote){ result.push(cur.trim()); cur = ""; }
+      else if(ch === ',' && !inQuote){ result.push(cur); cur = ""; }
       else { cur += ch; }
     }
-    result.push(cur.trim());
-    return result;
+    result.push(cur);
+    return result.map(v => v.trim().replace(/^["']|["']$/g,""));
   }
-  const headers = parseLine(lines[0]).map(h => h.replace(/^["']|["']$/g,"").toLowerCase().replace(/\s+/g,""));
-  const col = (row, ...names) => {
-    for(const name of names){
-      const idx = headers.indexOf(name.toLowerCase().replace(/\s+/g,""));
-      if(idx >= 0){ const v = (row[idx]||"").replace(/^["']|["']$/g,"").trim(); if(v) return v; }
-    }
-    return "";
-  };
-  const players = [];
-  for(let i = 1; i < lines.length; i++){
-    const row = parseLine(lines[i]);
-    const first = col(row,"first","firstname","first name");
-    const last  = col(row,"last","lastname","last name");
-    if(!first && !last) continue;
-    players.push({
-      id: uid(),
-      athleteId: col(row,"athleteid","athlete id","playerid","player id") || generateAthleteId(),
-      first: first || "Unknown",
-      last:  last  || "",
-      anonymous: false,
-      jersey:    col(row,"jersey","number","#","jerseynum") || String(i),
-      jerseyColour: col(row,"jerseycolour","jerseycolor","colour","color") || "",
-      pos:           col(row,"pos","position") || "F",
-      shoots:        col(row,"shoots","hand") || "R",
-      assignedAssessor: "",
-      guardianName:  col(row,"guardianname","guardian","parent","parentname","guardian name","parent name") || "",
-      guardianEmail: col(row,"guardianemail","parentemail","email","guardian email","parent email") || "",
-      guardianPhone: col(row,"guardianphone","parentphone","phone","guardian phone","parent phone") || "",
-      yearOfBirth:   col(row,"yearofbirth","yob","birthyear","year of birth","birth year") || "",
-      currentTeam:   col(row,"currentteam","team","current team") || "",
-      currentLevel:  col(row,"currentlevel","level","division","current level") || "",
-      aboutChild:    col(row,"aboutchild","about","notes","bio","about child") || "",
-      waiverAcceptedAt: Date.now(),
-      registrationSource: "csv",
-      createdAt: Date.now()
-    });
-  }
-  return players;
+  return parseRowsToPlayers(lines.map(parseLine));
 }
 
 function confirmCSVImport(){
