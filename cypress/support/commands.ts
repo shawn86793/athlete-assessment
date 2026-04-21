@@ -1,12 +1,19 @@
 // ── Custom Cypress commands ────────────────────────────────────────────────
 //
 // cy.loginViaAPI(email, password)
-//   Full login strategy using three mechanisms together:
+//   Full login strategy using four mechanisms together:
 //
 //   1. localStorage  — pre-load gotrue-session before ANY page JS runs
-//   2. netlifyIdentity stub — prevent CDN widget from loading; fire "init"
+//   2. DB seed       — seed a mock team + current-team key so the app
+//      goes directly to the home screen instead of the team-select screen.
+//      After clearAppState() the DB is empty and needsTeamSelection() is
+//      true, which sends the app to renderTeamSelect() — that screen has
+//      "Log out" (not "Sign Out") and no "My Teams" heading.  Pre-seeding a
+//      mock team makes needsTeamSelection() return false, so the app renders
+//      renderHome() with both "Sign Out" and "My Teams" visible.
+//   3. netlifyIdentity stub — prevent CDN widget from loading; fire "init"
 //      with the mock user via a lazy-fire on() implementation
-//   3. requestIdleCallback override — the app defers scheduleIdentityInit()
+//   4. requestIdleCallback override — the app defers scheduleIdentityInit()
 //      via requestIdleCallback(start, {timeout:2500}). In Cypress the browser
 //      is never "idle" so the callback may not fire within the test window.
 //      We replace requestIdleCallback with a synchronous executor so start()
@@ -70,7 +77,42 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
           // ── 1. Pre-load session ──────────────────────────────────────────
           win.localStorage.setItem('gotrue-session', JSON.stringify(session))
 
-          // ── 2. netlifyIdentity stub ──────────────────────────────────────
+          // ── 2. Seed mock team so app lands on home, not team-select ──────
+          // The app uses these storage key formulas (mirrored exactly here):
+          //   storageKeySuffix(user) = email.trim().toLowerCase()
+          //                            .replace(/[^a-z0-9._-]/g, '_')
+          //   STORAGE_KEY  = "SWG_TRYOUT_SYSTEMS_DB_V6::" + suffix
+          //   TEAM_KEY     = "AAS_CURRENT_TEAM::"          + suffix
+          //
+          // Without a seeded team:
+          //   needsTeamSelection() → true → currentView = "teamSelect"
+          //   renderTeamSelect() shows the Tryout logo + "Log out" button.
+          //   No "Sign Out", no "My Teams" → every test times out.
+          //
+          // With a seeded team:
+          //   needsTeamSelection() → false → currentView stays "home"
+          //   renderHome() shows "Sign Out" + "My Teams" immediately.
+          //   The mock team is harmless — cloud sync overwrites DB.teams with
+          //   real data and renderHome() stays the active view throughout.
+          const emailSuffix = user.email.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_')
+          const DB_KEY       = `SWG_TRYOUT_SYSTEMS_DB_V6::${emailSuffix}`
+          const TEAM_KEY     = `AAS_CURRENT_TEAM::${emailSuffix}`
+          const MOCK_TEAM_ID = 'cypress-mock-team'
+
+          win.localStorage.setItem(DB_KEY, JSON.stringify({
+            version: 6,
+            tryouts: {},
+            seasons: {},
+            teams: [{ id: MOCK_TEAM_ID, name: 'Cypress Test Team', createdAt: Date.now() }],
+          }))
+          win.localStorage.setItem(TEAM_KEY, MOCK_TEAM_ID)
+
+          // Prevent the onboarding wizard from covering the home screen.
+          // (A "new" user with no tryouts/seasons triggers the wizard unless
+          // this flag is set — it would hide "My Teams" and "Sign Out".)
+          win.localStorage.setItem('aas_onboarding_wizard_skipped', '1')
+
+          // ── 3. netlifyIdentity stub ──────────────────────────────────────
           // The app's loadIdentityScript() returns early when
           // window.netlifyIdentity already exists, so the CDN widget
           // never loads. Our stub uses lazy-fire: init() records the
@@ -111,7 +153,7 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
             refresh:     () => Promise.resolve(token.access_token),
           }
 
-          // ── 3. requestIdleCallback override ─────────────────────────────
+          // ── 4. requestIdleCallback override ─────────────────────────────
           // The app calls: requestIdleCallback(start, {timeout:2500})
           // In an active Cypress browser the idle callback may never fire,
           // so initIdentityWidget() — and our stub's init() — would never
