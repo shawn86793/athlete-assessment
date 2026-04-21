@@ -8471,6 +8471,8 @@ let cloudPushTimer = null;
 let rosterFastPollTimer = null;
 let pendingAddPlayerFocus = false;
 let rosterScoringFilter = "all";
+let rosterSelectMode    = false;
+let rosterSelectSet     = new Set(); // player ids selected for deletion
 let exportHistory = [];
 let exportWarningsDismissed = {};
 let exportHistoryCollapsed = true;
@@ -14492,8 +14494,19 @@ function renderRoster(){
 
       <div class="row" style="align-items:flex-end;">
         <div class="col2">
-          <h3 style="margin:0;">Player List</h3>
-          <div class="muted">${t.roster.length} players • Tap player to open</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h3 style="margin:0;">Player List</h3>
+            ${canManage && t.roster.length > 0 ? `
+              <button class="secondary small" style="padding:4px 12px;font-size:12px;border-color:#dc2626;color:#dc2626;" onclick="toggleRosterSelectMode()">
+                ${rosterSelectMode ? "✕ Cancel" : "🗑 Select to Delete"}
+              </button>
+            ` : ``}
+          </div>
+          <div class="muted" style="margin-top:2px;">
+            ${rosterSelectMode
+              ? `<span style="color:#dc2626;font-weight:700;">${rosterSelectSet.size} of ${t.roster.length} selected — tap tiles to select</span>`
+              : `${t.roster.length} players • Tap player to open`}
+          </div>
         </div>
         <div class="col">
           <input id="rosterSearch" placeholder="Search (name, jersey, assessor, parent)..." oninput="renderRosterTiles()">
@@ -17188,13 +17201,26 @@ function renderRosterTiles(){
     return;
   }
 
+  // ── Select-mode action bar ────────────────────────────────────────────────
+  const selectBar = (rosterSelectMode && canManage) ? `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+      <button class="secondary small" style="padding:5px 12px;font-size:12px;" onclick="rosterSelectAll()">Select All</button>
+      <button class="secondary small" style="padding:5px 12px;font-size:12px;" onclick="rosterDeselectAll()">Deselect All</button>
+      <span style="flex:1;font-size:13px;font-weight:700;color:#dc2626;">${rosterSelectSet.size} player${rosterSelectSet.size!==1?"s":""} selected</span>
+      <button class="secondary small" style="padding:5px 14px;font-size:13px;font-weight:700;background:#dc2626;color:#fff;border-color:#dc2626;" onclick="deleteSelectedRosterPlayers()" ${rosterSelectSet.size===0?"disabled":""}>
+        🗑 Delete ${rosterSelectSet.size > 0 ? "("+rosterSelectSet.size+")" : ""}
+      </button>
+    </div>
+  ` : "";
+
   host.innerHTML = `
     ${assessorIdentityBannerHTML()}
+    ${selectBar}
     <div class="tileGrid">
-      ${libraryTile}
-      ${dummyRosterTile}
-      ${importPlayerListTile}
-      ${teamBuilderTile}
+      ${rosterSelectMode ? "" : libraryTile}
+      ${rosterSelectMode ? "" : dummyRosterTile}
+      ${rosterSelectMode ? "" : importPlayerListTile}
+      ${rosterSelectMode ? "" : teamBuilderTile}
       ${roster.map(p=>{
         const playerEvals = evalsForPlayer(p.id);
         const evCount = playerEvals.length;
@@ -17228,8 +17254,21 @@ function renderRosterTiles(){
         const fc = friendColors[p.id];
         const friendBar = fc ? `<div class="friendPkgBar" style="background:${fc.bar};"></div>` : "";
         const friendBadge = fc ? `<span class="friendPkg" style="background:${fc.bg};color:${fc.text};">&#128101; Friends</span>` : "";
+        const isSelected = rosterSelectSet.has(p.id);
+        // In select mode: clicking tile toggles selection; otherwise opens player hub
+        const tileClick = rosterSelectMode
+          ? `toggleRosterPlayerSelect('${p.id}', event)`
+          : `openPlayerHub('${p.id}')`;
+        const selectOverlay = rosterSelectMode ? `
+          <div style="position:absolute;top:8px;right:8px;z-index:10;pointer-events:none;">
+            <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${isSelected?"#dc2626":"#94a3b8"};background:${isSelected?"#dc2626":"rgba(255,255,255,0.9)"};display:flex;align-items:center;justify-content:center;">
+              ${isSelected ? `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>` : ""}
+            </div>
+          </div>
+        ` : "";
         return `
-          <div class="playerTile" style="border-left:4px solid ${scoreStripe};${fc ? `outline:2px solid ${fc.bar};outline-offset:-2px;` : ""}" onclick="openPlayerHub('${p.id}')">
+          <div class="playerTile" style="position:relative;border-left:4px solid ${rosterSelectMode?(isSelected?"#dc2626":"#94a3b8"):scoreStripe};${rosterSelectMode && isSelected?"outline:2px solid #dc2626;outline-offset:-2px;background:#fff5f5;":""}${!rosterSelectMode && fc ? `outline:2px solid ${fc.bar};outline-offset:-2px;` : ""}" onclick="${tileClick}">
+            ${selectOverlay}
             ${friendBar}
             <span class="ptJerseyWatermark" aria-hidden="true">${escapeHTML(jerseyDisplay)}</span>
             <div class="ptContent">
@@ -17259,14 +17298,23 @@ function renderRosterTiles(){
                 <span class="ptScoreDot"></span>
                 <span>${scoreStateLabel}</span>
               </div>
-              <div class="ptPrimaryActions">
-                <button class="compareTile scoreDirectBtn" onclick="scorePlayerDirect('${p.id}', event)">⚡ Score</button>
-                <button class="compareTile" onclick="openPlayerHub('${p.id}');event.stopPropagation();">Open</button>
-              </div>
-              <div class="ptCompareRow">
-                ${canEditLatest ? `<button class="compareTile" onclick="startLatestEvalEdit('${p.id}', event)">Edit Assessment</button>` : ``}
-                ${inviteMode ? "" : `<button class="compareTile ${compareSelected ? "selected" : ""}" onclick="toggleCompare('${p.id}', event)">Compare</button>`}
-              </div>
+              ${rosterSelectMode ? `
+                <div class="ptPrimaryActions">
+                  <div style="text-align:center;font-size:13px;font-weight:700;color:${isSelected?"#dc2626":"#64748b"};padding:6px 0;">
+                    ${isSelected ? "✓ Selected" : "Tap to select"}
+                  </div>
+                </div>
+              ` : `
+                <div class="ptPrimaryActions">
+                  <button class="compareTile scoreDirectBtn" onclick="scorePlayerDirect('${p.id}', event)">⚡ Score</button>
+                  <button class="compareTile" onclick="openPlayerHub('${p.id}');event.stopPropagation();">Open</button>
+                </div>
+                <div class="ptCompareRow">
+                  ${canEditLatest ? `<button class="compareTile" onclick="startLatestEvalEdit('${p.id}', event)">Edit Assessment</button>` : ``}
+                  ${inviteMode ? "" : `<button class="compareTile ${compareSelected ? "selected" : ""}" onclick="toggleCompare('${p.id}', event)">Compare</button>`}
+                  ${canManage ? `<button class="compareTile" style="color:#dc2626;border-color:#fca5a5;" onclick="deleteRosterPlayer('${p.id}', event)">🗑</button>` : ``}
+                </div>
+              `}
             </div>
           </div>
         `;
@@ -17292,6 +17340,70 @@ function setRosterScoringFilter(nextFilter){
     btn.classList.toggle("ok", key === rosterScoringFilter);
     btn.classList.toggle("secondary", key !== rosterScoringFilter);
   });
+  renderRosterTiles();
+}
+
+// ── Roster delete helpers ─────────────────────────────────────────────────
+
+function toggleRosterSelectMode(){
+  rosterSelectMode = !rosterSelectMode;
+  rosterSelectSet  = new Set();
+  // Re-render the full roster view so the heading button label also updates
+  renderRoster();
+}
+
+function toggleRosterPlayerSelect(pid, ev){
+  if(ev) ev.stopPropagation();
+  if(rosterSelectSet.has(pid)) rosterSelectSet.delete(pid);
+  else rosterSelectSet.add(pid);
+  renderRosterTiles();
+}
+
+function rosterSelectAll(){
+  const t = getTryout();
+  if(!t) return;
+  // Only select from the currently visible (filtered) tiles
+  const host = document.getElementById("rosterTiles");
+  if(!host) return;
+  // Use the live roster rather than DOM to avoid selector fragility
+  (t.roster || []).forEach(p => rosterSelectSet.add(p.id));
+  renderRosterTiles();
+}
+
+function rosterDeselectAll(){
+  rosterSelectSet = new Set();
+  renderRosterTiles();
+}
+
+function deleteSelectedRosterPlayers(){
+  const t = getTryout();
+  if(!t) return;
+  const count = rosterSelectSet.size;
+  if(!count) return;
+  if(!confirm(`Permanently delete ${count} player${count!==1?"s":""}?\n\nThis will also remove all their assessments and cannot be undone.`)) return;
+  t.roster       = (t.roster       || []).filter(p => !rosterSelectSet.has(p.id));
+  t.evaluations  = (t.evaluations  || []).filter(e => !rosterSelectSet.has(e.playerId));
+  rosterSelectMode = false;
+  rosterSelectSet  = new Set();
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  showActionBanner(`${count} player${count!==1?"s":""} deleted.`, "success");
+  renderRoster();
+}
+
+function deleteRosterPlayer(pid, ev){
+  if(ev) ev.stopPropagation();
+  const t = getTryout();
+  if(!t) return;
+  const p = (t.roster || []).find(r => r.id === pid);
+  if(!p) return;
+  const name = playerDisplayName(p);
+  if(!confirm(`Delete ${name}?\n\nThis will also remove all their assessments and cannot be undone.`)) return;
+  t.roster      = (t.roster      || []).filter(r => r.id !== pid);
+  t.evaluations = (t.evaluations || []).filter(e => e.playerId !== pid);
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  showActionBanner(`${name} deleted.`, "success");
   renderRosterTiles();
 }
 
