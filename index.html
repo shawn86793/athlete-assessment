@@ -16549,7 +16549,8 @@ function parseRowsToPlayers(rows){
       const idx = rawHeaders.indexOf(n);
       if(idx >= 0) return idx;
       // Also try "contains" for multi-word typos (e.g. "gaurdianphonenumber" contains "phonenumber")
-      const partial = rawHeaders.findIndex(h => h.includes(n) || (n.includes(h) && n.length > 3));
+      // Guard h.length > 0 so blank/unlabeled columns never match.
+      const partial = rawHeaders.findIndex(h => h.length > 0 && (h.includes(n) || (n.includes(h) && n.length > 3)));
       if(partial >= 0) return partial;
     }
     return -1;
