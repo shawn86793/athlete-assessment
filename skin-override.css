@@ -1,0 +1,195 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   SKIN REFRESH — OURA-inspired design system
+   Appended to index.html. Zero functional changes.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Card: remove legacy blue left-border accent, unified border */
+.card{
+  border-left: 1px solid var(--border) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08) !important;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card:hover{ box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important; }
+.card.warmAccent{ border-left: 1px solid rgba(255,107,43,0.35) !important; }
+
+[data-theme="dark"] .card{
+  box-shadow: 0 2px 20px rgba(0,0,0,0.35) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+[data-theme="dark"] .card:hover{
+  border-color: rgba(255,107,43,0.22) !important;
+  box-shadow: 0 4px 28px rgba(0,0,0,0.50) !important;
+}
+
+/* Topbar */
+[data-theme="dark"] .topbarCard{
+  background: #070d1a !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  box-shadow: none !important;
+}
+[data-theme="dark"] .topbarCard.topbarCollapsed{
+  box-shadow: 0 2px 16px rgba(0,0,0,0.40) !important;
+}
+
+/* Primary / ok / intent-primary buttons */
+button.ok,
+button.intent-primary{
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 16px rgba(255,107,43,0.28) !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+}
+button.ok:hover,
+button.intent-primary:hover{
+  box-shadow: 0 6px 24px rgba(255,107,43,0.40) !important;
+  transform: translateY(-1px);
+}
+
+/* Active tab nav buttons */
+.navPlayerListBtn.active-tab,
+.navRosterBtn.active-tab,
+.navRegistrationsBtn.active-tab{
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 14px rgba(255,107,43,0.30) !important;
+}
+
+/* Upgrade / billing buttons */
+button[class*="upgrade"],
+button[class*="Upgrade"],
+.upgradeBtn{
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 16px rgba(255,107,43,0.28) !important;
+  border-radius: 10px !important;
+}
+
+/* Score buttons */
+.scoreBtn{
+  border-radius: 10px !important;
+  font-weight: 800 !important;
+  transition: all 0.15s ease !important;
+  min-height: 46px !important;
+}
+.scoreBtn.selected{
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 18px rgba(255,107,43,0.40) !important;
+  transform: scale(1.05) !important;
+}
+.scoreBtn:hover:not(.selected){
+  border-color: rgba(255,107,43,0.40) !important;
+  color: #ff6b2b !important;
+}
+[data-theme="dark"] .scoreBtn{
+  background: #152240 !important;
+  color: #8899bb !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+[data-theme="dark"] .scoreBtn.selected{
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+/* Rubric category label pills */
+.rubricCatLabel.cat-skating  { background: #1e3a5f !important; }
+.rubricCatLabel.cat-puck     { background: #0d6e6a !important; }
+.rubricCatLabel.cat-iq       { background: #166534 !important; }
+.rubricCatLabel.cat-compete  { background: #92400e !important; }
+.rubricCatLabel.cat-physical { background: #581c87 !important; }
+
+/* Player tiles */
+.playerTile{
+  border-radius: 14px !important;
+  transition: all 0.2s ease !important;
+}
+.playerTile:hover{
+  border-color: rgba(255,107,43,0.30) !important;
+  box-shadow: 0 4px 20px rgba(255,107,43,0.12) !important;
+  transform: translateY(-2px) !important;
+}
+[data-theme="dark"] .playerTile:hover{
+  background: #152240 !important;
+}
+
+/* Team hub tiles */
+.teamHubTile{
+  border-radius: 14px !important;
+  transition: all 0.2s ease !important;
+}
+.teamHubTile:hover{
+  border-color: rgba(255,107,43,0.25) !important;
+  box-shadow: 0 4px 20px rgba(255,107,43,0.10) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* General buttons in dark mode */
+[data-theme="dark"] button{
+  border-radius: 10px !important;
+}
+
+/* Headings */
+h1,h2,h3{
+  letter-spacing: -0.02em !important;
+  font-family: "Inter","Space Grotesk","Manrope",sans-serif !important;
+}
+
+/* Inputs / selects */
+input, textarea, select{
+  border-radius: 10px !important;
+}
+
+/* Dark mode body background */
+[data-theme="dark"] body{
+  background: #070d1a !important;
+  border-top: 2px solid rgba(255,107,43,0.40) !important;
+}
+[data-theme="dark"] body::before{
+  background:
+    radial-gradient(900px 300px at 0% 0%, rgba(255,107,43,0.05), transparent 70%),
+    radial-gradient(1200px 400px at 80% 10%, rgba(0,87,184,0.08), transparent 60%),
+    linear-gradient(180deg, #0f1b30 0%, #070d1a 100%) !important;
+}
+
+/* Progress fill bars */
+.rosterProgressFill{
+  background: linear-gradient(90deg, #ff6b2b, #ff9a5c) !important;
+  border-radius: 4px !important;
+}
+
+/* Pending banner */
+.rosterPendingBanner{
+  border-radius: 14px !important;
+  border-color: rgba(255,107,43,0.30) !important;
+}
+
+/* PDF / export buttons */
+button.pdfBtn{
+  border-radius: 10px !important;
+}
+[data-theme="dark"] button.pdfBtn{
+  background: #0f1b30 !important;
+  color: #c8d8f0 !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+/* Floating back button */
+[data-theme="dark"] .floatingBackBtn{
+  background: #1e3a5f !important;
+  border-color: rgba(255,255,255,0.15) !important;
+}
+
+/* Table headers in dark */
+[data-theme="dark"] th{
+  background: #0d1629 !important;
+  color: #8899bb !important;
+}
+[data-theme="dark"] tr:nth-child(even) td{
+  background: rgba(255,255,255,0.025) !important;
+}
