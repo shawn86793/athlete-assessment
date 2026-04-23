@@ -537,7 +537,411 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
   .scoring-layout { grid-template-columns: 1fr; }
   .screen { padding: 20px 16px 90px; }
   .topbar { padding: 16px 20px; }
+  .tb-layout { grid-template-columns: 1fr; }
+  .profile-body { grid-template-columns: 1fr; }
+  .export-layout { grid-template-columns: 1fr; }
+  .qr-layout { grid-template-columns: 1fr; }
+  .settings-layout { grid-template-columns: 1fr; }
 }
+
+/* ── Logo Image ──────────────────────────────────────────────────────── */
+.sidebar-logo { padding: 20px 20px 18px; border-bottom: 1px solid var(--border); }
+.sidebar-logo img { height: 40px; width: auto; max-width: 180px; object-fit: contain; display: block; }
+
+/* ── Team Builder (Full) ─────────────────────────────────────────────── */
+.tb-top {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.event-select {
+  background: var(--card); border: 1px solid var(--border); color: var(--text1);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  padding: 9px 14px; border-radius: 10px; cursor: pointer; outline: none;
+  transition: border-color var(--transition);
+}
+.event-select:focus { border-color: var(--orange); }
+.tb-meta { flex: 1; font-size: 13px; color: var(--text2); }
+.balance-row {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px;
+}
+.balance-col {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 16px;
+}
+.bc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.bc-name { font-size: 13px; font-weight: 700; color: var(--text1); }
+.bc-count { font-size: 11px; color: var(--text2); }
+.bc-score { font-size: 22px; font-weight: 900; color: var(--orange); letter-spacing: -1px; }
+.bc-bar { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.bc-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg,var(--orange),#ff9a5c); }
+
+.tb-layout {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px;
+}
+.tb-col {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  overflow: hidden;
+}
+.tb-col-head {
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.tb-col-title { font-size: 13px; font-weight: 700; color: var(--text1); }
+.tb-col-badge {
+  padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  background: var(--orange-dim); color: var(--orange);
+}
+.tb-col-badge.pool { background: var(--bg3); color: var(--text2); }
+.tb-players { padding: 10px; display: flex; flex-direction: column; gap: 6px; min-height: 300px; }
+.tb-player {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px; cursor: grab;
+  transition: all var(--transition);
+}
+.tb-player:hover { border-color: var(--border-accent); background: var(--card2); }
+.tb-player-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--bg2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: var(--text2); flex-shrink: 0;
+}
+.tb-player-info { flex: 1; min-width: 0; }
+.tb-player-name { font-size: 12px; font-weight: 600; color: var(--text1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-player-pos { font-size: 10px; color: var(--text3); font-weight: 500; }
+.tb-player-score { font-size: 13px; font-weight: 800; color: var(--orange); flex-shrink: 0; }
+.tb-drop-zone {
+  border: 2px dashed var(--border); border-radius: 10px;
+  padding: 14px; text-align: center;
+  font-size: 11px; color: var(--text3); margin: 6px;
+}
+
+/* ── Player Profile ───────────────────────────────────────────────────── */
+.profile-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text2);
+  cursor: pointer; margin-bottom: 20px;
+  transition: color var(--transition);
+}
+.profile-back:hover { color: var(--orange); }
+.profile-hero-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+  padding: 28px 32px; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+}
+.profile-avatar {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--navy), var(--orange));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 900; color: #fff; flex-shrink: 0;
+  box-shadow: 0 0 32px var(--orange-glow);
+}
+.profile-hero-info { flex: 1; }
+.profile-name { font-size: 28px; font-weight: 900; color: var(--text1); letter-spacing: -1px; }
+.profile-sub { font-size: 14px; color: var(--text2); margin-top: 4px; }
+.profile-tags { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.profile-tag {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+}
+.profile-tag.highlight { background: var(--orange-dim); border-color: var(--border-accent); color: var(--orange); }
+.profile-overall {
+  text-align: center; padding: 0 20px;
+}
+.profile-overall-num { font-size: 56px; font-weight: 900; color: var(--orange); letter-spacing: -3px; line-height: 1; }
+.profile-overall-lab { font-size: 12px; color: var(--text2); font-weight: 500; margin-top: 4px; }
+.profile-actions { display: flex; flex-direction: column; gap: 8px; }
+
+.profile-body { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+.profile-left { display: flex; flex-direction: column; gap: 16px; }
+.profile-right { display: flex; flex-direction: column; gap: 16px; }
+
+.history-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+}
+.history-bars { display: flex; align-items: flex-end; gap: 12px; height: 120px; margin-top: 16px; }
+.hbar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.hbar { width: 100%; border-radius: 6px 6px 0 0; background: var(--orange-dim); border: 1px solid var(--border-accent); transition: height .6s ease; cursor: pointer; min-height: 20px; }
+.hbar:hover { background: var(--orange-glow); }
+.hbar.current { background: linear-gradient(0deg, var(--orange), #ff9a5c); border-color: var(--orange); }
+.hbar-val { font-size: 12px; font-weight: 800; color: var(--text1); }
+.hbar-lab { font-size: 10px; color: var(--text3); font-weight: 500; text-align: center; }
+
+.radar-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+.info-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+}
+.info-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { font-size: 12px; color: var(--text2); }
+.info-value { font-size: 13px; font-weight: 600; color: var(--text1); }
+
+.notes-timeline { display: flex; flex-direction: column; gap: 12px; }
+.note-entry {
+  background: var(--bg3); border-radius: 12px; padding: 14px;
+  border-left: 3px solid var(--border-accent);
+}
+.note-meta { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
+.note-text { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+/* ── Export / Reports ─────────────────────────────────────────────────── */
+.export-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+.report-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.report-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 20px; cursor: pointer; transition: all var(--transition);
+  position: relative; overflow: hidden;
+}
+.report-card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
+.report-card.selected { border-color: var(--orange); background: var(--orange-dim); }
+.report-card.selected::before {
+  content: '✓'; position: absolute; top: 12px; right: 14px;
+  color: var(--orange); font-weight: 700; font-size: 14px;
+}
+.rc-icon { font-size: 28px; margin-bottom: 10px; }
+.rc-name { font-size: 14px; font-weight: 700; color: var(--text1); margin-bottom: 4px; }
+.rc-desc { font-size: 12px; color: var(--text2); line-height: 1.4; }
+.rc-formats { display: flex; gap: 6px; margin-top: 10px; }
+.fmt-tag {
+  padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700;
+  background: var(--bg3); color: var(--text3); letter-spacing: .5px;
+}
+
+.export-preview {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.preview-thumb {
+  background: var(--bg3); border-radius: 10px; height: 180px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; border: 1px solid var(--border);
+}
+.preview-thumb-icon { font-size: 40px; }
+.preview-thumb-label { font-size: 12px; color: var(--text3); font-weight: 500; }
+
+.export-field { margin-bottom: 14px; }
+.ef-label { font-size: 11px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+.ef-select {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text1); font-family: inherit; font-size: 13px;
+  padding: 9px 12px; border-radius: 10px; outline: none;
+  transition: border-color var(--transition);
+}
+.ef-select:focus { border-color: var(--orange); }
+
+.recent-exports { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.export-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.export-item:last-child { border-bottom: none; }
+.ei-icon { font-size: 24px; flex-shrink: 0; }
+.ei-info { flex: 1; }
+.ei-name { font-size: 13px; font-weight: 600; color: var(--text1); }
+.ei-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.ei-dl { font-size: 12px; color: var(--orange); font-weight: 600; cursor: pointer; }
+
+/* ── Schedule / Season ────────────────────────────────────────────────── */
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.cal-month { font-size: 22px; font-weight: 800; color: var(--text1); letter-spacing: -.3px; }
+.cal-nav { display: flex; gap: 8px; }
+.cal-nav-btn {
+  width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--card); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; color: var(--text2); transition: all var(--transition);
+}
+.cal-nav-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+.calendar-grid {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  overflow: hidden; margin-bottom: 20px;
+}
+.cal-days-header {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  border-bottom: 1px solid var(--border);
+}
+.cal-day-label {
+  padding: 10px; text-align: center; font-size: 11px; font-weight: 600;
+  letter-spacing: .8px; text-transform: uppercase; color: var(--text3);
+}
+.cal-days { display: grid; grid-template-columns: repeat(7,1fr); }
+.cal-day {
+  min-height: 80px; padding: 8px;
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  transition: background var(--transition); cursor: pointer;
+}
+.cal-day:hover { background: var(--bg3); }
+.cal-day:nth-child(7n) { border-right: none; }
+.cal-day-num { font-size: 13px; font-weight: 600; color: var(--text2); }
+.cal-day.today .cal-day-num {
+  background: var(--orange); color: #fff; width: 24px; height: 24px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+.cal-day.other-month .cal-day-num { color: var(--text3); opacity: .4; }
+.cal-event {
+  margin-top: 4px; padding: 3px 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-event.orange { background: var(--orange-dim); color: var(--orange); }
+.cal-event.teal { background: rgba(15,184,201,.12); color: var(--teal); }
+.cal-event.green { background: rgba(34,197,94,.12); color: var(--green); }
+
+.upcoming-list { display: flex; flex-direction: column; gap: 12px; }
+.upcoming-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px 20px; display: flex; align-items: center; gap: 16px;
+  cursor: pointer; transition: all var(--transition);
+}
+.upcoming-card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
+.uc-date {
+  width: 48px; text-align: center; flex-shrink: 0;
+}
+.uc-day { font-size: 26px; font-weight: 900; color: var(--orange); letter-spacing: -1px; line-height: 1; }
+.uc-month { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); }
+.uc-divider { width: 1px; height: 40px; background: var(--border); flex-shrink: 0; }
+.uc-info { flex: 1; }
+.uc-name { font-size: 15px; font-weight: 700; color: var(--text1); }
+.uc-meta { font-size: 12px; color: var(--text2); margin-top: 3px; }
+.uc-status { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+/* ── QR Registration ──────────────────────────────────────────────────── */
+.qr-layout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
+.qr-form-preview {
+  background: var(--card); border: 1px solid var(--border); border-radius: 20px; overflow: hidden;
+}
+.qr-form-banner {
+  background: linear-gradient(135deg, var(--navy), #0a1f3d);
+  padding: 24px 28px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+}
+.qr-form-logo { height: 36px; width: auto; object-fit: contain; }
+.qr-event-info { flex: 1; }
+.qr-event-name { font-size: 16px; font-weight: 800; color: var(--text1); }
+.qr-event-code { font-size: 12px; color: var(--orange); font-weight: 700; margin-top: 2px; }
+
+.qr-form-body { padding: 24px 28px; }
+.form-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text3); margin: 18px 0 10px;
+}
+.form-section-title:first-child { margin-top: 0; }
+.form-field { margin-bottom: 12px; }
+.ff-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; display: block; }
+.ff-label .req { color: var(--orange); }
+.ff-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+  color: var(--text1); font-family: inherit; font-size: 13px; outline: none;
+  transition: border-color var(--transition);
+}
+.ff-input:focus { border-color: var(--orange); }
+.ff-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.waiver-box {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px; margin: 14px 0;
+}
+.waiver-text { font-size: 11px; color: var(--text3); line-height: 1.5; }
+.waiver-check { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; }
+.waiver-check input[type=checkbox] { margin-top: 2px; accent-color: var(--orange); width: 15px; height: 15px; flex-shrink: 0; }
+.waiver-check label { font-size: 12px; color: var(--text2); font-weight: 500; }
+.form-submit { width: 100%; padding: 13px; border-radius: 12px; font-size: 14px; font-weight: 700; border: none; cursor: pointer; background: linear-gradient(135deg, var(--orange), #ff9a5c); color: #fff; box-shadow: 0 4px 20px var(--orange-glow); transition: all var(--transition); }
+.form-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(255,107,43,.4); }
+
+.qr-panel { display: flex; flex-direction: column; gap: 16px; }
+.qr-code-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+  padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.qr-svg-wrap {
+  background: #fff; border-radius: 16px; padding: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.qr-code-label {
+  text-align: center;
+}
+.qr-code-label .code { font-size: 22px; font-weight: 900; color: var(--orange); letter-spacing: 4px; }
+.qr-code-label .sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.qr-stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.qr-stat { background: var(--bg3); border-radius: 10px; padding: 12px; text-align: center; }
+.qr-stat-val { font-size: 22px; font-weight: 900; color: var(--text1); letter-spacing: -1px; }
+.qr-stat-lab { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--text3); margin-top: 2px; }
+
+/* ── Settings ─────────────────────────────────────────────────────────── */
+.settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 20px; }
+.settings-nav {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 10px; height: fit-content;
+}
+.settings-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  font-size: 13px; font-weight: 500; color: var(--text2);
+  cursor: pointer; transition: all var(--transition);
+}
+.settings-nav-item:hover { background: var(--bg3); color: var(--text1); }
+.settings-nav-item.active { background: var(--orange-dim); color: var(--orange); }
+.settings-nav-item .sni { font-size: 16px; }
+.settings-nav-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+.settings-panel { display: flex; flex-direction: column; gap: 16px; }
+.settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+.settings-section-title { font-size: 16px; font-weight: 700; color: var(--text1); margin-bottom: 4px; }
+.settings-section-sub { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+.coach-profile-row {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+  padding-bottom: 20px; border-bottom: 1px solid var(--border);
+}
+.coach-avatar-big {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--orange), var(--navy));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800; color: #fff; flex-shrink: 0;
+}
+.settings-field { margin-bottom: 14px; }
+.sf-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; display: block; letter-spacing: .3px; }
+.sf-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+  color: var(--text1); font-family: inherit; font-size: 13px; outline: none;
+  transition: border-color var(--transition);
+}
+.sf-input:focus { border-color: var(--orange); }
+.sf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-info { flex: 1; }
+.toggle-info-label { font-size: 14px; font-weight: 600; color: var(--text1); }
+.toggle-info-sub { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.toggle-switch {
+  width: 44px; height: 24px; border-radius: 12px; background: var(--bg3);
+  border: 1px solid var(--border); cursor: pointer; position: relative;
+  transition: background var(--transition); flex-shrink: 0;
+}
+.toggle-switch.on { background: var(--orange); border-color: var(--orange); }
+.toggle-switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  transition: transform var(--transition);
+}
+.toggle-switch.on::after { transform: translateX(20px); }
+
+.plan-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 14px; border-radius: 20px;
+  background: linear-gradient(135deg,var(--orange),#ff9a5c);
+  font-size: 12px; font-weight: 700; color: #fff;
+}
+.danger-zone { border-color: rgba(239,68,68,.3); }
+.danger-zone .settings-section-title { color: var(--red); }
 </style>
 </head>
 <body>
@@ -546,8 +950,8 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
   <!-- ── Sidebar ───────────────────────────────────────────────────── -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon">T</div>
-      <div class="logo-text">Try<span>out</span></div>
+      <img src="assets/tryout-main-logo-optimized.webp" alt="Tryout"
+           onerror="this.outerHTML='<div style=\'display:flex;align-items:center;gap:10px\'><div style=\'width:38px;height:38px;background:linear-gradient(135deg,#ff6b2b,#ff9a5c);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#fff;box-shadow:0 0 20px rgba(255,107,43,.18)\'>T</div><div style=\'font-size:18px;font-weight:700;color:var(--text1)\'>Try<span style=\'color:var(--orange)\'>out</span></div></div>'">
     </div>
 
     <nav class="sidebar-nav">
@@ -565,24 +969,29 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         <span class="nav-icon">🏒</span> Team Builder
       </a>
 
-      <div class="nav-label">Reports</div>
-      <a class="nav-item" onclick="switchTab('dashboard',this)">
-        <span class="nav-icon">📊</span> Analytics
+      <div class="nav-label">Tools</div>
+      <a class="nav-item" onclick="switchTab('schedule',this)">
+        <span class="nav-icon">📅</span> Schedule
       </a>
-      <a class="nav-item" onclick="switchTab('dashboard',this)">
+      <a class="nav-item" onclick="switchTab('export',this)">
         <span class="nav-icon">📤</span> Export
       </a>
-      <a class="nav-item" onclick="switchTab('dashboard',this)">
-        <span class="nav-icon">📅</span> Schedule
+      <a class="nav-item" onclick="switchTab('qr',this)">
+        <span class="nav-icon">📲</span> QR Registration
+      </a>
+
+      <div class="nav-label">Account</div>
+      <a class="nav-item" onclick="switchTab('settings',this)">
+        <span class="nav-icon">⚙️</span> Settings
       </a>
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-card">
+      <div class="user-card" onclick="switchTab('settings',null)">
         <div class="avatar">SC</div>
         <div class="user-info">
           <div class="user-name">Coach S</div>
-          <div class="user-role">Head Coach</div>
+          <div class="user-role">Head Coach · Pro</div>
         </div>
         <span style="color:var(--text3);font-size:14px;">⚙</span>
       </div>
@@ -603,7 +1012,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           <span id="theme-icon">☀️</span>
           <span id="theme-label">Light</span>
         </div>
-        <button class="btn btn-primary" onclick="switchTab('scoring',document.querySelector('.nav-item:nth-child(4)'))">
+        <button class="btn btn-primary" onclick="switchTab('scoring',null)">
           + New Assessment
         </button>
       </div>
@@ -611,10 +1020,10 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
 
     <!-- Tabs -->
     <div class="screen-tabs">
-      <div class="tab active" onclick="switchTab('dashboard',this)">Dashboard</div>
-      <div class="tab" onclick="switchTab('roster',this)">Roster</div>
-      <div class="tab" onclick="switchTab('scoring',this)">Scoring</div>
-      <div class="tab" onclick="switchTab('teams',this)">Team Builder</div>
+      <div class="tab active" data-screen="dashboard" onclick="switchTab('dashboard',this)">Dashboard</div>
+      <div class="tab" data-screen="roster" onclick="switchTab('roster',this)">Roster</div>
+      <div class="tab" data-screen="scoring" onclick="switchTab('scoring',this)">Scoring</div>
+      <div class="tab" data-screen="teams" onclick="switchTab('teams',this)">Team Builder</div>
     </div>
 
     <!-- ── DASHBOARD ─────────────────────────────────────────────── -->
@@ -795,7 +1204,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
       </div>
 
       <div class="team-grid">
-        <div class="team-card" onclick="switchTab('roster',document.querySelectorAll('.tab')[1])">
+        <div class="team-card" onclick="switchTab('roster',null)">
           <div class="team-card-accent" style="background:linear-gradient(90deg,var(--orange),transparent)"></div>
           <div class="team-card-top">
             <div><div class="team-name">U15 Rep Tryouts</div><div class="team-date">Apr 20, 2026</div></div>
@@ -861,7 +1270,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         <div class="filter-chip">Goalies</div>
         <div style="margin-left:auto;display:flex;gap:8px">
           <button class="btn btn-ghost">↑↓ Sort</button>
-          <button class="btn btn-primary" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">+ Score Player</button>
+          <button class="btn btn-primary" onclick="switchTab('scoring',null)">+ Score Player</button>
         </div>
       </div>
 
@@ -880,7 +1289,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         </div>
 
         <!-- Players -->
-        <div class="player-row" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">
+        <div class="player-row" onclick="switchTab('profile',null)">
           <div class="player-num" style="background:var(--orange-dim);color:var(--orange);font-weight:800;">9</div>
           <div class="player-info">
             <div class="player-name">Connor MacDonald</div>
@@ -895,7 +1304,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           <div class="score-pill score-great">9.0</div>
         </div>
 
-        <div class="player-row" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">
+        <div class="player-row" onclick="switchTab('profile',null)">
           <div class="player-num">27</div>
           <div class="player-info">
             <div class="player-name">Liam Tremblay</div>
@@ -910,7 +1319,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           <div class="score-pill score-good">7.8</div>
         </div>
 
-        <div class="player-row" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">
+        <div class="player-row" onclick="switchTab('profile',null)">
           <div class="player-num">44</div>
           <div class="player-info">
             <div class="player-name">Ethan Nguyen</div>
@@ -1097,11 +1506,782 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
 
     <!-- ── TEAM BUILDER ────────────────────────────────────────────── -->
     <div class="screen" id="screen-teams">
-      <div style="text-align:center;padding:80px 20px;color:var(--text2)">
-        <div style="font-size:64px;margin-bottom:16px">🏒</div>
-        <div style="font-size:22px;font-weight:700;color:var(--text1);margin-bottom:8px">Team Builder</div>
-        <div style="font-size:14px;margin-bottom:28px">AI-balanced team generation coming in this screen</div>
-        <button class="btn btn-primary" onclick="switchTab('roster',document.querySelectorAll('.tab')[1])">View Roster First</button>
+
+      <!-- Controls -->
+      <div class="tb-top">
+        <select class="event-select">
+          <option>U15 Rep Tryouts — Apr 20, 2026</option>
+          <option>U13 Assessment — Apr 18, 2026</option>
+        </select>
+        <div class="tb-meta">42 players · 3 teams · Avg score 7.4</div>
+        <button class="btn btn-ghost">⚙ Configure</button>
+        <button class="btn btn-primary">⚡ Auto-Balance</button>
+      </div>
+
+      <!-- Balance Summary -->
+      <div class="balance-row">
+        <div class="balance-col">
+          <div class="bc-header"><span class="bc-name">Unassigned</span><span class="bc-count">8 players</span></div>
+          <div class="bc-score" style="color:var(--text3)">—</div>
+          <div class="bc-bar"><div class="bc-fill" style="width:0%;background:var(--text3)"></div></div>
+        </div>
+        <div class="balance-col">
+          <div class="bc-header"><span class="bc-name">Team A</span><span class="bc-count">12 players</span></div>
+          <div class="bc-score">7.9</div>
+          <div class="bc-bar"><div class="bc-fill" style="width:79%"></div></div>
+        </div>
+        <div class="balance-col">
+          <div class="bc-header"><span class="bc-name">Team B</span><span class="bc-count">11 players</span></div>
+          <div class="bc-score" style="color:var(--teal)">7.2</div>
+          <div class="bc-bar"><div class="bc-fill" style="width:72%;background:linear-gradient(90deg,var(--teal),#5ef0ff)"></div></div>
+        </div>
+        <div class="balance-col">
+          <div class="bc-header"><span class="bc-name">Team C</span><span class="bc-count">11 players</span></div>
+          <div class="bc-score" style="color:var(--green)">7.1</div>
+          <div class="bc-bar"><div class="bc-fill" style="width:71%;background:linear-gradient(90deg,var(--green),#4ade80)"></div></div>
+        </div>
+      </div>
+
+      <!-- 4-Column Builder -->
+      <div class="tb-layout">
+
+        <!-- Pool -->
+        <div class="tb-col">
+          <div class="tb-col-head">
+            <span class="tb-col-title">Available</span>
+            <span class="tb-col-badge pool">8</span>
+          </div>
+          <div class="tb-players">
+            <div class="tb-player"><div class="tb-player-num">15</div><div class="tb-player-info"><div class="tb-player-name">Ryan Kowalski</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">5.8</div></div>
+            <div class="tb-player"><div class="tb-player-num">33</div><div class="tb-player-info"><div class="tb-player-name">Marcus Chen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.1</div></div>
+            <div class="tb-player"><div class="tb-player-num">7</div><div class="tb-player-info"><div class="tb-player-name">Tyler Bouchard</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">6.4</div></div>
+            <div class="tb-player"><div class="tb-player-num">21</div><div class="tb-player-info"><div class="tb-player-name">Sam Okafor</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">7.8</div></div>
+            <div class="tb-player"><div class="tb-player-num">3</div><div class="tb-player-info"><div class="tb-player-name">Josh Petrov</div><div class="tb-player-pos">GTL · 2012</div></div><div class="tb-player-score">6.9</div></div>
+            <div class="tb-player"><div class="tb-player-num">55</div><div class="tb-player-info"><div class="tb-player-name">Nathan LeBlanc</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.4</div></div>
+            <div class="tb-player"><div class="tb-player-num">18</div><div class="tb-player-info"><div class="tb-player-name">Finn Dempsey</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">6.7</div></div>
+            <div class="tb-player"><div class="tb-player-num">29</div><div class="tb-player-info"><div class="tb-player-name">Hugo Laurent</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.3</div></div>
+            <div class="tb-drop-zone">Drop player here</div>
+          </div>
+        </div>
+
+        <!-- Team A -->
+        <div class="tb-col">
+          <div class="tb-col-head">
+            <span class="tb-col-title">🟠 Team A</span>
+            <span class="tb-col-badge">7.9 avg</span>
+          </div>
+          <div class="tb-players">
+            <div class="tb-player"><div class="tb-player-num" style="background:var(--orange-dim);color:var(--orange)">9</div><div class="tb-player-info"><div class="tb-player-name">Connor MacDonald</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">9.0</div></div>
+            <div class="tb-player"><div class="tb-player-num">88</div><div class="tb-player-info"><div class="tb-player-name">Alexei Volkov</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">8.2</div></div>
+            <div class="tb-player"><div class="tb-player-num">11</div><div class="tb-player-info"><div class="tb-player-name">Drew Hanson</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.7</div></div>
+            <div class="tb-player"><div class="tb-player-num">5</div><div class="tb-player-info"><div class="tb-player-name">Owen Park</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.4</div></div>
+            <div class="tb-player"><div class="tb-player-num">22</div><div class="tb-player-info"><div class="tb-player-name">Cole Murphy</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">6.9</div></div>
+            <div class="tb-player"><div class="tb-player-num">36</div><div class="tb-player-info"><div class="tb-player-name">Leo Sandoval</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">7.2</div></div>
+            <div class="tb-player"><div class="tb-player-num">1</div><div class="tb-player-info"><div class="tb-player-name">Jake Morrison</div><div class="tb-player-pos">GTL · 2011</div></div><div class="tb-player-score">6.8</div></div>
+            <div class="tb-drop-zone">Drop to add</div>
+          </div>
+        </div>
+
+        <!-- Team B -->
+        <div class="tb-col">
+          <div class="tb-col-head">
+            <span class="tb-col-title">🔵 Team B</span>
+            <span class="tb-col-badge" style="color:var(--teal);background:rgba(15,184,201,.1)">7.2 avg</span>
+          </div>
+          <div class="tb-players">
+            <div class="tb-player"><div class="tb-player-num">27</div><div class="tb-player-info"><div class="tb-player-name">Liam Tremblay</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.8</div></div>
+            <div class="tb-player"><div class="tb-player-num">14</div><div class="tb-player-info"><div class="tb-player-name">Aiden Walsh</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.6</div></div>
+            <div class="tb-player"><div class="tb-player-num">8</div><div class="tb-player-info"><div class="tb-player-name">Declan Forde</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">7.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">41</div><div class="tb-player-info"><div class="tb-player-name">Brendan Yee</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">7.0</div></div>
+            <div class="tb-player"><div class="tb-player-num">17</div><div class="tb-player-info"><div class="tb-player-name">Carter Singh</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">6.8</div></div>
+            <div class="tb-player"><div class="tb-player-num">30</div><div class="tb-player-info"><div class="tb-player-name">Davis Reyes</div><div class="tb-player-pos">GTL · 2012</div></div><div class="tb-player-score">7.1</div></div>
+            <div class="tb-drop-zone">Drop to add</div>
+          </div>
+        </div>
+
+        <!-- Team C -->
+        <div class="tb-col">
+          <div class="tb-col-head">
+            <span class="tb-col-title">🟢 Team C</span>
+            <span class="tb-col-badge" style="color:var(--green);background:rgba(34,197,94,.1)">7.1 avg</span>
+          </div>
+          <div class="tb-players">
+            <div class="tb-player"><div class="tb-player-num">44</div><div class="tb-player-info"><div class="tb-player-name">Ethan Nguyen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.0</div></div>
+            <div class="tb-player"><div class="tb-player-num">12</div><div class="tb-player-info"><div class="tb-player-name">Will Johansson</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.9</div></div>
+            <div class="tb-player"><div class="tb-player-num">6</div><div class="tb-player-info"><div class="tb-player-name">Noah Sterling</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.3</div></div>
+            <div class="tb-player"><div class="tb-player-num">23</div><div class="tb-player-info"><div class="tb-player-name">Eli Watts</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">6.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">46</div><div class="tb-player-info"><div class="tb-player-name">Kai Henriksen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.0</div></div>
+            <div class="tb-player"><div class="tb-player-num">2</div><div class="tb-player-info"><div class="tb-player-name">Ben Azari</div><div class="tb-player-pos">GTL · 2011</div></div><div class="tb-player-score">6.8</div></div>
+            <div class="tb-drop-zone">Drop to add</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PLAYER PROFILE ───────────────────────────────────────────── -->
+    <div class="screen" id="screen-profile">
+      <div class="profile-back" onclick="switchTab('roster',null)">← Back to Roster</div>
+
+      <!-- Hero -->
+      <div class="profile-hero-card">
+        <div class="profile-avatar">CM</div>
+        <div class="profile-hero-info">
+          <div class="profile-name">Connor MacDonald</div>
+          <div class="profile-sub">#9 · Forward · Right Shot · Born 2011 · 5'10" · 162 lbs</div>
+          <div class="profile-tags">
+            <span class="profile-tag highlight">Top Prospect</span>
+            <span class="profile-tag">U15 Rep Tryouts</span>
+            <span class="profile-tag">Spring 2026</span>
+            <span class="profile-tag">AAA Target</span>
+          </div>
+        </div>
+        <div class="profile-overall">
+          <div class="profile-overall-num">9.0</div>
+          <div class="profile-overall-lab">Overall Score</div>
+        </div>
+        <div class="profile-actions">
+          <button class="btn btn-primary" onclick="switchTab('scoring',null)">⭐ Score</button>
+          <button class="btn btn-ghost">📤 Export</button>
+          <button class="btn btn-ghost">✏️ Edit</button>
+        </div>
+      </div>
+
+      <div class="profile-body">
+        <!-- Left column -->
+        <div class="profile-left">
+
+          <!-- 3 mini rings -->
+          <div class="ring-card" style="flex-direction:row;gap:0;padding:24px 20px;align-items:flex-start">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+              <div class="ring-label">Skating</div>
+              <div class="ring-wrap">
+                <svg class="ring" width="110" height="110" viewBox="0 0 140 140">
+                  <circle class="track" cx="70" cy="70" r="58" stroke-width="10"/>
+                  <circle class="fill glow-orange" cx="70" cy="70" r="58" stroke-width="10" stroke="url(#pg1)" stroke-dasharray="364.4" stroke-dashoffset="44" transform="rotate(-90 70 70)"/>
+                  <defs><linearGradient id="pg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ff6b2b"/><stop offset="100%" stop-color="#ff9a5c"/></linearGradient></defs>
+                </svg>
+                <div class="ring-score"><span class="score-num" style="font-size:28px">8.8</span><span class="score-denom">/ 10</span></div>
+              </div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+              <div class="ring-label">Puck Skills</div>
+              <div class="ring-wrap">
+                <svg class="ring" width="110" height="110" viewBox="0 0 140 140">
+                  <circle class="track" cx="70" cy="70" r="58" stroke-width="10"/>
+                  <circle class="fill glow-teal" cx="70" cy="70" r="58" stroke-width="10" stroke="url(#pg2)" stroke-dasharray="364.4" stroke-dashoffset="66" transform="rotate(-90 70 70)"/>
+                  <defs><linearGradient id="pg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0fb8c9"/><stop offset="100%" stop-color="#5ef0ff"/></linearGradient></defs>
+                </svg>
+                <div class="ring-score"><span class="score-num" style="font-size:28px">8.2</span><span class="score-denom">/ 10</span></div>
+              </div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+              <div class="ring-label">Hockey IQ</div>
+              <div class="ring-wrap">
+                <svg class="ring" width="110" height="110" viewBox="0 0 140 140">
+                  <circle class="track" cx="70" cy="70" r="58" stroke-width="10"/>
+                  <circle class="fill glow-green" cx="70" cy="70" r="58" stroke-width="10" stroke="url(#pg3)" stroke-dasharray="364.4" stroke-dashoffset="36" transform="rotate(-90 70 70)"/>
+                  <defs><linearGradient id="pg3" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#22c55e"/><stop offset="100%" stop-color="#4ade80"/></linearGradient></defs>
+                </svg>
+                <div class="ring-score"><span class="score-num" style="font-size:28px">9.0</span><span class="score-denom">/ 10</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- History bars -->
+          <div class="history-card">
+            <div class="section-header" style="margin-bottom:0">
+              <div class="section-title">Assessment History</div>
+              <span style="font-size:12px;color:var(--text2)">Last 4 events</span>
+            </div>
+            <div class="history-bars">
+              <div class="hbar-wrap">
+                <div class="hbar-val">7.2</div>
+                <div class="hbar" style="height:72px"></div>
+                <div class="hbar-lab">Fall 2024</div>
+              </div>
+              <div class="hbar-wrap">
+                <div class="hbar-val">7.8</div>
+                <div class="hbar" style="height:91px"></div>
+                <div class="hbar-lab">Winter 2025</div>
+              </div>
+              <div class="hbar-wrap">
+                <div class="hbar-val">8.4</div>
+                <div class="hbar" style="height:104px"></div>
+                <div class="hbar-lab">Fall 2025</div>
+              </div>
+              <div class="hbar-wrap">
+                <div class="hbar-val">9.0</div>
+                <div class="hbar current" style="height:120px"></div>
+                <div class="hbar-lab" style="color:var(--orange)">Spring 2026</div>
+              </div>
+            </div>
+            <div style="margin-top:14px;padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px;font-size:12px;color:var(--green);font-weight:600">
+              📈 +1.8 pts improvement over 4 assessments — top trajectory in cohort
+            </div>
+          </div>
+
+          <!-- Category breakdown -->
+          <div class="sidebar-card">
+            <div class="sc-title">Category Breakdown</div>
+            <div class="score-categories">
+              <div class="score-cat"><div class="sc-header"><span class="sc-name">⛸ Skating</span><span class="sc-val" style="color:var(--orange)">8.8</span></div><div class="sc-track"><div class="sc-fill" style="width:88%;background:linear-gradient(90deg,var(--orange),#ff9a5c)"></div></div></div>
+              <div class="score-cat"><div class="sc-header"><span class="sc-name">🏒 Puck Skills</span><span class="sc-val" style="color:var(--teal)">8.2</span></div><div class="sc-track"><div class="sc-fill" style="width:82%;background:linear-gradient(90deg,var(--teal),#5ef0ff)"></div></div></div>
+              <div class="score-cat"><div class="sc-header"><span class="sc-name">🧠 Hockey IQ</span><span class="sc-val" style="color:var(--green)">9.0</span></div><div class="sc-track"><div class="sc-fill" style="width:90%;background:linear-gradient(90deg,var(--green),#4ade80)"></div></div></div>
+              <div class="score-cat"><div class="sc-header"><span class="sc-name">💪 Physical</span><span class="sc-val" style="color:var(--yellow)">9.2</span></div><div class="sc-track"><div class="sc-fill" style="width:92%;background:linear-gradient(90deg,var(--yellow),#fcd34d)"></div></div></div>
+              <div class="score-cat"><div class="sc-header"><span class="sc-name">🔥 Compete Level</span><span class="sc-val" style="color:var(--orange-soft)">9.5</span></div><div class="sc-track"><div class="sc-fill" style="width:95%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="profile-right">
+          <div class="info-card">
+            <div class="section-title" style="margin-bottom:16px">Player Info</div>
+            <div class="info-row"><span class="info-label">Full Name</span><span class="info-value">Connor J. MacDonald</span></div>
+            <div class="info-row"><span class="info-label">Year of Birth</span><span class="info-value">2011</span></div>
+            <div class="info-row"><span class="info-label">Jersey #</span><span class="info-value">#9</span></div>
+            <div class="info-row"><span class="info-label">Position</span><span class="info-value">Forward</span></div>
+            <div class="info-row"><span class="info-label">Shot</span><span class="info-value">Right</span></div>
+            <div class="info-row"><span class="info-label">Height / Weight</span><span class="info-value">5'10" · 162 lbs</span></div>
+            <div class="info-row"><span class="info-label">Guardian</span><span class="info-value">James MacDonald</span></div>
+            <div class="info-row"><span class="info-label">Contact</span><span class="info-value">j.macdonald@email.com</span></div>
+            <div class="info-row"><span class="info-label">Registered</span><span class="info-value">Apr 18, 2026 via QR</span></div>
+          </div>
+
+          <div class="info-card">
+            <div class="section-title" style="margin-bottom:16px">Scout Notes</div>
+            <div class="notes-timeline">
+              <div class="note-entry">
+                <div class="note-meta">Coach S · Apr 20, 2026 · U15 Rep Tryouts</div>
+                <div class="note-text">Exceptional edge work and compete level. Reads the play well — strong positioning and backchecks hard. Shot needs development but hockey sense is elite.</div>
+              </div>
+              <div class="note-entry" style="border-left-color:var(--teal)">
+                <div class="note-meta">Scout M · Fall 2025 · AAA Bantam Sort-Out</div>
+                <div class="note-text">Great acceleration and first few steps. Needs to work on puck protection in corners. High upside — recommend for AAA consideration.</div>
+              </div>
+              <div class="note-entry" style="border-left-color:var(--green)">
+                <div class="note-meta">Coach S · Winter 2025 · U15 Development</div>
+                <div class="note-text">Strong improvement in skating since fall. Compete level stands out. One to watch for rep program next year.</div>
+              </div>
+            </div>
+            <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:12px">+ Add Note</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EXPORT / REPORTS ──────────────────────────────────────────── -->
+    <div class="screen" id="screen-export">
+      <div class="export-layout">
+        <div>
+          <div class="section-header">
+            <div><div class="section-title">Choose Report Type</div><div class="section-sub">Select a report to preview and generate</div></div>
+          </div>
+          <div class="report-cards">
+            <div class="report-card selected">
+              <div class="rc-icon">📋</div>
+              <div class="rc-name">Player Report Cards</div>
+              <div class="rc-desc">Individual player scorecards with rings, notes, and category breakdown</div>
+              <div class="rc-formats"><span class="fmt-tag">PDF</span><span class="fmt-tag">EMAIL</span></div>
+            </div>
+            <div class="report-card">
+              <div class="rc-icon">📊</div>
+              <div class="rc-name">Full Roster Export</div>
+              <div class="rc-desc">All players with scores across every category, sortable spreadsheet</div>
+              <div class="rc-formats"><span class="fmt-tag">CSV</span><span class="fmt-tag">EXCEL</span></div>
+            </div>
+            <div class="report-card">
+              <div class="rc-icon">⚖️</div>
+              <div class="rc-name">Team Comparison</div>
+              <div class="rc-desc">Side-by-side balanced team report with avg scores and position breakdown</div>
+              <div class="rc-formats"><span class="fmt-tag">PDF</span></div>
+            </div>
+            <div class="report-card">
+              <div class="rc-icon">📲</div>
+              <div class="rc-name">Registration List</div>
+              <div class="rc-desc">QR registration submissions with guardian contact info and waiver status</div>
+              <div class="rc-formats"><span class="fmt-tag">CSV</span><span class="fmt-tag">PDF</span></div>
+            </div>
+          </div>
+
+          <!-- Recent Exports -->
+          <div class="recent-exports">
+            <div class="section-header" style="margin-bottom:12px">
+              <div class="section-title">Recent Exports</div>
+            </div>
+            <div class="export-item">
+              <div class="ei-icon">📋</div>
+              <div class="ei-info"><div class="ei-name">U15 Rep Tryouts — Player Report Cards</div><div class="ei-meta">42 players · Apr 21, 2026 · 3.2 MB</div></div>
+              <span class="ei-dl">↓ Download</span>
+            </div>
+            <div class="export-item">
+              <div class="ei-icon">📊</div>
+              <div class="ei-info"><div class="ei-name">U13 Assessment — Roster Export</div><div class="ei-meta">28 players · Apr 19, 2026 · 48 KB</div></div>
+              <span class="ei-dl">↓ Download</span>
+            </div>
+            <div class="export-item">
+              <div class="ei-icon">⚖️</div>
+              <div class="ei-info"><div class="ei-name">AAA Bantam — Team Comparison</div><div class="ei-meta">3 teams · Apr 12, 2026 · 1.1 MB</div></div>
+              <span class="ei-dl">↓ Download</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Preview + settings -->
+        <div class="export-preview">
+          <div class="section-title" style="margin-bottom:4px">Generate Report</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:16px">Player Report Cards · PDF</div>
+
+          <div class="preview-thumb">
+            <div class="preview-thumb-icon">📋</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text1)">Player Report Card</div>
+            <div class="preview-thumb-label">Connor MacDonald · #9 · 9.0</div>
+            <div style="width:80px;height:2px;background:var(--orange);border-radius:2px;margin:4px 0"></div>
+            <div class="preview-thumb-label">Preview · 1 of 42</div>
+          </div>
+
+          <div class="export-field">
+            <div class="ef-label">Event</div>
+            <select class="ef-select">
+              <option>U15 Rep Tryouts — Apr 20, 2026</option>
+              <option>U13 Assessment — Apr 18, 2026</option>
+              <option>AAA Bantam Sort-Out — Apr 10, 2026</option>
+            </select>
+          </div>
+          <div class="export-field">
+            <div class="ef-label">Players</div>
+            <select class="ef-select">
+              <option>All Players (42)</option>
+              <option>Scored Only (38)</option>
+              <option>Top 20</option>
+              <option>Custom Selection</option>
+            </select>
+          </div>
+          <div class="export-field">
+            <div class="ef-label">Include</div>
+            <select class="ef-select">
+              <option>Scores + Notes + Rings</option>
+              <option>Scores Only</option>
+              <option>Notes Only</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:14px;padding:12px">
+            📤 Generate & Download
+          </button>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px">
+            ✉️ Email to Coach
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCHEDULE / SEASON ─────────────────────────────────────────── -->
+    <div class="screen" id="screen-schedule">
+      <div class="cal-header">
+        <div class="cal-month">April 2026</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="cal-nav">
+            <div class="cal-nav-btn">‹</div>
+            <div class="cal-nav-btn">›</div>
+          </div>
+          <button class="btn btn-ghost">Month</button>
+          <button class="btn btn-primary">+ New Event</button>
+        </div>
+      </div>
+
+      <div class="calendar-grid">
+        <div class="cal-days-header">
+          <div class="cal-day-label">Sun</div>
+          <div class="cal-day-label">Mon</div>
+          <div class="cal-day-label">Tue</div>
+          <div class="cal-day-label">Wed</div>
+          <div class="cal-day-label">Thu</div>
+          <div class="cal-day-label">Fri</div>
+          <div class="cal-day-label">Sat</div>
+        </div>
+        <div class="cal-days">
+          <!-- Row 1 -->
+          <div class="cal-day other-month"><div class="cal-day-num">30</div></div>
+          <div class="cal-day other-month"><div class="cal-day-num">31</div></div>
+          <div class="cal-day"><div class="cal-day-num">1</div></div>
+          <div class="cal-day"><div class="cal-day-num">2</div></div>
+          <div class="cal-day"><div class="cal-day-num">3</div></div>
+          <div class="cal-day"><div class="cal-day-num">4</div></div>
+          <div class="cal-day"><div class="cal-day-num">5</div></div>
+          <!-- Row 2 -->
+          <div class="cal-day"><div class="cal-day-num">6</div></div>
+          <div class="cal-day"><div class="cal-day-num">7</div></div>
+          <div class="cal-day"><div class="cal-day-num">8</div></div>
+          <div class="cal-day"><div class="cal-day-num">9</div></div>
+          <div class="cal-day"><div class="cal-day-num">10</div><div class="cal-event orange">AAA Bantam Sort-Out</div></div>
+          <div class="cal-day"><div class="cal-day-num">11</div></div>
+          <div class="cal-day"><div class="cal-day-num">12</div></div>
+          <!-- Row 3 -->
+          <div class="cal-day"><div class="cal-day-num">13</div></div>
+          <div class="cal-day"><div class="cal-day-num">14</div></div>
+          <div class="cal-day"><div class="cal-day-num">15</div></div>
+          <div class="cal-day"><div class="cal-day-num">16</div></div>
+          <div class="cal-day"><div class="cal-day-num">17</div></div>
+          <div class="cal-day"><div class="cal-day-num">18</div><div class="cal-event teal">U13 Assessment</div></div>
+          <div class="cal-day"><div class="cal-day-num">19</div></div>
+          <!-- Row 4 -->
+          <div class="cal-day"><div class="cal-day-num">20</div><div class="cal-event orange">U15 Rep Tryouts</div></div>
+          <div class="cal-day"><div class="cal-day-num">21</div><div class="cal-event orange">U15 Rep Tryouts</div></div>
+          <div class="cal-day"><div class="cal-day-num">22</div></div>
+          <div class="cal-day today"><div class="cal-day-num">23</div></div>
+          <div class="cal-day"><div class="cal-day-num">24</div></div>
+          <div class="cal-day"><div class="cal-day-num">25</div></div>
+          <div class="cal-day"><div class="cal-day-num">26</div></div>
+          <!-- Row 5 -->
+          <div class="cal-day"><div class="cal-day-num">27</div></div>
+          <div class="cal-day"><div class="cal-day-num">28</div><div class="cal-event green">U17 Elite Camp</div></div>
+          <div class="cal-day"><div class="cal-day-num">29</div><div class="cal-event green">U17 Elite Camp</div></div>
+          <div class="cal-day"><div class="cal-day-num">30</div></div>
+          <div class="cal-day other-month"><div class="cal-day-num">1</div></div>
+          <div class="cal-day other-month"><div class="cal-day-num">2</div></div>
+          <div class="cal-day other-month"><div class="cal-day-num">3</div></div>
+        </div>
+      </div>
+
+      <!-- Upcoming Events -->
+      <div class="section-header">
+        <div class="section-title">Upcoming Events</div>
+        <button class="btn btn-ghost">View All</button>
+      </div>
+      <div class="upcoming-list">
+        <div class="upcoming-card">
+          <div class="uc-date"><div class="uc-day">28</div><div class="uc-month">Apr</div></div>
+          <div class="uc-divider"></div>
+          <div class="uc-info">
+            <div class="uc-name">U17 Elite Development Camp</div>
+            <div class="uc-meta">Maple Leaf Gardens · 60 players expected · 5 scouts registered</div>
+          </div>
+          <div class="uc-status">
+            <span class="team-badge badge-draft">Draft</span>
+            <span style="font-size:11px;color:var(--text2)">5 days away</span>
+          </div>
+        </div>
+        <div class="upcoming-card">
+          <div class="uc-date"><div class="uc-day">10</div><div class="uc-month">May</div></div>
+          <div class="uc-divider"></div>
+          <div class="uc-info">
+            <div class="uc-name">AAA U15 Final Selection</div>
+            <div class="uc-meta">Bell MTS Iceplex · 28 players shortlisted · 3 scouts</div>
+          </div>
+          <div class="uc-status">
+            <span class="team-badge badge-draft">Planning</span>
+            <span style="font-size:11px;color:var(--text2)">17 days away</span>
+          </div>
+        </div>
+        <div class="upcoming-card">
+          <div class="uc-date"><div class="uc-day">24</div><div class="uc-month">May</div></div>
+          <div class="uc-divider"></div>
+          <div class="uc-info">
+            <div class="uc-name">Spring Showcase — All Divisions</div>
+            <div class="uc-meta">Scotiabank Arena Practice · Multi-division event</div>
+          </div>
+          <div class="uc-status">
+            <span class="team-badge badge-done">TBD</span>
+            <span style="font-size:11px;color:var(--text2)">31 days away</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── QR REGISTRATION ───────────────────────────────────────────── -->
+    <div class="screen" id="screen-qr">
+      <div class="section-header" style="margin-bottom:20px">
+        <div>
+          <div class="section-title">QR Registration</div>
+          <div class="section-sub">Players scan the QR code and self-register — no app needed</div>
+        </div>
+        <button class="btn btn-primary">+ Create New Event Code</button>
+      </div>
+
+      <div class="qr-layout">
+        <!-- Left: Form Preview -->
+        <div class="qr-form-preview">
+          <div class="qr-form-banner">
+            <img src="assets/tryout-main-logo-optimized.webp" class="qr-form-logo" alt="Tryout"
+                 onerror="this.outerHTML='<div style=\'font-size:22px;font-weight:900;color:#ff6b2b\'>Tryout</div>'">
+            <div class="qr-event-info">
+              <div class="qr-event-name">U15 Rep Tryouts</div>
+              <div class="qr-event-code">Event Code: AB3X9K</div>
+            </div>
+          </div>
+          <div class="qr-form-body">
+            <div class="form-section-title">Player Information</div>
+            <div class="ff-row">
+              <div class="form-field">
+                <label class="ff-label">First Name <span class="req">*</span></label>
+                <input class="ff-input" type="text" value="Connor" readonly>
+              </div>
+              <div class="form-field">
+                <label class="ff-label">Last Name <span class="req">*</span></label>
+                <input class="ff-input" type="text" value="MacDonald" readonly>
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="ff-label">Year of Birth <span class="req">*</span></label>
+              <select class="ff-input"><option>2011</option></select>
+            </div>
+            <div class="form-section-title">Parent / Guardian</div>
+            <div class="form-field">
+              <label class="ff-label">Guardian Name <span class="req">*</span></label>
+              <input class="ff-input" type="text" value="James MacDonald" readonly>
+            </div>
+            <div class="ff-row">
+              <div class="form-field">
+                <label class="ff-label">Email <span class="req">*</span></label>
+                <input class="ff-input" type="email" value="j.mac@email.com" readonly>
+              </div>
+              <div class="form-field">
+                <label class="ff-label">Phone <span class="req">*</span></label>
+                <input class="ff-input" type="tel" value="204-555-1234" readonly>
+              </div>
+            </div>
+            <div class="waiver-box">
+              <div class="waiver-text">I confirm that all information provided is accurate and I consent to the collection and use of this data for the purpose of this hockey tryout or assessment event. I agree to the terms and conditions of the Tryout platform.</div>
+              <div class="waiver-check">
+                <input type="checkbox" id="prev-waiver" checked>
+                <label for="prev-waiver">I agree to the waiver and consent to data collection</label>
+              </div>
+            </div>
+            <button class="form-submit">Submit Registration</button>
+          </div>
+        </div>
+
+        <!-- Right: QR Code + Stats -->
+        <div class="qr-panel">
+          <div class="qr-code-card">
+            <div class="section-title">Event QR Code</div>
+            <div class="qr-svg-wrap">
+              <!-- Placeholder QR pattern using SVG -->
+              <svg width="160" height="160" viewBox="0 0 160 160" style="image-rendering:pixelated">
+                <rect width="160" height="160" fill="white"/>
+                <!-- Finder TL -->
+                <rect x="10" y="10" width="42" height="42" fill="#0d1629" rx="4"/>
+                <rect x="16" y="16" width="30" height="30" fill="white" rx="2"/>
+                <rect x="22" y="22" width="18" height="18" fill="#0d1629" rx="2"/>
+                <!-- Finder TR -->
+                <rect x="108" y="10" width="42" height="42" fill="#0d1629" rx="4"/>
+                <rect x="114" y="16" width="30" height="30" fill="white" rx="2"/>
+                <rect x="120" y="22" width="18" height="18" fill="#0d1629" rx="2"/>
+                <!-- Finder BL -->
+                <rect x="10" y="108" width="42" height="42" fill="#0d1629" rx="4"/>
+                <rect x="16" y="114" width="30" height="30" fill="white" rx="2"/>
+                <rect x="22" y="120" width="18" height="18" fill="#0d1629" rx="2"/>
+                <!-- Data dots pattern -->
+                <rect x="60" y="10" width="6" height="6" fill="#0d1629"/>
+                <rect x="72" y="10" width="6" height="6" fill="#0d1629"/>
+                <rect x="60" y="22" width="6" height="6" fill="#0d1629"/>
+                <rect x="84" y="16" width="6" height="6" fill="#0d1629"/>
+                <rect x="72" y="28" width="6" height="6" fill="#0d1629"/>
+                <rect x="60" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="72" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="84" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="96" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="60" y="72" width="6" height="6" fill="#0d1629"/>
+                <rect x="84" y="72" width="6" height="6" fill="#0d1629"/>
+                <rect x="96" y="72" width="6" height="6" fill="#0d1629"/>
+                <rect x="60" y="84" width="6" height="6" fill="#0d1629"/>
+                <rect x="72" y="84" width="6" height="6" fill="#0d1629"/>
+                <rect x="96" y="84" width="6" height="6" fill="#0d1629"/>
+                <rect x="60" y="96" width="6" height="6" fill="#0d1629"/>
+                <rect x="84" y="96" width="6" height="6" fill="#0d1629"/>
+                <rect x="108" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="120" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="132" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="108" y="72" width="6" height="6" fill="#0d1629"/>
+                <rect x="132" y="72" width="6" height="6" fill="#0d1629"/>
+                <rect x="120" y="84" width="6" height="6" fill="#0d1629"/>
+                <rect x="108" y="96" width="6" height="6" fill="#0d1629"/>
+                <rect x="120" y="96" width="6" height="6" fill="#0d1629"/>
+                <rect x="132" y="96" width="6" height="6" fill="#0d1629"/>
+                <rect x="10" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="22" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="34" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="46" y="60" width="6" height="6" fill="#0d1629"/>
+                <rect x="10" y="72" width="6" height="6" fill="#0d1629"/>
+                <rect x="34" y="72" width="6" height="6" fill="#0d1629"/>
+                <rect x="22" y="84" width="6" height="6" fill="#0d1629"/>
+                <rect x="46" y="84" width="6" height="6" fill="#0d1629"/>
+                <rect x="10" y="96" width="6" height="6" fill="#0d1629"/>
+                <rect x="34" y="96" width="6" height="6" fill="#0d1629"/>
+                <rect x="10" y="108" width="6" height="6" fill="white"/>
+                <!-- Center logo hint -->
+                <rect x="68" y="68" width="24" height="24" fill="white" rx="3"/>
+                <rect x="72" y="72" width="16" height="16" fill="#ff6b2b" rx="2"/>
+                <text x="80" y="84" text-anchor="middle" fill="white" font-size="10" font-weight="900" font-family="Arial">T</text>
+              </svg>
+            </div>
+            <div class="qr-code-label">
+              <div class="code">AB3X9K</div>
+              <div class="sub">U15 Rep Tryouts · Apr 20, 2026</div>
+            </div>
+            <div class="qr-stats-row">
+              <div class="qr-stat"><div class="qr-stat-val">28</div><div class="qr-stat-lab">Registered</div></div>
+              <div class="qr-stat"><div class="qr-stat-val">42</div><div class="qr-stat-lab">Expected</div></div>
+            </div>
+            <div style="width:100%;background:var(--bg3);border-radius:8px;height:6px;overflow:hidden">
+              <div style="height:100%;width:67%;background:linear-gradient(90deg,var(--orange),#ff9a5c);border-radius:8px"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3)">67% registered · 14 pending</div>
+          </div>
+
+          <!-- Actions -->
+          <div class="sidebar-card">
+            <div class="sc-title">Share & Print</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-primary" style="justify-content:center">🖨️ Print QR Code</button>
+              <button class="btn btn-ghost" style="justify-content:center">📋 Copy Registration Link</button>
+              <button class="btn btn-ghost" style="justify-content:center">✉️ Email to Parents</button>
+              <button class="btn btn-ghost" style="justify-content:center">📱 Share via SMS</button>
+            </div>
+          </div>
+
+          <!-- Other active codes -->
+          <div class="sidebar-card">
+            <div class="sc-title">Active Event Codes</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--orange-dim);border:1px solid var(--border-accent);border-radius:10px">
+                <div><div style="font-size:13px;font-weight:700;color:var(--text1)">AB3X9K</div><div style="font-size:11px;color:var(--text2)">U15 Rep Tryouts</div></div>
+                <span class="team-badge badge-active">Active</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px">
+                <div><div style="font-size:13px;font-weight:700;color:var(--text1)">PQ7RMN</div><div style="font-size:11px;color:var(--text2)">U13 Assessment</div></div>
+                <span class="team-badge badge-active">Active</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px">
+                <div><div style="font-size:13px;font-weight:700;color:var(--text3)">KH4WD2</div><div style="font-size:11px;color:var(--text3)">AAA Bantam Sort-Out</div></div>
+                <span class="team-badge badge-done">Closed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ──────────────────────────────────────────────────── -->
+    <div class="screen" id="screen-settings">
+      <div class="settings-layout">
+
+        <!-- Left nav -->
+        <div class="settings-nav">
+          <div class="settings-nav-item active"><span class="sni">👤</span> Profile</div>
+          <div class="settings-nav-item"><span class="sni">🔔</span> Notifications</div>
+          <div class="settings-nav-divider"></div>
+          <div class="settings-nav-item"><span class="sni">🏒</span> Team Defaults</div>
+          <div class="settings-nav-item"><span class="sni">📊</span> Scoring Template</div>
+          <div class="settings-nav-item"><span class="sni">🌐</span> Integrations</div>
+          <div class="settings-nav-divider"></div>
+          <div class="settings-nav-item"><span class="sni">💳</span> Subscription</div>
+          <div class="settings-nav-item"><span class="sni">🔒</span> Privacy & Data</div>
+          <div class="settings-nav-divider"></div>
+          <div class="settings-nav-item" style="color:var(--red)"><span class="sni">🚪</span> Sign Out</div>
+        </div>
+
+        <!-- Right panel -->
+        <div class="settings-panel">
+
+          <!-- Profile card -->
+          <div class="settings-card">
+            <div class="settings-section-title">Coach Profile</div>
+            <div class="settings-section-sub">Your public coach identity shown to players and scouts</div>
+            <div class="coach-profile-row">
+              <div class="coach-avatar-big">SC</div>
+              <div>
+                <div style="font-size:16px;font-weight:700;color:var(--text1)">Coach S</div>
+                <div style="font-size:13px;color:var(--text2)">coach@hockeyclub.ca</div>
+                <button class="btn btn-ghost" style="margin-top:8px;padding:6px 12px;font-size:12px">Change Photo</button>
+              </div>
+            </div>
+            <div class="sf-row">
+              <div class="settings-field">
+                <label class="sf-label">First Name</label>
+                <input class="sf-input" type="text" value="Coach">
+              </div>
+              <div class="settings-field">
+                <label class="sf-label">Last Name</label>
+                <input class="sf-input" type="text" value="S">
+              </div>
+            </div>
+            <div class="settings-field">
+              <label class="sf-label">Organization</label>
+              <input class="sf-input" type="text" value="Winnipeg Hockey Club — Atom AAA">
+            </div>
+            <div class="settings-field">
+              <label class="sf-label">Role</label>
+              <select class="sf-input"><option>Head Coach</option><option>Assistant Coach</option><option>Scout</option><option>Manager</option></select>
+            </div>
+            <div class="sf-row">
+              <div class="settings-field">
+                <label class="sf-label">Email</label>
+                <input class="sf-input" type="email" value="coach@hockeyclub.ca">
+              </div>
+              <div class="settings-field">
+                <label class="sf-label">Phone</label>
+                <input class="sf-input" type="tel" value="204-555-9900">
+              </div>
+            </div>
+            <button class="btn btn-primary">Save Changes</button>
+          </div>
+
+          <!-- Notifications -->
+          <div class="settings-card">
+            <div class="settings-section-title">Notifications</div>
+            <div class="settings-section-sub">Control how and when you're alerted</div>
+            <div class="toggle-row">
+              <div class="toggle-info"><div class="toggle-info-label">New QR Registration</div><div class="toggle-info-sub">Alert when a player registers via QR code</div></div>
+              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info"><div class="toggle-info-label">Scout Score Submitted</div><div class="toggle-info-sub">When a co-scout scores a player</div></div>
+              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info"><div class="toggle-info-label">Event Reminders</div><div class="toggle-info-sub">24h and 1h before scheduled events</div></div>
+              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info"><div class="toggle-info-label">Weekly Digest</div><div class="toggle-info-sub">Summary of activity every Monday</div></div>
+              <div class="toggle-switch" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+              <div class="toggle-info"><div class="toggle-info-label">Export Ready</div><div class="toggle-info-sub">Email when a report finishes generating</div></div>
+              <div class="toggle-switch on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+
+          <!-- Subscription -->
+          <div class="settings-card">
+            <div class="settings-section-title">Subscription</div>
+            <div class="settings-section-sub" style="margin-bottom:16px">Manage your plan and billing</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:var(--orange-dim);border:1px solid var(--border-accent);border-radius:14px;margin-bottom:16px">
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text1)">Pro Plan</div>
+                <div style="font-size:12px;color:var(--text2);margin-top:3px">Unlimited players · 10 scouts · All exports · QR registration</div>
+              </div>
+              <span class="plan-badge">⭐ PRO</span>
+            </div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-ghost" style="flex:1;justify-content:center">Manage Billing</button>
+              <button class="btn btn-ghost" style="flex:1;justify-content:center">View Invoices</button>
+            </div>
+          </div>
+
+          <!-- Danger zone -->
+          <div class="settings-card danger-zone">
+            <div class="settings-section-title">Danger Zone</div>
+            <div class="settings-section-sub">Irreversible actions — proceed with caution</div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-ghost" style="border-color:rgba(239,68,68,.3);color:var(--red)">Delete All Event Data</button>
+              <button class="btn btn-ghost" style="border-color:rgba(239,68,68,.3);color:var(--red)">Delete Account</button>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
 
@@ -1111,67 +2291,181 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
 <!-- Mobile Nav -->
 <nav class="mobile-nav">
   <div class="mnav-items">
-    <div class="mnav-item active" onclick="switchTab('dashboard',this)">
+    <div class="mnav-item active" data-screen="dashboard" onclick="switchTab('dashboard',null)">
       <div class="mnav-icon">⬡</div><div class="mnav-label">Home</div>
     </div>
-    <div class="mnav-item" onclick="switchTab('roster',this)">
+    <div class="mnav-item" data-screen="roster" onclick="switchTab('roster',null)">
       <div class="mnav-icon">👥</div><div class="mnav-label">Roster</div>
     </div>
-    <div class="mnav-item" onclick="switchTab('scoring',this)">
+    <div class="mnav-item" data-screen="scoring" onclick="switchTab('scoring',null)">
       <div class="mnav-icon">⭐</div><div class="mnav-label">Score</div>
     </div>
-    <div class="mnav-item" onclick="switchTab('teams',this)">
+    <div class="mnav-item" data-screen="teams" onclick="switchTab('teams',null)">
       <div class="mnav-icon">🏒</div><div class="mnav-label">Teams</div>
+    </div>
+    <div class="mnav-item" data-screen="qr" onclick="switchTab('qr',null)">
+      <div class="mnav-icon">📲</div><div class="mnav-label">QR</div>
     </div>
   </div>
 </nav>
 
 <script>
+// ── Screen metadata ────────────────────────────────────────────────────
 const screenTitles = {
-  dashboard: ['Dashboard', 'Wednesday, April 23, 2026'],
-  roster:    ['Roster', 'U15 Rep Tryouts — 42 Players'],
-  scoring:   ['Scoring', 'Player 38 of 42'],
-  teams:     ['Team Builder', 'U15 Rep Tryouts'],
+  dashboard: ['Dashboard',       'Wednesday, April 23, 2026'],
+  roster:    ['Roster',          'U15 Rep Tryouts — 42 Players'],
+  scoring:   ['Scoring',         'Player 38 of 42 — Connor MacDonald'],
+  teams:     ['Team Builder',    'U15 Rep Tryouts · 3 Teams'],
+  profile:   ['Player Profile',  'Connor MacDonald · #9 · Forward'],
+  export:    ['Export & Reports','Generate and download assessments'],
+  schedule:  ['Schedule',        'April 2026 · 3 upcoming events'],
+  qr:        ['QR Registration', 'Player self-registration · AB3X9K active'],
+  settings:  ['Settings',        'Account · Notifications · Subscription'],
 };
 
-function switchTab(name, el) {
-  // Hide all screens
+// Tabs that appear in the top tab bar (the 4 primary screens)
+const tabScreens = ['dashboard','roster','scoring','teams'];
+
+// Sidebar keyword map for highlighting the right nav item
+const navKeyword = {
+  dashboard: 'dashboard',
+  roster:    'roster',
+  scoring:   'scoring',
+  teams:     'team builder',
+  profile:   'roster',        // profile is a child of roster
+  export:    'export',
+  schedule:  'schedule',
+  qr:        'qr registration',
+  settings:  'settings',
+};
+
+function switchTab(name, _el) {
+  // ── Show correct screen ────────────────────────────────────────────
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
+  const screen = document.getElementById('screen-' + name);
+  if (!screen) return;
+  screen.classList.add('active');
 
-  // Update tabs
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  // ── Top tabs: highlight if it's a primary screen, else clear all ──
   document.querySelectorAll('.screen-tabs .tab').forEach(t => {
-    if (t.textContent.toLowerCase().includes(name === 'teams' ? 'team' : name)) t.classList.add('active');
+    const key = t.dataset.screen || '';
+    t.classList.toggle('active', key === name);
   });
 
-  // Update sidebar nav
-  document.querySelectorAll('.sidebar .nav-item').forEach(n => n.classList.remove('active'));
+  // ── Sidebar nav ───────────────────────────────────────────────────
+  const kw = navKeyword[name] || name;
   document.querySelectorAll('.sidebar .nav-item').forEach(n => {
-    const txt = n.textContent.trim().toLowerCase();
-    if (txt.includes(name === 'teams' ? 'team' : name)) n.classList.add('active');
+    n.classList.toggle('active', n.textContent.trim().toLowerCase().includes(kw));
   });
 
-  // Update topbar
-  const [title, sub] = screenTitles[name] || ['', ''];
+  // ── Mobile nav ────────────────────────────────────────────────────
+  document.querySelectorAll('.mnav-item').forEach(m => {
+    const mk = m.dataset.screen || '';
+    m.classList.toggle('active', mk === name || (name === 'profile' && mk === 'roster'));
+  });
+
+  // ── Topbar title ──────────────────────────────────────────────────
+  const [title, sub] = screenTitles[name] || [name, ''];
   document.getElementById('screen-title').textContent = title;
-  document.getElementById('screen-sub').textContent = sub;
+  document.getElementById('screen-sub').textContent   = sub;
+
+  // ── Scroll to top on screen change ───────────────────────────────
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ── Theme toggle ────────────────────────────────────────────────────────
 function toggleTheme() {
-  const html = document.documentElement;
+  const html   = document.documentElement;
   const isDark = html.getAttribute('data-theme') === 'dark';
   html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  document.getElementById('theme-icon').textContent = isDark ? '🌙' : '☀️';
+  document.getElementById('theme-icon').textContent  = isDark ? '🌙' : '☀️';
   document.getElementById('theme-label').textContent = isDark ? 'Dark' : 'Light';
 }
 
+// ── Scoring: quick-score buttons ────────────────────────────────────────
 function setScore(v) {
-  document.querySelectorAll('.qs-btn').forEach((b,i) => {
-    b.classList.toggle('selected', i+1 === v);
+  document.querySelectorAll('.qs-btn').forEach((b, i) => {
+    b.classList.toggle('selected', i + 1 === v);
   });
+  // Animate the big ring dashoffset: full circle = 603, score/10 * 603
+  const offset = Math.round(603 - (v / 10) * 603);
+  const arc = document.querySelector('#screen-scoring circle.fill');
+  if (arc) arc.setAttribute('stroke-dashoffset', offset);
   document.getElementById('overall-score').textContent = v + '.0';
 }
+
+// ── Team Builder: Auto-Balance animation ────────────────────────────────
+function autoBalance() {
+  const btn = document.querySelector('#screen-teams .btn-primary');
+  if (!btn) return;
+  const orig = btn.textContent;
+  btn.textContent = '⏳ Balancing…';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '✅ Teams Balanced!';
+    // Update balance bar widths slightly to show "change"
+    const fills = document.querySelectorAll('.bc-fill');
+    const scores = ['74','75','74'];
+    fills.forEach((f, i) => { if (scores[i]) f.style.width = scores[i] + '%'; });
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+  }, 1200);
+}
+
+// ── Settings: left-nav switching ────────────────────────────────────────
+function settingsNav(el) {
+  document.querySelectorAll('.settings-nav-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── Export: report card selection ──────────────────────────────────────
+function selectReport(el) {
+  document.querySelectorAll('.report-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ── Wire up data-screen attrs on tabs and mobile nav after DOM ready ───
+document.addEventListener('DOMContentLoaded', () => {
+  // Stamp data-screen onto top tabs
+  const tabNames = ['dashboard','roster','scoring','teams'];
+  document.querySelectorAll('.screen-tabs .tab').forEach((t, i) => {
+    if (tabNames[i]) t.dataset.screen = tabNames[i];
+  });
+
+  // Stamp data-screen onto mobile nav items
+  const mnavScreens = ['dashboard','roster','scoring','teams','qr'];
+  document.querySelectorAll('.mnav-item').forEach((m, i) => {
+    if (mnavScreens[i]) m.dataset.screen = mnavScreens[i];
+  });
+
+  // Auto-balance button wiring
+  const abBtn = document.querySelector('#screen-teams .btn-primary');
+  if (abBtn) abBtn.addEventListener('click', autoBalance);
+
+  // Settings nav items
+  document.querySelectorAll('.settings-nav-item').forEach(item => {
+    item.addEventListener('click', () => settingsNav(item));
+  });
+
+  // Report card selection
+  document.querySelectorAll('.report-card').forEach(card => {
+    card.addEventListener('click', () => selectReport(card));
+  });
+
+  // Roster rows → Player Profile
+  document.querySelectorAll('#screen-roster .player-row').forEach(row => {
+    row.addEventListener('click', () => switchTab('profile', null));
+  });
+
+  // QR Registration tab in screen-tabs (if you add one later)
+  // Scoring "Next →" wires to same scoring screen with next player — stub
+  const nextBtn = document.querySelector('.score-hero .btn-ghost');
+  if (nextBtn && nextBtn.textContent.includes('Next')) {
+    nextBtn.addEventListener('click', () => {
+      // Cycle to next player (mockup: just flash the score)
+      setScore(Math.floor(Math.random() * 3) + 7);
+    });
+  }
+});
 </script>
 </body>
 </html>
