@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tryout — Design Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Variables ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --orange:       #ff6b2b;
+  --orange-soft:  #ff8c55;
+  --orange-glow:  rgba(255,107,43,0.18);
+  --orange-dim:   rgba(255,107,43,0.08);
+  --navy:         #1e3a5f;
+  --teal:         #0fb8c9;
+  --green:        #22c55e;
+  --yellow:       #f59e0b;
+  --red:          #ef4444;
+  --transition:   0.25s cubic-bezier(.4,0,.2,1);
+}
+
+[data-theme="dark"] {
+  --bg:           #070d1a;
+  --bg2:          #0d1629;
+  --bg3:          #121f38;
+  --card:         #0f1b30;
+  --card2:        #152240;
+  --border:       rgba(255,255,255,0.07);
+  --border-accent:rgba(255,107,43,0.25);
+  --text1:        #f0f4ff;
+  --text2:        #8899bb;
+  --text3:        #4a5f82;
+  --sidebar-w:    240px;
+}
+
+[data-theme="light"] {
+  --bg:           #f0f4fa;
+  --bg2:          #e4ecf7;
+  --bg3:          #dce6f5;
+  --card:         #ffffff;
+  --card2:        #f5f8fe;
+  --border:       rgba(0,0,0,0.08);
+  --border-accent:rgba(255,107,43,0.3);
+  --text1:        #0d1629;
+  --text2:        #4a5f82;
+  --text3:        #8899bb;
+  --sidebar-w:    240px;
+}
+
+html, body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text1);
+  height: 100%;
+  overflow-x: hidden;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────── */
+.app { display: flex; min-height: 100vh; }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  transition: background var(--transition);
+}
+
+.sidebar-logo {
+  padding: 28px 24px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo-icon {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--orange), #ff9a5c);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 18px; color: #fff;
+  box-shadow: 0 0 20px var(--orange-glow);
+  flex-shrink: 0;
+}
+
+.logo-text { font-size: 18px; font-weight: 700; color: var(--text1); letter-spacing: -.3px; }
+.logo-text span { color: var(--orange); }
+
+.sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
+
+.nav-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+  color: var(--text3); text-transform: uppercase;
+  padding: 16px 12px 6px;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 14px; font-weight: 500;
+  transition: all var(--transition);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text1); }
+.nav-item.active {
+  background: var(--orange-dim);
+  border-color: var(--border-accent);
+  color: var(--orange);
+}
+.nav-item.active .nav-icon { color: var(--orange); }
+.nav-icon { font-size: 18px; width: 20px; text-align: center; }
+
+.sidebar-footer {
+  padding: 16px 12px;
+  border-top: 1px solid var(--border);
+}
+.user-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg3);
+  cursor: pointer;
+}
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--orange), var(--navy));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; color: #fff; flex-shrink: 0;
+}
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-size: 13px; font-weight: 600; color: var(--text1); }
+.user-role { font-size: 11px; color: var(--text2); }
+
+/* ── Main Content ────────────────────────────────────────────────────── */
+.main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Topbar ──────────────────────────────────────────────────────────── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(12px);
+}
+.topbar-left h1 { font-size: 22px; font-weight: 700; color: var(--text1); letter-spacing: -.3px; }
+.topbar-left p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+
+.theme-toggle {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 13px; font-weight: 500;
+  color: var(--text2);
+  transition: all var(--transition);
+}
+.theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; border: none;
+  transition: all var(--transition);
+  letter-spacing: .1px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--orange), #ff9a5c);
+  color: #fff;
+  box-shadow: 0 4px 16px var(--orange-glow);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(255,107,43,0.35); }
+.btn-ghost { background: var(--card); border: 1px solid var(--border); color: var(--text2); }
+.btn-ghost:hover { border-color: var(--orange); color: var(--orange); }
+
+/* ── Screen Tabs ─────────────────────────────────────────────────────── */
+.screen-tabs {
+  display: flex; gap: 4px;
+  padding: 20px 32px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  padding: 10px 20px;
+  font-size: 13px; font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text1); }
+.tab.active { color: var(--orange); border-color: var(--orange); }
+
+/* ── Screen Content ──────────────────────────────────────────────────── */
+.screen { display: none; padding: 32px; }
+.screen.active { display: block; }
+
+/* ── Stats Row ───────────────────────────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 22px;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.stat-card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.stat-card:hover::before { opacity: 1; }
+.stat-label { font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+.stat-value { font-size: 32px; font-weight: 800; color: var(--text1); letter-spacing: -1px; line-height: 1; }
+.stat-sub { font-size: 12px; color: var(--text2); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+.stat-up { color: var(--green); font-weight: 600; }
+.stat-icon { font-size: 22px; position: absolute; top: 18px; right: 18px; opacity: .15; }
+
+/* ── Section Header ──────────────────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.section-title { font-size: 16px; font-weight: 700; color: var(--text1); letter-spacing: -.2px; }
+.section-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+/* ── Score Rings Row ─────────────────────────────────────────────────── */
+.rings-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.ring-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: all var(--transition);
+}
+.ring-card:hover { border-color: var(--border-accent); box-shadow: 0 0 32px var(--orange-glow); }
+.ring-label { font-size: 12px; font-weight: 600; letter-spacing: .5px; color: var(--text2); margin-bottom: 20px; text-transform: uppercase; }
+
+.ring-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.ring-score {
+  position: absolute;
+  text-align: center;
+}
+.ring-score .score-num { font-size: 36px; font-weight: 900; color: var(--text1); letter-spacing: -2px; line-height: 1; display: block; }
+.ring-score .score-denom { font-size: 12px; color: var(--text3); font-weight: 500; }
+
+.ring-metrics { width: 100%; margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
+.ring-metric { display: flex; align-items: center; justify-content: space-between; }
+.rm-label { font-size: 12px; color: var(--text2); font-weight: 500; }
+.rm-bar { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; margin: 0 10px; overflow: hidden; }
+.rm-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+.rm-val { font-size: 12px; font-weight: 700; color: var(--text1); min-width: 28px; text-align: right; }
+
+/* ── Team Grid ───────────────────────────────────────────────────────── */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.team-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.team-card:hover { border-color: var(--border-accent); transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,.3); }
+.team-card-accent {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  border-radius: 16px 16px 0 0;
+}
+.team-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.team-name { font-size: 15px; font-weight: 700; color: var(--text1); }
+.team-date { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.team-badge {
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+}
+.badge-active { background: rgba(34,197,94,.15); color: var(--green); }
+.badge-draft  { background: rgba(245,158,11,.15); color: var(--yellow); }
+.badge-done   { background: rgba(100,116,139,.15); color: var(--text3); }
+
+.team-stats { display: flex; gap: 16px; }
+.ts-item { display: flex; flex-direction: column; gap: 2px; }
+.ts-val { font-size: 22px; font-weight: 800; color: var(--text1); letter-spacing: -1px; }
+.ts-lab { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--text3); }
+
+.team-score-bar { margin-top: 14px; }
+.tsb-top { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.tsb-label { font-size: 11px; color: var(--text2); }
+.tsb-val { font-size: 11px; font-weight: 700; color: var(--orange); }
+.tsb-track { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.tsb-fill { height: 100%; background: linear-gradient(90deg, var(--orange), #ff9a5c); border-radius: 3px; }
+
+/* ── Roster Screen ───────────────────────────────────────────────────── */
+.roster-controls {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.search-box {
+  flex: 1; max-width: 320px;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: border-color var(--transition);
+}
+.search-box:focus-within { border-color: var(--orange); }
+.search-box input {
+  background: none; border: none; outline: none;
+  color: var(--text1); font-size: 13px; font-family: inherit; flex: 1;
+}
+.search-box input::placeholder { color: var(--text3); }
+.search-icon { color: var(--text3); font-size: 15px; }
+
+.filter-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 12px; font-weight: 600;
+  color: var(--text2); cursor: pointer;
+  transition: all var(--transition);
+}
+.filter-chip:hover, .filter-chip.active { border-color: var(--orange); color: var(--orange); background: var(--orange-dim); }
+
+.player-list { display: flex; flex-direction: column; gap: 8px; }
+.player-row {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex; align-items: center; gap: 16px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.player-row:hover { border-color: var(--border-accent); background: var(--card2); }
+
+.player-num {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--text2);
+  flex-shrink: 0;
+}
+.player-info { flex: 1; min-width: 0; }
+.player-name { font-size: 14px; font-weight: 600; color: var(--text1); }
+.player-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.player-pos {
+  padding: 3px 9px; border-radius: 6px;
+  font-size: 11px; font-weight: 700;
+  background: var(--navy); color: #6eb3f7;
+  flex-shrink: 0;
+}
+.player-score-ring { flex-shrink: 0; }
+
+.player-metrics { display: flex; gap: 20px; flex-shrink: 0; }
+.pm-item { text-align: center; }
+.pm-val { font-size: 16px; font-weight: 800; color: var(--text1); letter-spacing: -.5px; }
+.pm-lab { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); }
+
+.score-pill {
+  padding: 6px 14px; border-radius: 20px;
+  font-size: 15px; font-weight: 800;
+  flex-shrink: 0;
+}
+.score-great { background: rgba(34,197,94,.15); color: var(--green); }
+.score-good  { background: rgba(15,184,201,.15); color: var(--teal); }
+.score-avg   { background: rgba(245,158,11,.15); color: var(--yellow); }
+.score-low   { background: rgba(239,68,68,.15); color: var(--red); }
+
+/* ── Scoring Screen ──────────────────────────────────────────────────── */
+.scoring-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+}
+.score-hero {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.score-hero-player {
+  display: flex; align-items: center; gap: 16px;
+  width: 100%; margin-bottom: 32px;
+}
+.score-hero-avatar {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--navy), var(--orange));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; color: #fff;
+}
+.score-hero-name { font-size: 20px; font-weight: 800; color: var(--text1); letter-spacing: -.3px; }
+.score-hero-meta { font-size: 13px; color: var(--text2); margin-top: 3px; }
+
+.big-ring-wrap { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; }
+.big-ring-label {
+  position: absolute; text-align: center;
+}
+.brl-num { font-size: 64px; font-weight: 900; color: var(--text1); letter-spacing: -4px; line-height: 1; display: block; }
+.brl-sub { font-size: 14px; color: var(--text2); font-weight: 500; }
+
+.score-categories { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.score-cat { }
+.sc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.sc-name { font-size: 13px; font-weight: 600; color: var(--text1); }
+.sc-val { font-size: 16px; font-weight: 800; color: var(--text1); }
+.sc-track { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; cursor: pointer; }
+.sc-fill { height: 100%; border-radius: 4px; transition: width .3s ease; }
+
+.scoring-sidebar { display: flex; flex-direction: column; gap: 16px; }
+.sidebar-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
+.sc-title { font-size: 13px; font-weight: 700; color: var(--text1); margin-bottom: 14px; }
+.quick-score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.qs-btn {
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  font-size: 14px; font-weight: 700;
+  color: var(--text2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.qs-btn:hover { border-color: var(--orange); color: var(--orange); }
+.qs-btn.selected { background: var(--orange); border-color: var(--orange); color: #fff; box-shadow: 0 0 16px var(--orange-glow); }
+
+.notes-area {
+  width: 100%; background: var(--bg3);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px; color: var(--text1);
+  font-family: inherit; font-size: 13px;
+  resize: none; outline: none;
+  transition: border-color var(--transition);
+  line-height: 1.5;
+}
+.notes-area:focus { border-color: var(--orange); }
+
+.action-row { display: flex; gap: 8px; margin-top: 4px; }
+.action-row .btn { flex: 1; justify-content: center; font-size: 13px; }
+
+/* ── Divider ─────────────────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+/* ── Mini ring SVG helper ────────────────────────────────────────────── */
+svg.ring { overflow: visible; }
+circle.track { fill: none; stroke: var(--bg3); }
+circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+
+/* ── Glow accents ────────────────────────────────────────────────────── */
+.glow-orange { filter: drop-shadow(0 0 8px rgba(255,107,43,.6)); }
+.glow-teal   { filter: drop-shadow(0 0 8px rgba(15,184,201,.5)); }
+.glow-green  { filter: drop-shadow(0 0 8px rgba(34,197,94,.5)); }
+
+/* ── Mobile nav (visible < 768px) ────────────────────────────────────── */
+.mobile-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 10px 0 20px;
+  z-index: 200;
+}
+.mnav-items { display: flex; justify-content: space-around; }
+.mnav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 4px 12px; }
+.mnav-icon { font-size: 20px; color: var(--text3); transition: color var(--transition); }
+.mnav-label { font-size: 10px; font-weight: 600; color: var(--text3); transition: color var(--transition); }
+.mnav-item.active .mnav-icon,
+.mnav-item.active .mnav-label { color: var(--orange); }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .mobile-nav { display: block; }
+  .stats-row { grid-template-columns: repeat(2,1fr); }
+  .rings-row, .team-grid { grid-template-columns: 1fr; }
+  .scoring-layout { grid-template-columns: 1fr; }
+  .screen { padding: 20px 16px 90px; }
+  .topbar { padding: 16px 20px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ───────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">T</div>
+      <div class="logo-text">Try<span>out</span></div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-label">Main</div>
+      <a class="nav-item active" onclick="switchTab('dashboard',this)">
+        <span class="nav-icon">⬡</span> Dashboard
+      </a>
+      <a class="nav-item" onclick="switchTab('roster',this)">
+        <span class="nav-icon">👥</span> Roster
+      </a>
+      <a class="nav-item" onclick="switchTab('scoring',this)">
+        <span class="nav-icon">⭐</span> Scoring
+      </a>
+      <a class="nav-item" onclick="switchTab('teams',this)">
+        <span class="nav-icon">🏒</span> Team Builder
+      </a>
+
+      <div class="nav-label">Reports</div>
+      <a class="nav-item" onclick="switchTab('dashboard',this)">
+        <span class="nav-icon">📊</span> Analytics
+      </a>
+      <a class="nav-item" onclick="switchTab('dashboard',this)">
+        <span class="nav-icon">📤</span> Export
+      </a>
+      <a class="nav-item" onclick="switchTab('dashboard',this)">
+        <span class="nav-icon">📅</span> Schedule
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="avatar">SC</div>
+        <div class="user-info">
+          <div class="user-name">Coach S</div>
+          <div class="user-role">Head Coach</div>
+        </div>
+        <span style="color:var(--text3);font-size:14px;">⚙</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="screen-title">Dashboard</h1>
+        <p id="screen-sub">Wednesday, April 23, 2026</p>
+      </div>
+      <div class="topbar-right">
+        <div class="theme-toggle" onclick="toggleTheme()">
+          <span id="theme-icon">☀️</span>
+          <span id="theme-label">Light</span>
+        </div>
+        <button class="btn btn-primary" onclick="switchTab('scoring',document.querySelector('.nav-item:nth-child(4)'))">
+          + New Assessment
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="screen-tabs">
+      <div class="tab active" onclick="switchTab('dashboard',this)">Dashboard</div>
+      <div class="tab" onclick="switchTab('roster',this)">Roster</div>
+      <div class="tab" onclick="switchTab('scoring',this)">Scoring</div>
+      <div class="tab" onclick="switchTab('teams',this)">Team Builder</div>
+    </div>
+
+    <!-- ── DASHBOARD ─────────────────────────────────────────────── -->
+    <div class="screen active" id="screen-dashboard">
+
+      <!-- Stats row -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Active Teams</div>
+          <div class="stat-value">4</div>
+          <div class="stat-sub"><span class="stat-up">+1</span> this season</div>
+          <div class="stat-icon">🏒</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Players</div>
+          <div class="stat-value">87</div>
+          <div class="stat-sub"><span class="stat-up">+12</span> from last event</div>
+          <div class="stat-icon">👥</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Score</div>
+          <div class="stat-value">7.4</div>
+          <div class="stat-sub" style="color:var(--green);">▲ 0.3 vs last event</div>
+          <div class="stat-icon">⭐</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Events</div>
+          <div class="stat-value">12</div>
+          <div class="stat-sub">3 pending review</div>
+          <div class="stat-icon">📅</div>
+        </div>
+      </div>
+
+      <!-- Score rings -->
+      <div class="section-header">
+        <div>
+          <div class="section-title">Performance Overview</div>
+          <div class="section-sub">U15 Rep Tryouts — Spring 2026</div>
+        </div>
+        <button class="btn btn-ghost">View All</button>
+      </div>
+
+      <div class="rings-row">
+        <!-- Ring 1 -->
+        <div class="ring-card">
+          <div class="ring-label">Skating</div>
+          <div class="ring-wrap">
+            <svg class="ring" width="140" height="140" viewBox="0 0 140 140">
+              <circle class="track" cx="70" cy="70" r="58" stroke-width="10"/>
+              <circle class="fill glow-orange" cx="70" cy="70" r="58" stroke-width="10"
+                stroke="url(#g1)"
+                stroke-dasharray="364.4"
+                stroke-dashoffset="73"
+                transform="rotate(-90 70 70)"/>
+              <defs>
+                <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#ff6b2b"/>
+                  <stop offset="100%" stop-color="#ff9a5c"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="ring-score">
+              <span class="score-num">8.0</span>
+              <span class="score-denom">/ 10</span>
+            </div>
+          </div>
+          <div class="ring-metrics">
+            <div class="ring-metric">
+              <span class="rm-label">Speed</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:82%;background:var(--orange)"></div></div>
+              <span class="rm-val">8.2</span>
+            </div>
+            <div class="ring-metric">
+              <span class="rm-label">Edges</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:78%;background:var(--orange)"></div></div>
+              <span class="rm-val">7.8</span>
+            </div>
+            <div class="ring-metric">
+              <span class="rm-label">Transitions</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:80%;background:var(--orange)"></div></div>
+              <span class="rm-val">8.0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ring 2 -->
+        <div class="ring-card">
+          <div class="ring-label">Puck Skills</div>
+          <div class="ring-wrap">
+            <svg class="ring" width="140" height="140" viewBox="0 0 140 140">
+              <circle class="track" cx="70" cy="70" r="58" stroke-width="10"/>
+              <circle class="fill glow-teal" cx="70" cy="70" r="58" stroke-width="10"
+                stroke="url(#g2)"
+                stroke-dasharray="364.4"
+                stroke-dashoffset="98"
+                transform="rotate(-90 70 70)"/>
+              <defs>
+                <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#0fb8c9"/>
+                  <stop offset="100%" stop-color="#5ef0ff"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="ring-score">
+              <span class="score-num">7.3</span>
+              <span class="score-denom">/ 10</span>
+            </div>
+          </div>
+          <div class="ring-metrics">
+            <div class="ring-metric">
+              <span class="rm-label">Passing</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:74%;background:var(--teal)"></div></div>
+              <span class="rm-val">7.4</span>
+            </div>
+            <div class="ring-metric">
+              <span class="rm-label">Shooting</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:70%;background:var(--teal)"></div></div>
+              <span class="rm-val">7.0</span>
+            </div>
+            <div class="ring-metric">
+              <span class="rm-label">Puck Handling</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:75%;background:var(--teal)"></div></div>
+              <span class="rm-val">7.5</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ring 3 -->
+        <div class="ring-card">
+          <div class="ring-label">Hockey IQ</div>
+          <div class="ring-wrap">
+            <svg class="ring" width="140" height="140" viewBox="0 0 140 140">
+              <circle class="track" cx="70" cy="70" r="58" stroke-width="10"/>
+              <circle class="fill glow-green" cx="70" cy="70" r="58" stroke-width="10"
+                stroke="url(#g3)"
+                stroke-dasharray="364.4"
+                stroke-dashoffset="55"
+                transform="rotate(-90 70 70)"/>
+              <defs>
+                <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#22c55e"/>
+                  <stop offset="100%" stop-color="#4ade80"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="ring-score">
+              <span class="score-num">8.5</span>
+              <span class="score-denom">/ 10</span>
+            </div>
+          </div>
+          <div class="ring-metrics">
+            <div class="ring-metric">
+              <span class="rm-label">Positioning</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:86%;background:var(--green)"></div></div>
+              <span class="rm-val">8.6</span>
+            </div>
+            <div class="ring-metric">
+              <span class="rm-label">Decision Making</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:84%;background:var(--green)"></div></div>
+              <span class="rm-val">8.4</span>
+            </div>
+            <div class="ring-metric">
+              <span class="rm-label">Compete Level</span>
+              <div class="rm-bar"><div class="rm-fill" style="width:85%;background:var(--green)"></div></div>
+              <span class="rm-val">8.5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teams -->
+      <div class="section-header">
+        <div>
+          <div class="section-title">My Teams</div>
+          <div class="section-sub">4 active assessments</div>
+        </div>
+        <button class="btn btn-primary">+ New Team</button>
+      </div>
+
+      <div class="team-grid">
+        <div class="team-card" onclick="switchTab('roster',document.querySelectorAll('.tab')[1])">
+          <div class="team-card-accent" style="background:linear-gradient(90deg,var(--orange),transparent)"></div>
+          <div class="team-card-top">
+            <div><div class="team-name">U15 Rep Tryouts</div><div class="team-date">Apr 20, 2026</div></div>
+            <span class="team-badge badge-active">Active</span>
+          </div>
+          <div class="team-stats">
+            <div class="ts-item"><div class="ts-val">42</div><div class="ts-lab">Players</div></div>
+            <div class="ts-item"><div class="ts-val">6</div><div class="ts-lab">Scouts</div></div>
+            <div class="ts-item"><div class="ts-val">38</div><div class="ts-lab">Scored</div></div>
+          </div>
+          <div class="team-score-bar">
+            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">7.8 / 10</span></div>
+            <div class="tsb-track"><div class="tsb-fill" style="width:78%"></div></div>
+          </div>
+        </div>
+
+        <div class="team-card">
+          <div class="team-card-accent" style="background:linear-gradient(90deg,var(--teal),transparent)"></div>
+          <div class="team-card-top">
+            <div><div class="team-name">U13 Assessment</div><div class="team-date">Apr 18, 2026</div></div>
+            <span class="team-badge badge-active">Active</span>
+          </div>
+          <div class="team-stats">
+            <div class="ts-item"><div class="ts-val">28</div><div class="ts-lab">Players</div></div>
+            <div class="ts-item"><div class="ts-val">4</div><div class="ts-lab">Scouts</div></div>
+            <div class="ts-item"><div class="ts-val">28</div><div class="ts-lab">Scored</div></div>
+          </div>
+          <div class="team-score-bar">
+            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">6.9 / 10</span></div>
+            <div class="tsb-track"><div class="tsb-fill" style="width:69%;background:linear-gradient(90deg,var(--teal),#5ef0ff)"></div></div>
+          </div>
+        </div>
+
+        <div class="team-card">
+          <div class="team-card-accent" style="background:linear-gradient(90deg,var(--yellow),transparent)"></div>
+          <div class="team-card-top">
+            <div><div class="team-name">AAA Bantam Sort-Out</div><div class="team-date">Apr 10, 2026</div></div>
+            <span class="team-badge badge-draft">Draft</span>
+          </div>
+          <div class="team-stats">
+            <div class="ts-item"><div class="ts-val">55</div><div class="ts-lab">Players</div></div>
+            <div class="ts-item"><div class="ts-val">8</div><div class="ts-lab">Scouts</div></div>
+            <div class="ts-item"><div class="ts-val">31</div><div class="ts-lab">Scored</div></div>
+          </div>
+          <div class="team-score-bar">
+            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">7.1 / 10</span></div>
+            <div class="tsb-track"><div class="tsb-fill" style="width:71%;background:linear-gradient(90deg,var(--yellow),#fcd34d)"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ROSTER ─────────────────────────────────────────────────── -->
+    <div class="screen" id="screen-roster">
+      <div class="roster-controls">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Search players…">
+        </div>
+        <div class="filter-chip active">All</div>
+        <div class="filter-chip">Forwards</div>
+        <div class="filter-chip">Defence</div>
+        <div class="filter-chip">Goalies</div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-ghost">↑↓ Sort</button>
+          <button class="btn btn-primary" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">+ Score Player</button>
+        </div>
+      </div>
+
+      <div class="player-list">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:16px;padding:0 20px 8px;color:var(--text3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">
+          <div style="width:36px"></div>
+          <div style="flex:1">Player</div>
+          <div style="min-width:60px;text-align:center">Pos</div>
+          <div style="width:180px;display:flex;gap:20px">
+            <span style="flex:1;text-align:center">Skating</span>
+            <span style="flex:1;text-align:center">Skills</span>
+            <span style="flex:1;text-align:center">IQ</span>
+          </div>
+          <div style="min-width:60px;text-align:center">Overall</div>
+        </div>
+
+        <!-- Players -->
+        <div class="player-row" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">
+          <div class="player-num" style="background:var(--orange-dim);color:var(--orange);font-weight:800;">9</div>
+          <div class="player-info">
+            <div class="player-name">Connor MacDonald</div>
+            <div class="player-meta">2011 · Right Shot · 5'10"</div>
+          </div>
+          <div class="player-pos">FWD</div>
+          <div class="player-metrics">
+            <div class="pm-item"><div class="pm-val">8.8</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">8.2</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">9.0</div><div class="pm-lab">IQ</div></div>
+          </div>
+          <div class="score-pill score-great">9.0</div>
+        </div>
+
+        <div class="player-row" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">
+          <div class="player-num">27</div>
+          <div class="player-info">
+            <div class="player-name">Liam Tremblay</div>
+            <div class="player-meta">2011 · Left Shot · 5'8"</div>
+          </div>
+          <div class="player-pos">DEF</div>
+          <div class="player-metrics">
+            <div class="pm-item"><div class="pm-val">7.5</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">7.8</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">8.1</div><div class="pm-lab">IQ</div></div>
+          </div>
+          <div class="score-pill score-good">7.8</div>
+        </div>
+
+        <div class="player-row" onclick="switchTab('scoring',document.querySelectorAll('.tab')[2])">
+          <div class="player-num">44</div>
+          <div class="player-info">
+            <div class="player-name">Ethan Nguyen</div>
+            <div class="player-meta">2012 · Left Shot · 5'6"</div>
+          </div>
+          <div class="player-pos">FWD</div>
+          <div class="player-metrics">
+            <div class="pm-item"><div class="pm-val">6.9</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">7.2</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">6.8</div><div class="pm-lab">IQ</div></div>
+          </div>
+          <div class="score-pill score-good">7.0</div>
+        </div>
+
+        <div class="player-row">
+          <div class="player-num">1</div>
+          <div class="player-info">
+            <div class="player-name">Jake Morrison</div>
+            <div class="player-meta">2011 · Catches Left · 5'9"</div>
+          </div>
+          <div class="player-pos" style="background:rgba(245,158,11,.15);color:var(--yellow);">GTL</div>
+          <div class="player-metrics">
+            <div class="pm-item"><div class="pm-val">6.4</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">7.9</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">7.5</div><div class="pm-lab">IQ</div></div>
+          </div>
+          <div class="score-pill score-avg">6.8</div>
+        </div>
+
+        <div class="player-row">
+          <div class="player-num">15</div>
+          <div class="player-info">
+            <div class="player-name">Ryan Kowalski</div>
+            <div class="player-meta">2012 · Right Shot · 5'5"</div>
+          </div>
+          <div class="player-pos">DEF</div>
+          <div class="player-metrics">
+            <div class="pm-item"><div class="pm-val">5.8</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">6.0</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">6.2</div><div class="pm-lab">IQ</div></div>
+          </div>
+          <div class="score-pill score-low">5.8</div>
+        </div>
+
+        <div class="player-row">
+          <div class="player-num">88</div>
+          <div class="player-info">
+            <div class="player-name">Alexei Volkov</div>
+            <div class="player-meta">2011 · Left Shot · 6'0"</div>
+          </div>
+          <div class="player-pos">FWD</div>
+          <div class="player-metrics">
+            <div class="pm-item"><div class="pm-val">8.1</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">8.5</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">7.9</div><div class="pm-lab">IQ</div></div>
+          </div>
+          <div class="score-pill score-great">8.2</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCORING ────────────────────────────────────────────────── -->
+    <div class="screen" id="screen-scoring">
+      <div class="scoring-layout">
+
+        <!-- Left: big ring + categories -->
+        <div class="score-hero">
+          <div class="score-hero-player">
+            <div class="score-hero-avatar">CM</div>
+            <div>
+              <div class="score-hero-name">Connor MacDonald</div>
+              <div class="score-hero-meta">#9 · Forward · 2011 · U15 Rep Tryouts</div>
+            </div>
+            <button class="btn btn-ghost" style="margin-left:auto">Next →</button>
+          </div>
+
+          <div class="big-ring-wrap">
+            <svg width="220" height="220" viewBox="0 0 220 220">
+              <circle class="track" cx="110" cy="110" r="96" stroke-width="14"/>
+              <circle class="fill" cx="110" cy="110" r="96" stroke-width="14"
+                stroke="url(#bigGrad)"
+                stroke-dasharray="603"
+                stroke-dashoffset="60"
+                stroke-linecap="round"
+                transform="rotate(-90 110 110)"
+                style="filter:drop-shadow(0 0 14px rgba(255,107,43,.7))"/>
+              <defs>
+                <linearGradient id="bigGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#ff6b2b"/>
+                  <stop offset="50%" stop-color="#ff9a5c"/>
+                  <stop offset="100%" stop-color="#22c55e"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <div class="big-ring-label">
+              <span class="brl-num" id="overall-score">9.0</span>
+              <span class="brl-sub">Overall</span>
+            </div>
+          </div>
+
+          <div class="score-categories">
+            <div class="score-cat">
+              <div class="sc-header"><span class="sc-name">⛸ Skating</span><span class="sc-val" style="color:var(--orange)">8.8</span></div>
+              <div class="sc-track"><div class="sc-fill" style="width:88%;background:linear-gradient(90deg,var(--orange),#ff9a5c)"></div></div>
+            </div>
+            <div class="score-cat">
+              <div class="sc-header"><span class="sc-name">🏒 Puck Skills</span><span class="sc-val" style="color:var(--teal)">8.2</span></div>
+              <div class="sc-track"><div class="sc-fill" style="width:82%;background:linear-gradient(90deg,var(--teal),#5ef0ff)"></div></div>
+            </div>
+            <div class="score-cat">
+              <div class="sc-header"><span class="sc-name">🧠 Hockey IQ</span><span class="sc-val" style="color:var(--green)">9.0</span></div>
+              <div class="sc-track"><div class="sc-fill" style="width:90%;background:linear-gradient(90deg,var(--green),#4ade80)"></div></div>
+            </div>
+            <div class="score-cat">
+              <div class="sc-header"><span class="sc-name">💪 Physical</span><span class="sc-val" style="color:var(--yellow)">9.2</span></div>
+              <div class="sc-track"><div class="sc-fill" style="width:92%;background:linear-gradient(90deg,var(--yellow),#fcd34d)"></div></div>
+            </div>
+            <div class="score-cat">
+              <div class="sc-header"><span class="sc-name">🔥 Compete</span><span class="sc-val" style="color:var(--orange-soft)">9.5</span></div>
+              <div class="sc-track"><div class="sc-fill" style="width:95%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: quick score + notes -->
+        <div class="scoring-sidebar">
+          <div class="sidebar-card">
+            <div class="sc-title">Quick Score</div>
+            <div class="quick-score-grid" id="qs-grid">
+              <div class="qs-btn" onclick="setScore(1)">1</div>
+              <div class="qs-btn" onclick="setScore(2)">2</div>
+              <div class="qs-btn" onclick="setScore(3)">3</div>
+              <div class="qs-btn" onclick="setScore(4)">4</div>
+              <div class="qs-btn" onclick="setScore(5)">5</div>
+              <div class="qs-btn" onclick="setScore(6)">6</div>
+              <div class="qs-btn" onclick="setScore(7)">7</div>
+              <div class="qs-btn" onclick="setScore(8)">8</div>
+              <div class="qs-btn selected" onclick="setScore(9)">9</div>
+              <div class="qs-btn" onclick="setScore(10)">10</div>
+            </div>
+          </div>
+
+          <div class="sidebar-card">
+            <div class="sc-title">Scout Notes</div>
+            <textarea class="notes-area" rows="5" placeholder="Add observations about this player…">Exceptional edge work and compete level. Reads the play well — strong positioning and backchecks hard. Shot needs development but hockey sense is elite.</textarea>
+            <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:11px;color:var(--text3)">Auto-saved</span>
+              <span style="font-size:11px;color:var(--green)">✓ Saved</span>
+            </div>
+          </div>
+
+          <div class="sidebar-card">
+            <div class="sc-title">Assessment Info</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:12px;color:var(--text2)">Event</span>
+                <span style="font-size:12px;font-weight:600;color:var(--text1)">U15 Rep Tryouts</span>
+              </div>
+              <div class="divider"></div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:12px;color:var(--text2)">Scout</span>
+                <span style="font-size:12px;font-weight:600;color:var(--text1)">Coach S</span>
+              </div>
+              <div class="divider"></div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:12px;color:var(--text2)">Player</span>
+                <span style="font-size:12px;font-weight:600;color:var(--text1)">38 / 42</span>
+              </div>
+              <div class="divider"></div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="font-size:12px;color:var(--text2)">Session</span>
+                <span style="font-size:12px;font-weight:600;color:var(--green)">● Live</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="btn btn-ghost">← Back</button>
+            <button class="btn btn-primary">Save & Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TEAM BUILDER ────────────────────────────────────────────── -->
+    <div class="screen" id="screen-teams">
+      <div style="text-align:center;padding:80px 20px;color:var(--text2)">
+        <div style="font-size:64px;margin-bottom:16px">🏒</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text1);margin-bottom:8px">Team Builder</div>
+        <div style="font-size:14px;margin-bottom:28px">AI-balanced team generation coming in this screen</div>
+        <button class="btn btn-primary" onclick="switchTab('roster',document.querySelectorAll('.tab')[1])">View Roster First</button>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Mobile Nav -->
+<nav class="mobile-nav">
+  <div class="mnav-items">
+    <div class="mnav-item active" onclick="switchTab('dashboard',this)">
+      <div class="mnav-icon">⬡</div><div class="mnav-label">Home</div>
+    </div>
+    <div class="mnav-item" onclick="switchTab('roster',this)">
+      <div class="mnav-icon">👥</div><div class="mnav-label">Roster</div>
+    </div>
+    <div class="mnav-item" onclick="switchTab('scoring',this)">
+      <div class="mnav-icon">⭐</div><div class="mnav-label">Score</div>
+    </div>
+    <div class="mnav-item" onclick="switchTab('teams',this)">
+      <div class="mnav-icon">🏒</div><div class="mnav-label">Teams</div>
+    </div>
+  </div>
+</nav>
+
+<script>
+const screenTitles = {
+  dashboard: ['Dashboard', 'Wednesday, April 23, 2026'],
+  roster:    ['Roster', 'U15 Rep Tryouts — 42 Players'],
+  scoring:   ['Scoring', 'Player 38 of 42'],
+  teams:     ['Team Builder', 'U15 Rep Tryouts'],
+};
+
+function switchTab(name, el) {
+  // Hide all screens
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+
+  // Update tabs
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.screen-tabs .tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(name === 'teams' ? 'team' : name)) t.classList.add('active');
+  });
+
+  // Update sidebar nav
+  document.querySelectorAll('.sidebar .nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.sidebar .nav-item').forEach(n => {
+    const txt = n.textContent.trim().toLowerCase();
+    if (txt.includes(name === 'teams' ? 'team' : name)) n.classList.add('active');
+  });
+
+  // Update topbar
+  const [title, sub] = screenTitles[name] || ['', ''];
+  document.getElementById('screen-title').textContent = title;
+  document.getElementById('screen-sub').textContent = sub;
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('theme-icon').textContent = isDark ? '🌙' : '☀️';
+  document.getElementById('theme-label').textContent = isDark ? 'Dark' : 'Light';
+}
+
+function setScore(v) {
+  document.querySelectorAll('.qs-btn').forEach((b,i) => {
+    b.classList.toggle('selected', i+1 === v);
+  });
+  document.getElementById('overall-score').textContent = v + '.0';
+}
+</script>
+</body>
+</html>
