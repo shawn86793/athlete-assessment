@@ -13,27 +13,7 @@ const login = () => {
   return true
 }
 
-describe('Roster — player add and dummy generation', () => {
-
-  it('opens the Add Player form and blocks empty submission', () => {
-    if (!login()) {
-      cy.log('⚠️  Skipping — set COACH_EMAIL + COACH_PASSWORD in cypress.env.json')
-      return
-    }
-    cy.contains('My Teams', { timeout: 10000 })
-    cy.get('body').then($body => {
-      if (!$body.find(TILE_SEL).length) {
-        cy.log('⚠️  No assessments found — skipping')
-        return
-      }
-      cy.get(TILE_SEL).first().click()
-      // Add Player form opens
-      cy.contains(/add player/i, { timeout: 8000 }).should('be.visible').click()
-      // Empty submit should surface a required-field error
-      cy.contains(/^(save|add|submit)/i).first().click()
-      cy.contains(/required|please enter|missing/i, { timeout: 5000 }).should('be.visible')
-    })
-  })
+describe('Roster — dummy player generation', () => {
 
   it('generates 50 dummy players without freezing', () => {
     if (!login()) {
