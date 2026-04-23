@@ -1,30 +1,28 @@
 // ── 12 · Manual Page Refresh — Group 2: No stale / phantom team data ───────
-// Single login + reload in beforeEach; all stale-data assertions in one test
-// so Cypress doesn't repeat the auth + reload cycle three times.
+// Login inside the it block (mirrors 11-refresh.cy.ts) — beforeEach login
+// cycles deadlock in CI. All reload + stale-data assertions in one test.
 // Requires COACH_EMAIL + COACH_PASSWORD in cypress.env.json.
+
+const login = () => {
+  const email = Cypress.env('COACH_EMAIL')
+  const pass  = Cypress.env('COACH_PASSWORD')
+  if (!email || !pass || pass === 'YOUR_PASSWORD_HERE') return false
+  cy.loginViaAPI(email, pass)
+  return true
+}
 
 describe('Refresh — no stale or phantom team data after reload', () => {
 
-  let shouldRun = false
+  it('no mock artefacts, raw JS values, or duplicate tiles after reload', () => {
+    if (!login()) {
+      cy.log('⚠️  Skipping — set COACH_EMAIL + COACH_PASSWORD in cypress.env.json')
+      return
+    }
 
-  beforeEach(() => {
-    const email = Cypress.env('COACH_EMAIL')
-    const pass  = Cypress.env('COACH_PASSWORD')
-    shouldRun = !!(email && pass && pass !== 'YOUR_PASSWORD_HERE')
-    if (!shouldRun) return
-
-    cy.loginViaAPI(email, pass)
     cy.contains('Sign Out', { timeout: 20000 }).should('exist')
     cy.reload()
     cy.contains('Sign Out', { timeout: 8000 }).should('exist')
     cy.contains('My Teams', { timeout: 8000 }).should('be.visible')
-  })
-
-  it('no mock artefacts, raw JS values, or duplicate tiles after reload', () => {
-    if (!shouldRun) {
-      cy.log('⚠️  Skipping — set COACH_EMAIL + COACH_PASSWORD in cypress.env.json')
-      return
-    }
 
     cy.get('body').then($body => {
       const text = $body.text()
