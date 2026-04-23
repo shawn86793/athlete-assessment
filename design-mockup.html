@@ -471,19 +471,47 @@ html, body {
   padding: 20px;
 }
 .sc-title { font-size: 13px; font-weight: 700; color: var(--text1); margin-bottom: 14px; }
-.quick-score-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-.qs-btn {
-  aspect-ratio: 1;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+
+/* ── Rubric selector (1–5) ───────────────────────────────────────────── */
+.rubric-list { display: flex; flex-direction: column; gap: 6px; }
+.rubric-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
   background: var(--bg3);
-  font-size: 14px; font-weight: 700;
-  color: var(--text2); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
   transition: all var(--transition);
 }
-.qs-btn:hover { border-color: var(--orange); color: var(--orange); }
-.qs-btn.selected { background: var(--orange); border-color: var(--orange); color: #fff; box-shadow: 0 0 16px var(--orange-glow); }
+.rubric-item:hover { border-color: var(--border-accent); background: var(--card2); }
+.rubric-item.selected {
+  border-color: var(--orange);
+  background: var(--orange-dim);
+  box-shadow: 0 0 20px var(--orange-glow);
+}
+.rubric-num {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--bg2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 900; color: var(--text2);
+  flex-shrink: 0; transition: all var(--transition);
+}
+.rubric-item.selected .rubric-num {
+  background: var(--orange); border-color: var(--orange);
+  color: #fff; box-shadow: 0 0 12px var(--orange-glow);
+}
+.rubric-info { flex: 1; }
+.rubric-title {
+  font-size: 13px; font-weight: 700; color: var(--text1);
+  transition: color var(--transition);
+}
+.rubric-item.selected .rubric-title { color: var(--orange); }
+.rubric-desc { font-size: 11px; color: var(--text3); margin-top: 2px; line-height: 1.4; }
+.rubric-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 8px;
+  border-radius: 20px; flex-shrink: 0;
+  letter-spacing: .5px; text-transform: uppercase;
+}
 
 .notes-area {
   width: 100%; background: var(--bg3);
@@ -528,20 +556,98 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
 .mnav-item.active .mnav-icon,
 .mnav-item.active .mnav-label { color: var(--orange); }
 
-@media (max-width: 900px) {
+/* ── Tablet (769 – 1100px) ───────────────────────────────────────────── */
+@media (max-width: 1100px) and (min-width: 769px) {
+  :root { --sidebar-w: 200px; }
+  [data-theme="dark"], [data-theme="light"] { --sidebar-w: 200px; }
+  .sidebar-logo img { height: 32px; }
+  .nav-item { font-size: 13px; padding: 10px 12px; }
+  .stats-row { grid-template-columns: repeat(2,1fr); }
+  .rings-row { grid-template-columns: repeat(2,1fr); }
+  .team-grid { grid-template-columns: repeat(2,1fr); }
+  .tb-layout { grid-template-columns: repeat(2,1fr); }
+  .balance-row { grid-template-columns: repeat(2,1fr); }
+  .scoring-layout { grid-template-columns: 1fr 320px; }
+  .profile-body { grid-template-columns: 1fr 300px; }
+  .export-layout { grid-template-columns: 1fr 280px; }
+  .qr-layout { grid-template-columns: 1fr 300px; }
+  .settings-layout { grid-template-columns: 180px 1fr; }
+  .screen { padding: 24px 20px; }
+  .topbar { padding: 16px 24px; }
+  .topbar-left h1 { font-size: 18px; }
+}
+
+/* ── Mobile (≤ 768px) ────────────────────────────────────────────────── */
+@media (max-width: 768px) {
   .sidebar { display: none; }
   .main { margin-left: 0; }
   .mobile-nav { display: block; }
-  .stats-row { grid-template-columns: repeat(2,1fr); }
-  .rings-row, .team-grid { grid-template-columns: 1fr; }
+
+  /* Screens */
+  .screen { padding: 16px 14px 90px; }
+  .topbar { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+  .topbar-left h1 { font-size: 17px; }
+  .topbar-left p { display: none; }
+  .screen-tabs { padding: 0 14px; overflow-x: auto; gap: 0; scrollbar-width: none; }
+  .screen-tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 12px 16px; white-space: nowrap; font-size: 13px; }
+
+  /* Dashboard */
+  .stats-row { grid-template-columns: repeat(2,1fr); gap: 10px; }
+  .stat-value { font-size: 26px; }
+  .rings-row { grid-template-columns: 1fr; }
+  .team-grid { grid-template-columns: 1fr; }
+
+  /* Roster */
+  .roster-controls { flex-wrap: wrap; gap: 8px; }
+  .search-box { max-width: 100%; width: 100%; }
+  .player-metrics { display: none; }
+  .player-row { gap: 10px; padding: 14px 14px; }
+
+  /* Scoring */
   .scoring-layout { grid-template-columns: 1fr; }
-  .screen { padding: 20px 16px 90px; }
-  .topbar { padding: 16px 20px; }
+  .big-ring-wrap svg { width: 180px; height: 180px; }
+  .brl-num { font-size: 52px; }
+
+  /* Rubric list */
+  .rubric-item { padding: 10px 12px; gap: 10px; }
+  .rubric-num { width: 34px; height: 34px; font-size: 17px; }
+  .rubric-badge { display: none; }
+
+  /* Team Builder */
   .tb-layout { grid-template-columns: 1fr; }
+  .balance-row { grid-template-columns: repeat(2,1fr); }
+  .tb-top { flex-wrap: wrap; }
+  .tb-meta { display: none; }
+
+  /* Profile */
   .profile-body { grid-template-columns: 1fr; }
+  .profile-hero-card { flex-wrap: wrap; gap: 16px; }
+  .profile-overall { padding: 0; }
+  .profile-actions { flex-direction: row; flex-wrap: wrap; }
+  .history-bars { height: 90px; }
+
+  /* Export */
   .export-layout { grid-template-columns: 1fr; }
+  .report-cards { grid-template-columns: 1fr; }
+
+  /* Schedule */
+  .cal-day { min-height: 56px; padding: 5px; }
+  .cal-day-num { font-size: 11px; }
+  .cal-event { font-size: 9px; padding: 2px 4px; }
+
+  /* QR */
   .qr-layout { grid-template-columns: 1fr; }
+
+  /* Settings */
   .settings-layout { grid-template-columns: 1fr; }
+  .settings-nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; }
+  .settings-nav-item { flex: 1; min-width: 120px; font-size: 12px; padding: 8px 10px; }
+  .settings-nav-divider { display: none; }
+  .sf-row { grid-template-columns: 1fr; }
+
+  /* Packages panel */
+  #packages-list { flex-direction: column; }
 }
 
 /* ── Logo Image ──────────────────────────────────────────────────────── */
@@ -1045,8 +1151,8 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         </div>
         <div class="stat-card">
           <div class="stat-label">Avg Score</div>
-          <div class="stat-value">7.4</div>
-          <div class="stat-sub" style="color:var(--green);">▲ 0.3 vs last event</div>
+          <div class="stat-value">3.7</div>
+          <div class="stat-sub" style="color:var(--green);">▲ 0.2 vs last event</div>
           <div class="stat-icon">⭐</div>
         </div>
         <div class="stat-card">
@@ -1086,25 +1192,25 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
               </defs>
             </svg>
             <div class="ring-score">
-              <span class="score-num">8.0</span>
-              <span class="score-denom">/ 10</span>
+              <span class="score-num">4.0</span>
+              <span class="score-denom">/ 5</span>
             </div>
           </div>
           <div class="ring-metrics">
             <div class="ring-metric">
               <span class="rm-label">Speed</span>
               <div class="rm-bar"><div class="rm-fill" style="width:82%;background:var(--orange)"></div></div>
-              <span class="rm-val">8.2</span>
+              <span class="rm-val">4.1</span>
             </div>
             <div class="ring-metric">
               <span class="rm-label">Edges</span>
               <div class="rm-bar"><div class="rm-fill" style="width:78%;background:var(--orange)"></div></div>
-              <span class="rm-val">7.8</span>
+              <span class="rm-val">3.9</span>
             </div>
             <div class="ring-metric">
               <span class="rm-label">Transitions</span>
               <div class="rm-bar"><div class="rm-fill" style="width:80%;background:var(--orange)"></div></div>
-              <span class="rm-val">8.0</span>
+              <span class="rm-val">4.0</span>
             </div>
           </div>
         </div>
@@ -1128,25 +1234,25 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
               </defs>
             </svg>
             <div class="ring-score">
-              <span class="score-num">7.3</span>
-              <span class="score-denom">/ 10</span>
+              <span class="score-num">3.7</span>
+              <span class="score-denom">/ 5</span>
             </div>
           </div>
           <div class="ring-metrics">
             <div class="ring-metric">
               <span class="rm-label">Passing</span>
               <div class="rm-bar"><div class="rm-fill" style="width:74%;background:var(--teal)"></div></div>
-              <span class="rm-val">7.4</span>
+              <span class="rm-val">3.7</span>
             </div>
             <div class="ring-metric">
               <span class="rm-label">Shooting</span>
               <div class="rm-bar"><div class="rm-fill" style="width:70%;background:var(--teal)"></div></div>
-              <span class="rm-val">7.0</span>
+              <span class="rm-val">3.5</span>
             </div>
             <div class="ring-metric">
               <span class="rm-label">Puck Handling</span>
               <div class="rm-bar"><div class="rm-fill" style="width:75%;background:var(--teal)"></div></div>
-              <span class="rm-val">7.5</span>
+              <span class="rm-val">3.8</span>
             </div>
           </div>
         </div>
@@ -1170,25 +1276,25 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
               </defs>
             </svg>
             <div class="ring-score">
-              <span class="score-num">8.5</span>
-              <span class="score-denom">/ 10</span>
+              <span class="score-num">4.3</span>
+              <span class="score-denom">/ 5</span>
             </div>
           </div>
           <div class="ring-metrics">
             <div class="ring-metric">
               <span class="rm-label">Positioning</span>
               <div class="rm-bar"><div class="rm-fill" style="width:86%;background:var(--green)"></div></div>
-              <span class="rm-val">8.6</span>
+              <span class="rm-val">4.3</span>
             </div>
             <div class="ring-metric">
               <span class="rm-label">Decision Making</span>
               <div class="rm-bar"><div class="rm-fill" style="width:84%;background:var(--green)"></div></div>
-              <span class="rm-val">8.4</span>
+              <span class="rm-val">4.2</span>
             </div>
             <div class="ring-metric">
               <span class="rm-label">Compete Level</span>
               <div class="rm-bar"><div class="rm-fill" style="width:85%;background:var(--green)"></div></div>
-              <span class="rm-val">8.5</span>
+              <span class="rm-val">4.3</span>
             </div>
           </div>
         </div>
@@ -1216,7 +1322,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
             <div class="ts-item"><div class="ts-val">38</div><div class="ts-lab">Scored</div></div>
           </div>
           <div class="team-score-bar">
-            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">7.8 / 10</span></div>
+            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">3.9 / 5</span></div>
             <div class="tsb-track"><div class="tsb-fill" style="width:78%"></div></div>
           </div>
         </div>
@@ -1233,7 +1339,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
             <div class="ts-item"><div class="ts-val">28</div><div class="ts-lab">Scored</div></div>
           </div>
           <div class="team-score-bar">
-            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">6.9 / 10</span></div>
+            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">3.5 / 5</span></div>
             <div class="tsb-track"><div class="tsb-fill" style="width:69%;background:linear-gradient(90deg,var(--teal),#5ef0ff)"></div></div>
           </div>
         </div>
@@ -1250,7 +1356,7 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
             <div class="ts-item"><div class="ts-val">31</div><div class="ts-lab">Scored</div></div>
           </div>
           <div class="team-score-bar">
-            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">7.1 / 10</span></div>
+            <div class="tsb-top"><span class="tsb-label">Avg Score</span><span class="tsb-val">3.6 / 5</span></div>
             <div class="tsb-track"><div class="tsb-fill" style="width:71%;background:linear-gradient(90deg,var(--yellow),#fcd34d)"></div></div>
           </div>
         </div>
@@ -1297,11 +1403,11 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           </div>
           <div class="player-pos">FWD</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">8.8</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">8.2</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">9.0</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item"><div class="pm-val">4.4</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">4.1</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">4.5</div><div class="pm-lab">IQ</div></div>
           </div>
-          <div class="score-pill score-great">9.0</div>
+          <div class="score-pill score-great">4.5</div>
         </div>
 
         <div class="player-row" onclick="switchTab('profile',null)">
@@ -1312,11 +1418,11 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           </div>
           <div class="player-pos">DEF</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">7.5</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">7.8</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">8.1</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item"><div class="pm-val">3.8</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">3.9</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">4.1</div><div class="pm-lab">IQ</div></div>
           </div>
-          <div class="score-pill score-good">7.8</div>
+          <div class="score-pill score-good">3.9</div>
         </div>
 
         <div class="player-row" onclick="switchTab('profile',null)">
@@ -1327,11 +1433,11 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           </div>
           <div class="player-pos">FWD</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">6.9</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">7.2</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">6.8</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item"><div class="pm-val">3.5</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">3.6</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">3.4</div><div class="pm-lab">IQ</div></div>
           </div>
-          <div class="score-pill score-good">7.0</div>
+          <div class="score-pill score-good">3.5</div>
         </div>
 
         <div class="player-row">
@@ -1342,11 +1448,11 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           </div>
           <div class="player-pos" style="background:rgba(245,158,11,.15);color:var(--yellow);">GTL</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">6.4</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">7.9</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">7.5</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item"><div class="pm-val">3.2</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">4.0</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">3.8</div><div class="pm-lab">IQ</div></div>
           </div>
-          <div class="score-pill score-avg">6.8</div>
+          <div class="score-pill score-avg">3.4</div>
         </div>
 
         <div class="player-row">
@@ -1357,11 +1463,11 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           </div>
           <div class="player-pos">DEF</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">5.8</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">6.0</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">6.2</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item"><div class="pm-val">2.9</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">3.0</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">3.1</div><div class="pm-lab">IQ</div></div>
           </div>
-          <div class="score-pill score-low">5.8</div>
+          <div class="score-pill score-low">2.9</div>
         </div>
 
         <div class="player-row">
@@ -1372,11 +1478,11 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           </div>
           <div class="player-pos">FWD</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">8.1</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">8.5</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">7.9</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item"><div class="pm-val">4.1</div><div class="pm-lab">Skate</div></div>
+            <div class="pm-item"><div class="pm-val">4.3</div><div class="pm-lab">Skills</div></div>
+            <div class="pm-item"><div class="pm-val">4.0</div><div class="pm-lab">IQ</div></div>
           </div>
-          <div class="score-pill score-great">8.2</div>
+          <div class="score-pill score-great">4.1</div>
         </div>
       </div>
     </div>
@@ -1415,31 +1521,31 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
               </defs>
             </svg>
             <div class="big-ring-label">
-              <span class="brl-num" id="overall-score">9.0</span>
-              <span class="brl-sub">Overall</span>
+              <span class="brl-num" id="overall-score">4.5</span>
+              <span class="brl-sub">/ 5 Overall</span>
             </div>
           </div>
 
           <div class="score-categories">
             <div class="score-cat">
-              <div class="sc-header"><span class="sc-name">⛸ Skating</span><span class="sc-val" style="color:var(--orange)">8.8</span></div>
+              <div class="sc-header"><span class="sc-name">⛸ Skating</span><span class="sc-val" style="color:var(--orange)">4.4 <span style="font-size:11px;font-weight:500;color:var(--text3)">/ 5</span></span></div>
               <div class="sc-track"><div class="sc-fill" style="width:88%;background:linear-gradient(90deg,var(--orange),#ff9a5c)"></div></div>
             </div>
             <div class="score-cat">
-              <div class="sc-header"><span class="sc-name">🏒 Puck Skills</span><span class="sc-val" style="color:var(--teal)">8.2</span></div>
+              <div class="sc-header"><span class="sc-name">🏒 Puck Skills</span><span class="sc-val" style="color:var(--teal)">4.1 <span style="font-size:11px;font-weight:500;color:var(--text3)">/ 5</span></span></div>
               <div class="sc-track"><div class="sc-fill" style="width:82%;background:linear-gradient(90deg,var(--teal),#5ef0ff)"></div></div>
             </div>
             <div class="score-cat">
-              <div class="sc-header"><span class="sc-name">🧠 Hockey IQ</span><span class="sc-val" style="color:var(--green)">9.0</span></div>
+              <div class="sc-header"><span class="sc-name">🧠 Hockey IQ</span><span class="sc-val" style="color:var(--green)">4.5 <span style="font-size:11px;font-weight:500;color:var(--text3)">/ 5</span></span></div>
               <div class="sc-track"><div class="sc-fill" style="width:90%;background:linear-gradient(90deg,var(--green),#4ade80)"></div></div>
             </div>
             <div class="score-cat">
-              <div class="sc-header"><span class="sc-name">💪 Physical</span><span class="sc-val" style="color:var(--yellow)">9.2</span></div>
+              <div class="sc-header"><span class="sc-name">💪 Physical</span><span class="sc-val" style="color:var(--yellow)">4.6 <span style="font-size:11px;font-weight:500;color:var(--text3)">/ 5</span></span></div>
               <div class="sc-track"><div class="sc-fill" style="width:92%;background:linear-gradient(90deg,var(--yellow),#fcd34d)"></div></div>
             </div>
             <div class="score-cat">
-              <div class="sc-header"><span class="sc-name">🔥 Compete</span><span class="sc-val" style="color:var(--orange-soft)">9.5</span></div>
-              <div class="sc-track"><div class="sc-fill" style="width:95%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
+              <div class="sc-header"><span class="sc-name">🔥 Compete Level</span><span class="sc-val" style="color:var(--orange-soft)">4.8 <span style="font-size:11px;font-weight:500;color:var(--text3)">/ 5</span></span></div>
+              <div class="sc-track"><div class="sc-fill" style="width:96%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
             </div>
           </div>
         </div>
@@ -1447,18 +1553,54 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         <!-- Right: quick score + notes -->
         <div class="scoring-sidebar">
           <div class="sidebar-card">
-            <div class="sc-title">Quick Score</div>
-            <div class="quick-score-grid" id="qs-grid">
-              <div class="qs-btn" onclick="setScore(1)">1</div>
-              <div class="qs-btn" onclick="setScore(2)">2</div>
-              <div class="qs-btn" onclick="setScore(3)">3</div>
-              <div class="qs-btn" onclick="setScore(4)">4</div>
-              <div class="qs-btn" onclick="setScore(5)">5</div>
-              <div class="qs-btn" onclick="setScore(6)">6</div>
-              <div class="qs-btn" onclick="setScore(7)">7</div>
-              <div class="qs-btn" onclick="setScore(8)">8</div>
-              <div class="qs-btn selected" onclick="setScore(9)">9</div>
-              <div class="qs-btn" onclick="setScore(10)">10</div>
+            <div class="sc-title">Score — Select One</div>
+            <div class="rubric-list" id="qs-grid">
+
+              <div class="rubric-item" onclick="setScore(1)">
+                <div class="rubric-num">1</div>
+                <div class="rubric-info">
+                  <div class="rubric-title">Needs Development</div>
+                  <div class="rubric-desc">Skill not evident. Significant gaps in fundamentals. Requires foundational coaching before competing at this level.</div>
+                </div>
+                <span class="rubric-badge" style="background:rgba(239,68,68,.15);color:var(--red)">DNLV</span>
+              </div>
+
+              <div class="rubric-item" onclick="setScore(2)">
+                <div class="rubric-num">2</div>
+                <div class="rubric-info">
+                  <div class="rubric-title">Developing</div>
+                  <div class="rubric-desc">Skill is emerging but inconsistent. Below age-group expectations. Shows effort and potential with coaching support.</div>
+                </div>
+                <span class="rubric-badge" style="background:rgba(245,158,11,.15);color:var(--yellow)">DEV</span>
+              </div>
+
+              <div class="rubric-item" onclick="setScore(3)">
+                <div class="rubric-num">3</div>
+                <div class="rubric-info">
+                  <div class="rubric-title">Meets Standard</div>
+                  <div class="rubric-desc">Skill is functional and consistent in normal game situations. Meets age-group expectations. Solid contributor.</div>
+                </div>
+                <span class="rubric-badge" style="background:rgba(15,184,201,.15);color:var(--teal)">AVG</span>
+              </div>
+
+              <div class="rubric-item" onclick="setScore(4)">
+                <div class="rubric-num">4</div>
+                <div class="rubric-info">
+                  <div class="rubric-title">Above Standard</div>
+                  <div class="rubric-desc">Skill is strong and reliable under pressure. Exceeds age-group expectations. Stands out in most situations.</div>
+                </div>
+                <span class="rubric-badge" style="background:rgba(34,197,94,.15);color:var(--green)">ABOVE</span>
+              </div>
+
+              <div class="rubric-item selected" onclick="setScore(5)">
+                <div class="rubric-num">5</div>
+                <div class="rubric-info">
+                  <div class="rubric-title">Elite</div>
+                  <div class="rubric-desc">Exceptional, standout skill. Dominant across all situations. Top of cohort — rare talent at this age group.</div>
+                </div>
+                <span class="rubric-badge" style="background:rgba(255,107,43,.15);color:var(--orange)">ELITE</span>
+              </div>
+
             </div>
           </div>
 
@@ -1513,9 +1655,88 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
           <option>U15 Rep Tryouts — Apr 20, 2026</option>
           <option>U13 Assessment — Apr 18, 2026</option>
         </select>
-        <div class="tb-meta">42 players · 3 teams · Avg score 7.4</div>
-        <button class="btn btn-ghost">⚙ Configure</button>
+        <div class="tb-meta">42 players · 3 teams · Avg score 3.7 / 5</div>
+        <button class="btn btn-ghost" onclick="togglePackages()">👥 Friend Packages <span id="pkg-count" style="background:var(--orange);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px">2</span></button>
         <button class="btn btn-primary">⚡ Auto-Balance</button>
+      </div>
+
+      <!-- Friend Packages Panel -->
+      <div id="packages-panel" style="display:none;margin-bottom:16px">
+        <div style="background:var(--card);border:1px solid var(--border-accent);border-radius:16px;padding:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text1)">👥 Friend Packages</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px">Players in a package are kept on the same team during Auto-Balance</div>
+            </div>
+            <button class="btn btn-ghost" style="font-size:12px" onclick="addPackage()">+ Add Package</button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px" id="packages-list">
+
+            <!-- Package 1 -->
+            <div class="pkg-card" style="background:var(--bg3);border:1px solid rgba(255,107,43,.3);border-radius:12px;padding:14px 16px;min-width:220px;flex:1">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:10px;height:10px;border-radius:50%;background:var(--orange)"></div>
+                  <span style="font-size:13px;font-weight:700;color:var(--text1)">Package A</span>
+                </div>
+                <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px" title="Remove package">✕</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border-radius:8px">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--orange-dim);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--orange)">9</div>
+                  <span style="font-size:12px;font-weight:600;color:var(--text1)">Connor MacDonald</span>
+                  <span style="font-size:10px;color:var(--text3);margin-left:auto">FWD</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border-radius:8px">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text2)">88</div>
+                  <span style="font-size:12px;font-weight:600;color:var(--text1)">Alexei Volkov</span>
+                  <span style="font-size:10px;color:var(--text3);margin-left:auto">FWD</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border-radius:8px">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text2)">11</div>
+                  <span style="font-size:12px;font-weight:600;color:var(--text1)">Drew Hanson</span>
+                  <span style="font-size:10px;color:var(--text3);margin-left:auto">DEF</span>
+                </div>
+              </div>
+              <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;padding:6px">+ Add Player to Package</button>
+            </div>
+
+            <!-- Package 2 -->
+            <div class="pkg-card" style="background:var(--bg3);border:1px solid rgba(15,184,201,.3);border-radius:12px;padding:14px 16px;min-width:220px;flex:1">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:10px;height:10px;border-radius:50%;background:var(--teal)"></div>
+                  <span style="font-size:13px;font-weight:700;color:var(--text1)">Package B</span>
+                </div>
+                <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px" title="Remove package">✕</button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border-radius:8px">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text2)">27</div>
+                  <span style="font-size:12px;font-weight:600;color:var(--text1)">Liam Tremblay</span>
+                  <span style="font-size:10px;color:var(--text3);margin-left:auto">DEF</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg2);border-radius:8px">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--text2)">44</div>
+                  <span style="font-size:12px;font-weight:600;color:var(--text1)">Ethan Nguyen</span>
+                  <span style="font-size:10px;color:var(--text3);margin-left:auto">FWD</span>
+                </div>
+              </div>
+              <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;padding:6px">+ Add Player to Package</button>
+            </div>
+
+            <!-- Add new package placeholder -->
+            <div onclick="addPackage()" style="min-width:180px;flex:0.5;background:var(--bg3);border:1.5px dashed var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all var(--transition)" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
+              <div style="font-size:24px">👥</div>
+              <div style="font-size:12px;font-weight:600;color:var(--text2);text-align:center">New Package</div>
+              <div style="font-size:11px;color:var(--text3);text-align:center">Keep players together</div>
+            </div>
+
+          </div>
+          <div style="margin-top:12px;padding:10px 14px;background:var(--orange-dim);border:1px solid var(--border-accent);border-radius:10px;font-size:12px;color:var(--orange);font-weight:500">
+            ⚡ Auto-Balance will keep packaged players on the same team while still optimizing for score balance across all teams.
+          </div>
+        </div>
       </div>
 
       <!-- Balance Summary -->
@@ -1527,17 +1748,17 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         </div>
         <div class="balance-col">
           <div class="bc-header"><span class="bc-name">Team A</span><span class="bc-count">12 players</span></div>
-          <div class="bc-score">7.9</div>
+          <div class="bc-score">3.9</div>
           <div class="bc-bar"><div class="bc-fill" style="width:79%"></div></div>
         </div>
         <div class="balance-col">
           <div class="bc-header"><span class="bc-name">Team B</span><span class="bc-count">11 players</span></div>
-          <div class="bc-score" style="color:var(--teal)">7.2</div>
+          <div class="bc-score" style="color:var(--teal)">3.6</div>
           <div class="bc-bar"><div class="bc-fill" style="width:72%;background:linear-gradient(90deg,var(--teal),#5ef0ff)"></div></div>
         </div>
         <div class="balance-col">
           <div class="bc-header"><span class="bc-name">Team C</span><span class="bc-count">11 players</span></div>
-          <div class="bc-score" style="color:var(--green)">7.1</div>
+          <div class="bc-score" style="color:var(--green)">3.6</div>
           <div class="bc-bar"><div class="bc-fill" style="width:71%;background:linear-gradient(90deg,var(--green),#4ade80)"></div></div>
         </div>
       </div>
@@ -1552,14 +1773,14 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
             <span class="tb-col-badge pool">8</span>
           </div>
           <div class="tb-players">
-            <div class="tb-player"><div class="tb-player-num">15</div><div class="tb-player-info"><div class="tb-player-name">Ryan Kowalski</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">5.8</div></div>
-            <div class="tb-player"><div class="tb-player-num">33</div><div class="tb-player-info"><div class="tb-player-name">Marcus Chen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.1</div></div>
-            <div class="tb-player"><div class="tb-player-num">7</div><div class="tb-player-info"><div class="tb-player-name">Tyler Bouchard</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">6.4</div></div>
-            <div class="tb-player"><div class="tb-player-num">21</div><div class="tb-player-info"><div class="tb-player-name">Sam Okafor</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">7.8</div></div>
-            <div class="tb-player"><div class="tb-player-num">3</div><div class="tb-player-info"><div class="tb-player-name">Josh Petrov</div><div class="tb-player-pos">GTL · 2012</div></div><div class="tb-player-score">6.9</div></div>
-            <div class="tb-player"><div class="tb-player-num">55</div><div class="tb-player-info"><div class="tb-player-name">Nathan LeBlanc</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.4</div></div>
-            <div class="tb-player"><div class="tb-player-num">18</div><div class="tb-player-info"><div class="tb-player-name">Finn Dempsey</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">6.7</div></div>
-            <div class="tb-player"><div class="tb-player-num">29</div><div class="tb-player-info"><div class="tb-player-name">Hugo Laurent</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.3</div></div>
+            <div class="tb-player"><div class="tb-player-num">15</div><div class="tb-player-info"><div class="tb-player-name">Ryan Kowalski</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">2.9</div></div>
+            <div class="tb-player"><div class="tb-player-num">33</div><div class="tb-player-info"><div class="tb-player-name">Marcus Chen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">3.6</div></div>
+            <div class="tb-player"><div class="tb-player-num">7</div><div class="tb-player-info"><div class="tb-player-name">Tyler Bouchard</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">3.2</div></div>
+            <div class="tb-player"><div class="tb-player-num">21</div><div class="tb-player-info"><div class="tb-player-name">Sam Okafor</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">3.9</div></div>
+            <div class="tb-player"><div class="tb-player-num">3</div><div class="tb-player-info"><div class="tb-player-name">Josh Petrov</div><div class="tb-player-pos">GTL · 2012</div></div><div class="tb-player-score">3.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">55</div><div class="tb-player-info"><div class="tb-player-name">Nathan LeBlanc</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">3.7</div></div>
+            <div class="tb-player"><div class="tb-player-num">18</div><div class="tb-player-info"><div class="tb-player-name">Finn Dempsey</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">3.4</div></div>
+            <div class="tb-player"><div class="tb-player-num">29</div><div class="tb-player-info"><div class="tb-player-name">Hugo Laurent</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">3.7</div></div>
             <div class="tb-drop-zone">Drop player here</div>
           </div>
         </div>
@@ -1568,16 +1789,16 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         <div class="tb-col">
           <div class="tb-col-head">
             <span class="tb-col-title">🟠 Team A</span>
-            <span class="tb-col-badge">7.9 avg</span>
+            <span class="tb-col-badge">3.9 avg</span>
           </div>
           <div class="tb-players">
-            <div class="tb-player"><div class="tb-player-num" style="background:var(--orange-dim);color:var(--orange)">9</div><div class="tb-player-info"><div class="tb-player-name">Connor MacDonald</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">9.0</div></div>
-            <div class="tb-player"><div class="tb-player-num">88</div><div class="tb-player-info"><div class="tb-player-name">Alexei Volkov</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">8.2</div></div>
-            <div class="tb-player"><div class="tb-player-num">11</div><div class="tb-player-info"><div class="tb-player-name">Drew Hanson</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.7</div></div>
-            <div class="tb-player"><div class="tb-player-num">5</div><div class="tb-player-info"><div class="tb-player-name">Owen Park</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.4</div></div>
-            <div class="tb-player"><div class="tb-player-num">22</div><div class="tb-player-info"><div class="tb-player-name">Cole Murphy</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">6.9</div></div>
-            <div class="tb-player"><div class="tb-player-num">36</div><div class="tb-player-info"><div class="tb-player-name">Leo Sandoval</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">7.2</div></div>
-            <div class="tb-player"><div class="tb-player-num">1</div><div class="tb-player-info"><div class="tb-player-name">Jake Morrison</div><div class="tb-player-pos">GTL · 2011</div></div><div class="tb-player-score">6.8</div></div>
+            <div class="tb-player"><div class="tb-player-num" style="background:var(--orange-dim);color:var(--orange)">9</div><div class="tb-player-info"><div class="tb-player-name">Connor MacDonald</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">4.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">88</div><div class="tb-player-info"><div class="tb-player-name">Alexei Volkov</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">4.1</div></div>
+            <div class="tb-player"><div class="tb-player-num">11</div><div class="tb-player-info"><div class="tb-player-name">Drew Hanson</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">3.9</div></div>
+            <div class="tb-player"><div class="tb-player-num">5</div><div class="tb-player-info"><div class="tb-player-name">Owen Park</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">3.7</div></div>
+            <div class="tb-player"><div class="tb-player-num">22</div><div class="tb-player-info"><div class="tb-player-name">Cole Murphy</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">3.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">36</div><div class="tb-player-info"><div class="tb-player-name">Leo Sandoval</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">3.6</div></div>
+            <div class="tb-player"><div class="tb-player-num">1</div><div class="tb-player-info"><div class="tb-player-name">Jake Morrison</div><div class="tb-player-pos">GTL · 2011</div></div><div class="tb-player-score">3.4</div></div>
             <div class="tb-drop-zone">Drop to add</div>
           </div>
         </div>
@@ -1586,15 +1807,15 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         <div class="tb-col">
           <div class="tb-col-head">
             <span class="tb-col-title">🔵 Team B</span>
-            <span class="tb-col-badge" style="color:var(--teal);background:rgba(15,184,201,.1)">7.2 avg</span>
+            <span class="tb-col-badge" style="color:var(--teal);background:rgba(15,184,201,.1)">3.6 avg</span>
           </div>
           <div class="tb-players">
-            <div class="tb-player"><div class="tb-player-num">27</div><div class="tb-player-info"><div class="tb-player-name">Liam Tremblay</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.8</div></div>
-            <div class="tb-player"><div class="tb-player-num">14</div><div class="tb-player-info"><div class="tb-player-name">Aiden Walsh</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.6</div></div>
-            <div class="tb-player"><div class="tb-player-num">8</div><div class="tb-player-info"><div class="tb-player-name">Declan Forde</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">7.5</div></div>
-            <div class="tb-player"><div class="tb-player-num">41</div><div class="tb-player-info"><div class="tb-player-name">Brendan Yee</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">7.0</div></div>
-            <div class="tb-player"><div class="tb-player-num">17</div><div class="tb-player-info"><div class="tb-player-name">Carter Singh</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">6.8</div></div>
-            <div class="tb-player"><div class="tb-player-num">30</div><div class="tb-player-info"><div class="tb-player-name">Davis Reyes</div><div class="tb-player-pos">GTL · 2012</div></div><div class="tb-player-score">7.1</div></div>
+            <div class="tb-player"><div class="tb-player-num">27</div><div class="tb-player-info"><div class="tb-player-name">Liam Tremblay</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">3.9</div></div>
+            <div class="tb-player"><div class="tb-player-num">14</div><div class="tb-player-info"><div class="tb-player-name">Aiden Walsh</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">3.8</div></div>
+            <div class="tb-player"><div class="tb-player-num">8</div><div class="tb-player-info"><div class="tb-player-name">Declan Forde</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">3.8</div></div>
+            <div class="tb-player"><div class="tb-player-num">41</div><div class="tb-player-info"><div class="tb-player-name">Brendan Yee</div><div class="tb-player-pos">DEF · 2012</div></div><div class="tb-player-score">3.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">17</div><div class="tb-player-info"><div class="tb-player-name">Carter Singh</div><div class="tb-player-pos">FWD · 2011</div></div><div class="tb-player-score">3.4</div></div>
+            <div class="tb-player"><div class="tb-player-num">30</div><div class="tb-player-info"><div class="tb-player-name">Davis Reyes</div><div class="tb-player-pos">GTL · 2012</div></div><div class="tb-player-score">3.6</div></div>
             <div class="tb-drop-zone">Drop to add</div>
           </div>
         </div>
@@ -1603,15 +1824,15 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         <div class="tb-col">
           <div class="tb-col-head">
             <span class="tb-col-title">🟢 Team C</span>
-            <span class="tb-col-badge" style="color:var(--green);background:rgba(34,197,94,.1)">7.1 avg</span>
+            <span class="tb-col-badge" style="color:var(--green);background:rgba(34,197,94,.1)">3.6 avg</span>
           </div>
           <div class="tb-players">
-            <div class="tb-player"><div class="tb-player-num">44</div><div class="tb-player-info"><div class="tb-player-name">Ethan Nguyen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.0</div></div>
-            <div class="tb-player"><div class="tb-player-num">12</div><div class="tb-player-info"><div class="tb-player-name">Will Johansson</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">7.9</div></div>
-            <div class="tb-player"><div class="tb-player-num">6</div><div class="tb-player-info"><div class="tb-player-name">Noah Sterling</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.3</div></div>
-            <div class="tb-player"><div class="tb-player-num">23</div><div class="tb-player-info"><div class="tb-player-name">Eli Watts</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">6.5</div></div>
-            <div class="tb-player"><div class="tb-player-num">46</div><div class="tb-player-info"><div class="tb-player-name">Kai Henriksen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">7.0</div></div>
-            <div class="tb-player"><div class="tb-player-num">2</div><div class="tb-player-info"><div class="tb-player-name">Ben Azari</div><div class="tb-player-pos">GTL · 2011</div></div><div class="tb-player-score">6.8</div></div>
+            <div class="tb-player"><div class="tb-player-num">44</div><div class="tb-player-info"><div class="tb-player-name">Ethan Nguyen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">3.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">12</div><div class="tb-player-info"><div class="tb-player-name">Will Johansson</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">4.0</div></div>
+            <div class="tb-player"><div class="tb-player-num">6</div><div class="tb-player-info"><div class="tb-player-name">Noah Sterling</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">3.7</div></div>
+            <div class="tb-player"><div class="tb-player-num">23</div><div class="tb-player-info"><div class="tb-player-name">Eli Watts</div><div class="tb-player-pos">DEF · 2011</div></div><div class="tb-player-score">3.3</div></div>
+            <div class="tb-player"><div class="tb-player-num">46</div><div class="tb-player-info"><div class="tb-player-name">Kai Henriksen</div><div class="tb-player-pos">FWD · 2012</div></div><div class="tb-player-score">3.5</div></div>
+            <div class="tb-player"><div class="tb-player-num">2</div><div class="tb-player-info"><div class="tb-player-name">Ben Azari</div><div class="tb-player-pos">GTL · 2011</div></div><div class="tb-player-score">3.4</div></div>
             <div class="tb-drop-zone">Drop to add</div>
           </div>
         </div>
@@ -2382,16 +2603,60 @@ function toggleTheme() {
   document.getElementById('theme-label').textContent = isDark ? 'Dark' : 'Light';
 }
 
-// ── Scoring: quick-score buttons ────────────────────────────────────────
+// ── Scoring: rubric selector (1–5) ─────────────────────────────────────
 function setScore(v) {
-  document.querySelectorAll('.qs-btn').forEach((b, i) => {
-    b.classList.toggle('selected', i + 1 === v);
+  document.querySelectorAll('.rubric-item').forEach((item, i) => {
+    item.classList.toggle('selected', i + 1 === v);
   });
-  // Animate the big ring dashoffset: full circle = 603, score/10 * 603
-  const offset = Math.round(603 - (v / 10) * 603);
+  // Animate big ring: circumference = 603, fill = v/5
+  const offset = Math.round(603 - (v / 5) * 603);
   const arc = document.querySelector('#screen-scoring circle.fill');
   if (arc) arc.setAttribute('stroke-dashoffset', offset);
   document.getElementById('overall-score').textContent = v + '.0';
+}
+
+// ── Team Builder: Friend Packages toggle ────────────────────────────────
+function togglePackages() {
+  const panel = document.getElementById('packages-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Team Builder: Add new package ───────────────────────────────────────
+let pkgCount = 2;
+const pkgColors = [
+  {dot:'var(--orange)',  border:'rgba(255,107,43,.3)'},
+  {dot:'var(--teal)',    border:'rgba(15,184,201,.3)'},
+  {dot:'var(--green)',   border:'rgba(34,197,94,.3)'},
+  {dot:'var(--yellow)',  border:'rgba(245,158,11,.3)'},
+  {dot:'#a78bfa',        border:'rgba(167,139,250,.3)'},
+];
+const pkgLabels = ['A','B','C','D','E','F','G','H'];
+function addPackage() {
+  pkgCount++;
+  const c = pkgColors[(pkgCount - 1) % pkgColors.length];
+  const label = pkgLabels[(pkgCount - 1) % pkgLabels.length];
+  const list = document.getElementById('packages-list');
+  if (!list) return;
+  const placeholder = list.lastElementChild;
+  const div = document.createElement('div');
+  div.className = 'pkg-card';
+  div.style.cssText = `background:var(--bg3);border:1px solid ${c.border};border-radius:12px;padding:14px 16px;min-width:220px;flex:1`;
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${c.dot}"></div>
+        <span style="font-size:13px;font-weight:700;color:var(--text1)">Package ${label}</span>
+      </div>
+      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px" onclick="this.closest('.pkg-card').remove();pkgCount--;document.getElementById('pkg-count').textContent=pkgCount">✕</button>
+    </div>
+    <div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;border:1.5px dashed var(--border);border-radius:8px">
+      Click "＋ Add Player" to group players together
+    </div>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:10px;font-size:11px;padding:6px">+ Add Player to Package</button>
+  `;
+  list.insertBefore(div, placeholder);
+  document.getElementById('pkg-count').textContent = pkgCount;
 }
 
 // ── Team Builder: Auto-Balance animation ────────────────────────────────
