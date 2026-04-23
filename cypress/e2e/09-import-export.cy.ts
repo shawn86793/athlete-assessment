@@ -1,7 +1,6 @@
-// ── 09 · CSV Import & Export ───────────────────────────────────────────────
-// Tests that roster CSV import works and that export buttons are reachable.
-// loginViaAPI now injects the session via onBeforeLoad so we land on '/'
-// already signed in — no second cy.visit('/') needed.
+// ── 09 · Export ────────────────────────────────────────────────────────────
+// Import tests are covered by 12-import-player-list.cy.ts.
+// This spec covers export buttons and registration API smoke tests.
 // Requires COACH_EMAIL + COACH_PASSWORD in cypress.env.json.
 
 const BASE = (Cypress.config('baseUrl') as string) || 'https://athleteassessmentsystems.netlify.app'
@@ -14,57 +13,6 @@ const login = () => {
   return true
 }
 
-// ── Import tests ──────────────────────────────────────────────────────────
-
-describe('CSV roster import', () => {
-  it('Import Player List tile is visible on the roster page', () => {
-    if (!login()) {
-      cy.log('⚠️  Skipping — set COACH_EMAIL + COACH_PASSWORD in cypress.env.json')
-      return
-    }
-
-    // loginViaAPI already navigated to '/' and logged in
-    cy.contains('Sign Out', { timeout: 20000 }).should('exist')
-
-    cy.get('body').then($body => {
-      const hasTile = $body.find('[onclick*="openTryout"], .teamHubTile').length > 0
-      if (!hasTile) {
-        cy.log('⚠️  No assessments found — skipping import tile test')
-        return
-      }
-
-      cy.get('[onclick*="openTryout"], .teamHubTile').first().click()
-      cy.get('#importPlayerListTile', { timeout: 12000 }).should('exist').and('be.visible')
-      cy.get('#importPlayerListBtn').should('contain.text', 'Import CSV')
-    })
-  })
-
-  it('shows the import modal when Import Player List tile is clicked', () => {
-    if (!login()) {
-      cy.log('⚠️  Skipping — set COACH_EMAIL + COACH_PASSWORD in cypress.env.json')
-      return
-    }
-
-    cy.contains('Sign Out', { timeout: 20000 }).should('exist')
-
-    cy.get('body').then($body => {
-      const tile = $body.find('[onclick*="openTryout"], .teamHubTile').first()
-      if (!tile.length) {
-        cy.log('⚠️  No assessments found — skipping import modal test')
-        return
-      }
-      cy.wrap(tile).click()
-
-      cy.get('#importPlayerListBtn', { timeout: 12000 }).click()
-      cy.get('#csvImportModal', { timeout: 8000 }).should('be.visible')
-      cy.get('#csvImportModal').should('contain.text', 'Import Players')
-
-      cy.get('#csvImportModal').contains('Cancel').click()
-      cy.get('#csvImportModal').should('not.exist')
-    })
-  })
-})
-
 // ── Export endpoint smoke tests ───────────────────────────────────────────
 
 describe('Export page — buttons are present', () => {
@@ -74,7 +22,7 @@ describe('Export page — buttons are present', () => {
       return
     }
 
-    cy.contains('Sign Out', { timeout: 20000 }).should('exist')
+    cy.contains('Sign Out', { timeout: 10000 }).should('exist')
 
     // Navigate directly into an assessment first, then go to Export.
     // We look for the "Open" button inside an assessment card — that's the

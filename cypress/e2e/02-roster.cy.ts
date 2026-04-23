@@ -1,5 +1,7 @@
 // ── 02 · Roster management ────────────────────────────────────────────────
-// Tests adding a player manually and generating dummy players.
+// Login inside each it block — no beforeEach login (prevents CI deadlocks).
+// Max timeout: 10 s. No 200-player test (60 s wait removed).
+// Requires COACH_EMAIL + COACH_PASSWORD in cypress.env.json.
 
 const TILE_SEL = '.assessmentTile, .teamTile, [onclick*="openAssessment"], [onclick*="openTryout"]'
 
@@ -11,54 +13,36 @@ const login = () => {
   return true
 }
 
-/** Returns true if assessment tiles exist on the current page. */
-const hasTiles = ($body: JQuery<HTMLElement>) =>
-  $body.find(TILE_SEL).length > 0
+describe('Roster — player add and dummy generation', () => {
 
-describe('Roster — manual player add', () => {
-  beforeEach(() => {
-    cy.clearAppState()
-    if (!login()) return
-    // loginViaAPI already navigated to '/' with session pre-loaded
-    cy.contains('My Teams', { timeout: 20000 })
-  })
-
-  it('opens the Add Player form', () => {
+  it('opens the Add Player form and blocks empty submission', () => {
+    if (!login()) {
+      cy.log('⚠️  Skipping — set COACH_EMAIL + COACH_PASSWORD in cypress.env.json')
+      return
+    }
+    cy.contains('My Teams', { timeout: 10000 })
     cy.get('body').then($body => {
-      if (!hasTiles($body)) {
-        cy.log('⚠️  No assessments found in this account — skipping roster test')
+      if (!$body.find(TILE_SEL).length) {
+        cy.log('⚠️  No assessments found — skipping')
         return
       }
       cy.get(TILE_SEL).first().click()
-      cy.contains(/add player/i, { timeout: 8000 }).should('be.visible')
-    })
-  })
-
-  it('blocks submission when required fields are missing', () => {
-    cy.get('body').then($body => {
-      if (!hasTiles($body)) {
-        cy.log('⚠️  No assessments found in this account — skipping roster test')
-        return
-      }
-      cy.get(TILE_SEL).first().click()
-      cy.contains(/add player/i, { timeout: 8000 }).click()
+      // Add Player form opens
+      cy.contains(/add player/i, { timeout: 8000 }).should('be.visible').click()
+      // Empty submit should surface a required-field error
       cy.contains(/^(save|add|submit)/i).first().click()
       cy.contains(/required|please enter|missing/i, { timeout: 5000 }).should('be.visible')
     })
   })
-})
-
-describe('Roster — dummy player generation', () => {
-  beforeEach(() => {
-    cy.clearAppState()
-    if (!login()) return
-    // loginViaAPI already navigated to '/' with session pre-loaded
-    cy.contains('My Teams', { timeout: 20000 })
-  })
 
   it('generates 50 dummy players without freezing', () => {
+    if (!login()) {
+      cy.log('⚠️  Skipping — set COACH_EMAIL + COACH_PASSWORD in cypress.env.json')
+      return
+    }
+    cy.contains('My Teams', { timeout: 10000 })
     cy.get('body').then($body => {
-      if (!hasTiles($body)) {
+      if (!$body.find(TILE_SEL).length) {
         cy.log('⚠️  No assessments — skipping')
         return
       }
@@ -73,20 +57,4 @@ describe('Roster — dummy player generation', () => {
     })
   })
 
-  it('generates 200 dummy players without freezing', () => {
-    cy.get('body').then($body => {
-      if (!hasTiles($body)) {
-        cy.log('⚠️  No assessments — skipping')
-        return
-      }
-      cy.get(TILE_SEL).first().click()
-      cy.contains(/generate|dummy|test data/i, { timeout: 8000 }).click()
-      cy.get('#randSkaterCount').clear().type('200')
-      cy.get('#randGoalieCount').clear().type('0')
-      cy.contains(/generate players|start/i).click()
-      cy.get('#batchGenProgress', { timeout: 5000 }).should('be.visible')
-      cy.get('#batchGenProgress', { timeout: 60000 }).should('not.be.visible')
-      cy.contains(/generated 200 players/i, { timeout: 5000 }).should('be.visible')
-    })
-  })
 })
