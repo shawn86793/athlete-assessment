@@ -17887,6 +17887,72 @@ function renderPlayerHub(){
 
   function rTxt(val, total=totalGroup){ return (val==="—") ? "—" : `${val}/${total}`; }
 
+  // ── Feature #4: Hero ring + category arc rings ────────────────────────
+  const HERO_R = 68;
+  const HERO_CIRC = Math.round(2 * Math.PI * HERO_R);
+  const overallNorm = Math.min(1, Math.max(0, (overall||0) / 5));
+  const heroOffset = Math.round(HERO_CIRC * (1 - overallNorm));
+  const heroColor = overall >= 4 ? "#22c55e" : overall >= 3 ? "#ff6b2b" : overall >= 1.5 ? "#f59e0b" : (overall > 0 ? "#f87171" : "#334155");
+
+  const CAT_R = 28;
+  const CAT_CIRC = Math.round(2 * Math.PI * CAT_R);
+  const _catColors = ["#ff6b2b","#6366f1","#0d9488","#f59e0b","#ec4899","#22c55e"];
+  const catRingsHTML = catOrder.map((key, idx) => {
+    const raw = cats[key];
+    const val = raw != null ? (raw > 5 ? raw / 2 : raw) : 0;
+    const pct = Math.min(1, val / 5);
+    const offset = Math.round(CAT_CIRC * (1 - pct));
+    const color = _catColors[idx % _catColors.length];
+    const rank = rankCats[key]?.ranks[p.id] || "—";
+    const rankStr = rank !== "—" ? rank + "/" + totalGroup : "—";
+    const display = (raw != null && raw > 0) ? val.toFixed(1) : "—";
+    return `<div class="oura-cat-ring">
+      <div class="oura-cat-ring-svg">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(128,128,128,0.12)" stroke-width="5"/>
+          <circle class="catArc" cx="36" cy="36" r="28" fill="none" stroke="${color}"
+            stroke-width="5" stroke-dasharray="${CAT_CIRC}" stroke-dashoffset="${CAT_CIRC}"
+            data-target="${offset}" stroke-linecap="round" transform="rotate(-90 36 36)"
+            style="transition:stroke-dashoffset 0.8s cubic-bezier(0.34,1.56,0.64,1);"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+          <div class="oura-cat-val" style="color:${color};">${display}</div>
+        </div>
+      </div>
+      <div class="oura-cat-label">${escapeHTML(catLabels[key]||key)}</div>
+      <div class="oura-cat-rank" style="color:${color};">${rankStr}</div>
+    </div>`;
+  }).join("");
+
+  // ── Feature #5: Sparkline + delta badge ──────────────────────────────
+  const _sparkScores = evs.slice().reverse().map(e => {
+    const vals = Object.entries(e.scores||{})
+      .map(([,v]) => { const n=Number(v); return (!isNaN(n)&&n>0) ? (n>5?n/2:n) : null; })
+      .filter(v => v !== null);
+    return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+  }).filter(v => v !== null);
+
+  let deltaStr = "", deltaColor = "#94a3b8";
+  if(_sparkScores.length >= 2){
+    const _d = _sparkScores[_sparkScores.length-1] - _sparkScores[_sparkScores.length-2];
+    deltaColor = _d >= 0 ? "#22c55e" : "#f87171";
+    deltaStr = (_d >= 0 ? "↑ +" : "↓ ") + Math.abs(_d).toFixed(2) + " vs prev";
+  }
+
+  const sparklineHTML = (() => {
+    if(_sparkScores.length < 2) return "";
+    const W=80, H=26, pad=4;
+    const step = (W-pad*2) / (_sparkScores.length-1);
+    const pts = _sparkScores.map((v,i) =>
+      `${(pad+i*step).toFixed(1)},${(H-pad-(v/5)*(H-pad*2)).toFixed(1)}`
+    ).join(" ");
+    const lv = _sparkScores[_sparkScores.length-1];
+    const sc = lv>=4?"#22c55e":lv>=3?"#ff6b2b":"#f87171";
+    const lx = (pad+(_sparkScores.length-1)*step).toFixed(1);
+    const ly = (H-pad-(lv/5)*(H-pad*2)).toFixed(1);
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polyline points="${pts}" fill="none" stroke="${sc}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="${sc}"/></svg>`;
+  })();
+
   const customRankTile = hasCustomRank
     ? `<div class="miniTile"><div class="label">Custom Rank</div><div class="value">${rTxt(rankCustom.ranks[p.id]||"—")}</div></div>`
     : "";
@@ -17968,59 +18034,116 @@ function renderPlayerHub(){
   app.innerHTML = `
     ${topTabsHTML()}
 
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;" id="playerNavRow">
-        ${nav.prev ? `<button class="secondary small" style="width:auto;" onclick="openPlayerHub('${nav.prev}')">← Prev</button>` : `<span></span>`}
-        <span style="font-size:12px;color:#94a3b8;">${nav.idx+1} of ${nav.total}</span>
-        ${nav.next ? `<button class="secondary small" style="width:auto;" onclick="openPlayerHub('${nav.next}')">Next →</button>` : `<span></span>`}
+    <!-- ── OURA-style hero profile card ── -->
+    <div class=”card oura-profile-hero”>
+      <div style=”display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:4px;” id=”playerNavRow”>
+        ${nav.prev ? `<button class=”secondary small” style=”width:auto;” onclick=”openPlayerHub('${nav.prev}')”>← Prev</button>` : `<span></span>`}
+        <span style=”font-size:12px;color:#94a3b8;”>${nav.idx+1} of ${nav.total}</span>
+        ${nav.next ? `<button class=”secondary small” style=”width:auto;” onclick=”openPlayerHub('${nav.next}')”>Next →</button>` : `<span></span>`}
       </div>
-      <button class="secondary small" onclick="go('roster')">⬅ Back to Player List</button>
-      <h2 style="margin:8px 0;">${escapeHTML(playerDisplayName(p))}
-        <span class="badge">${escapeHTML(p.pos)} • ${escapeHTML(p.shoots||"—")}</span>
-        ${p.anonymous ? `<span class="badge anon">Anonymous</span>` : ``}
-      </h2>
-      <div class="pillRow">
-        ${p.athleteId ? `<div class="pill" style="background:#0a1e3d;color:#fff;font-family:monospace;font-size:13px;letter-spacing:0.05em;" title="Unique Athlete ID — use this for returning player registration">🪪 ID <b>${escapeHTML(p.athleteId)}</b></div>` : ""}
-        <div class="pill">Jersey: <b>#${escapeHTML(p.jersey||"—")}</b></div>
-        <div class="pill">Assessments: <b>${evs.length}</b></div>
-        <div class="pill">Overall: <b>${fmt2(overall)}</b></div>
-        <div class="pill">Assigned: <b>${escapeHTML(p.assignedAssessor || "Unassigned")}</b></div>
+      <button class=”secondary small” style=”width:auto;align-self:flex-start;” onclick=”go('roster')”>⬅ Back</button>
+
+      <!-- Hero ring -->
+      <div class=”oura-hero-ring-wrap” style=”margin-top:16px;”>
+        <svg width=”180” height=”180” viewBox=”0 0 180 180” role=”img” aria-label=”Overall score ${overall > 0 ? fmt2(overall) : 0} out of 5”>
+          <circle cx=”90” cy=”90” r=”68” fill=”none” stroke=”rgba(128,128,128,0.10)” stroke-width=”10”/>
+          <circle id=”ouraHeroArc” cx=”90” cy=”90” r=”68” fill=”none” stroke=”${heroColor}”
+            stroke-width=”10” stroke-dasharray=”${HERO_CIRC}” stroke-dashoffset=”${HERO_CIRC}”
+            data-target=”${heroOffset}” stroke-linecap=”round” transform=”rotate(-90 90 90)”
+            style=”transition:stroke-dashoffset 1.0s cubic-bezier(0.34,1.56,0.64,1);”/>
+        </svg>
+        <div class=”oura-hero-center”>
+          <div class=”oura-hero-score” style=”color:${heroColor};”>${overall > 0 ? fmt2(overall) : “—“}</div>
+          <div class=”oura-hero-label”>overall</div>
+          <div class=”oura-hero-rank”>#${rOverall} of ${totalGroup}</div>
+          ${deltaStr ? `<div class=”oura-delta-badge” style=”color:${deltaColor};margin-top:3px;”>${deltaStr}</div>` : “”}
+        </div>
+      </div>
+
+      <!-- Name + badges -->
+      <div class=”oura-hero-name”>${escapeHTML(playerDisplayName(p))}</div>
+      <div class=”oura-hero-meta”>
+        ${p.pos ? `<span class=”badge”>${escapeHTML(p.pos)}</span>` : “”}
+        ${p.shoots ? `<span class=”badge”>${escapeHTML(p.shoots)}</span>` : “”}
+        ${p.jersey ? `<span class=”badge”>#${escapeHTML(p.jersey)}</span>` : “”}
+        ${p.anonymous ? `<span class=”badge anon”>Anonymous</span>` : “”}
+        ${p.athleteId ? `<span class=”badge” style=”background:#0a1e3d;font-family:monospace;font-size:11px;” title=”Athlete ID”>🪪 ${escapeHTML(p.athleteId)}</span>` : “”}
+        <span class=”badge”>${evs.length} assessment${evs.length!==1?”s”:””}</span>
+        <span class=”badge”>Assigned: ${escapeHTML(p.assignedAssessor||”Unassigned”)}</span>
+      </div>
+
+      <!-- Sparkline (Feature #5) -->
+      ${_sparkScores.length >= 2 ? `
+      <div class=”oura-sparkline-row”>
+        <span class=”oura-spark-label”>${_sparkScores.length} sessions</span>
+        ${sparklineHTML}
+        ${deltaStr ? `<span class=”oura-delta-badge” style=”color:${deltaColor};”>${deltaStr}</span>` : “”}
+      </div>` : “”}
+    </div>
+
+    <!-- ── Category arc rings ── -->
+    <div class=”card” style=”padding-bottom:12px;”>
+      <h3 style=”margin-bottom:0;”>Categories</h3>
+      <div class=”oura-cat-rings”>
+        ${catRingsHTML}
       </div>
     </div>
 
-    <div class="card">
-      <h3>Player Contact Information</h3>
-      ${contactItems ? `<div class="pillRow">${contactItems}</div>` : `<div class="muted">No contact info on file.</div>`}
-    </div>
-
-    <div class="card">
-      <h3>Rankings</h3>
-      <div class="muted">${isGoalie ? "Ranked vs "+specialPositionLabel(sport).toLowerCase()+"s only" : "Ranked vs "+playerLabel(sport).toLowerCase()+"s only"}</div>
-      ${tiles}
-    </div>
-
-    <div class="card">
-      <h3>Averages</h3>
-      ${_radarHTML}
-      ${catTiles}
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <div class="col"><button class="ok" onclick="startNewEval('${p.id}')">+ New Assessment</button></div>
-        ${canManage ? `<div class="col"><button class="secondary" onclick="openEditPlayer('${p.id}')">Edit Player</button></div>` : ``}
-        ${inviteMode ? "" : `<div class="col"><button class="secondary" onclick="go('results')">View Results Board</button></div>`}
-        ${canManage ? `<div class="col"><button class="danger" onclick="deletePlayer('${p.id}')">Delete Player</button></div>` : ""}
+    <!-- ── Rankings ── -->
+    <div class=”card”>
+      <h3>Rankings <span class=”muted” style=”font-size:12px;font-weight:400;”>vs ${isGoalie ? escapeHTML(specialPositionLabel(sport).toLowerCase())+”s” : escapeHTML(playerLabel(sport).toLowerCase())+”s”}</span></h3>
+      <div class=”oura-ranks-strip”>
+        ${catOrder.map(key => {
+          const rank = rankCats[key]?.ranks[p.id] || “—“;
+          return `<div class=”oura-rank-pill”>
+            <div class=”oura-rank-num”>${rank !== “—“ ? rank+”/”+totalGroup : “—“}</div>
+            <div class=”oura-rank-lbl”>${escapeHTML(catLabels[key]||key)}</div>
+          </div>`;
+        }).join(“”)}
+        ${hasCustomRank ? `<div class=”oura-rank-pill”>
+          <div class=”oura-rank-num”>${rTxt(rankCustom.ranks[p.id]||”—“)}</div>
+          <div class=”oura-rank-lbl”>Custom</div>
+        </div>` : “”}
+        <div class=”oura-rank-pill” style=”border-color:rgba(255,107,43,0.40);”>
+          <div class=”oura-rank-num” style=”color:#ff6b2b;”>${rTxt(rOverall)}</div>
+          <div class=”oura-rank-lbl”>Overall</div>
+        </div>
       </div>
     </div>
 
-    <div class="card">
+    <!-- ── Contact ── -->
+    <div class=”card”>
+      <h3>Player Contact</h3>
+      ${contactItems ? `<div class=”pillRow”>${contactItems}</div>` : `<div class=”muted”>No contact info on file.</div>`}
+    </div>
+
+    <!-- ── Actions ── -->
+    <div class=”card”>
+      <div class=”row”>
+        <div class=”col”><button class=”ok” onclick=”startNewEval('${p.id}')”>+ New Assessment</button></div>
+        ${canManage ? `<div class=”col”><button class=”secondary” onclick=”openEditPlayer('${p.id}')”>Edit Player</button></div>` : ``}
+        ${inviteMode ? “” : `<div class=”col”><button class=”secondary” onclick=”go('results')”>View Results Board</button></div>`}
+        ${canManage ? `<div class=”col”><button class=”danger” onclick=”deletePlayer('${p.id}')”>Delete Player</button></div>` : “”}
+      </div>
+    </div>
+
+    <!-- ── Assessment History ── -->
+    <div class=”card”>
       <h3>Assessment History</h3>
-      ${evs.length ? "" : `<div class="muted">No assessments yet. Tap “New Assessment”.</div>`}
-      ${evs.map(e=>renderEvalRow(e, p)).join("")}
+      ${evs.length ? “” : `<div class=”muted”>No assessments yet. Tap “New Assessment”.</div>`}
+      ${evs.map(e=>renderEvalRow(e, p)).join(“”)}
     </div>
   `;
   initTopbarCollapse();
+
+  // Animate hero ring + category arcs
+  requestAnimationFrame(() => {
+    const heroArc = document.getElementById(“ouraHeroArc”);
+    if(heroArc) heroArc.style.strokeDashoffset = heroArc.dataset.target;
+    document.querySelectorAll(“.catArc”).forEach(el => {
+      el.style.strokeDashoffset = el.dataset.target;
+    });
+  });
 
   // Touch swipe support
   let _swipeStartX = 0;
@@ -21794,6 +21917,161 @@ button.pdfBtn{
 }
 [data-theme="dark"] tr:nth-child(even) td{
   background: rgba(255,255,255,0.025) !important;
+}
+
+/* ── OURA Player Profile (Feature #4 / #5) ─────────────────────── */
+.oura-profile-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 16px !important;
+}
+.oura-hero-ring-wrap {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+}
+.oura-hero-ring-wrap > svg {
+  position: absolute;
+  inset: 0;
+}
+.oura-hero-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.oura-hero-score {
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+.oura-hero-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  margin-top: 2px;
+}
+.oura-hero-rank {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+  font-weight: 600;
+}
+.oura-hero-name {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  margin-top: 14px;
+  text-align: center;
+}
+.oura-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 8px;
+}
+.oura-sparkline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  justify-content: center;
+}
+.oura-spark-label {
+  font-size: 11px;
+  color: #64748b;
+}
+.oura-delta-badge {
+  font-size: 11px;
+  font-weight: 700;
+}
+/* Category rings */
+.oura-cat-rings {
+  display: flex;
+  gap: 0;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 8px 0 4px;
+}
+.oura-cat-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 72px;
+  padding: 8px 4px;
+}
+.oura-cat-ring-svg {
+  position: relative;
+  width: 72px;
+  height: 72px;
+}
+.oura-cat-val {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+.oura-cat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  text-align: center;
+  max-width: 72px;
+  line-height: 1.2;
+}
+.oura-cat-rank {
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+/* Rankings strip */
+.oura-ranks-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.oura-rank-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 7px 12px;
+  min-width: 60px;
+}
+.oura-rank-num {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+.oura-rank-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-top: 3px;
+}
+[data-theme="dark"] .oura-rank-pill {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+}
+@media (max-width: 480px) {
+  .oura-cat-ring { min-width: 64px; padding: 6px 2px; }
+  .oura-cat-ring-svg { width: 64px; height: 64px; }
+  .oura-cat-ring-svg svg { width: 64px; height: 64px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
