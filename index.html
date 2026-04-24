@@ -21302,6 +21302,634 @@ button.pdfBtn{
   background: rgba(255,255,255,0.025) !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   TRYOUT — Premium Skin Refresh  (appended to index.html)
+   Design reference: OURA / Linear / Vercel — dark-first, data-rich
+   Rule: CSS-only. Zero HTML or JS changes.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 0. Design tokens (extend existing vars) ──────────────────────────── */
+:root {
+  --or:          #ff6b2b;
+  --or-soft:     #ff8c55;
+  --or-glow:     rgba(255,107,43,0.22);
+  --or-dim:      rgba(255,107,43,0.09);
+  --or-border:   rgba(255,107,43,0.30);
+  --transition:  0.22s cubic-bezier(.4,0,.2,1);
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   18px;
+  --radius-xl:   22px;
+}
+
+/* ── 1. Body & global polish ──────────────────────────────────────────── */
+body {
+  font-family: "Inter","Manrope",system-ui,-apple-system,sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+[data-theme="dark"] body {
+  background: #060c18 !important;
+  border-top: 2px solid var(--or) !important;
+}
+
+[data-theme="dark"] body::before {
+  background:
+    radial-gradient(ellipse 80% 40% at 0% 0%,   rgba(255,107,43,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 0%,  rgba(0,87,184,0.08) 0%, transparent 60%),
+    linear-gradient(180deg, #0c1528 0%, #060c18 100%) !important;
+}
+
+/* ── 2. Typography ────────────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: "Inter","Space Grotesk","Manrope",sans-serif !important;
+  letter-spacing: -0.025em !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+}
+h1 { font-size: 32px !important; }
+h2 { font-size: 22px !important; }
+h3 { font-size: 17px !important; }
+
+.muted  { color: var(--muted) !important; font-size: 13px !important; }
+.tiny   { font-size: 12px !important; letter-spacing: 0.01em !important; }
+
+/* tabular numbers for all score data */
+[class*="score"], [class*="Score"], [class*="stat"], [class*="Stat"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 3. Cards — glass morphism ────────────────────────────────────────── */
+.card {
+  border-left: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  transition: box-shadow var(--transition), border-color var(--transition),
+              transform var(--transition) !important;
+  overflow: hidden;
+}
+.card:hover {
+  transform: translateY(-1px) !important;
+}
+.card.warmAccent {
+  border-left: 1px solid var(--or-border) !important;
+}
+
+[data-theme="dark"] .card {
+  background: rgba(12,21,40,0.82) !important;
+  backdrop-filter: blur(18px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 4px 24px rgba(0,0,0,0.40) !important;
+}
+[data-theme="dark"] .card:hover {
+  border-color: rgba(255,255,255,0.12) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.06) inset,
+    0 6px 32px rgba(0,0,0,0.50),
+    0 0 0 1px rgba(255,107,43,0.08) !important;
+}
+[data-theme="dark"] .card.warmAccent {
+  border-color: var(--or-border) !important;
+  box-shadow:
+    0 1px 0 rgba(255,107,43,0.08) inset,
+    0 4px 24px rgba(0,0,0,0.40),
+    0 0 32px rgba(255,107,43,0.06) !important;
+}
+
+/* ── 4. Topbar ────────────────────────────────────────────────────────── */
+[data-theme="dark"] .topbarCard {
+  background: rgba(6,12,24,0.95) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  box-shadow: none !important;
+}
+[data-theme="dark"] .topbarCard.topbarCollapsed {
+  box-shadow: 0 2px 20px rgba(0,0,0,0.50) !important;
+}
+
+/* ── 5. Buttons ───────────────────────────────────────────────────────── */
+
+/* Base reset for all buttons */
+button {
+  font-family: "Inter","Manrope",sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  border-radius: var(--radius-md) !important;
+  transition: all var(--transition) !important;
+  cursor: pointer !important;
+}
+
+/* Primary / ok / intent */
+button.ok,
+button.intent-primary {
+  background: linear-gradient(135deg, #ff6b2b 0%, #ff9a5c 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 18px var(--or-glow), 0 1px 0 rgba(255,255,255,0.15) inset !important;
+  font-weight: 700 !important;
+}
+button.ok:hover,
+button.intent-primary:hover {
+  background: linear-gradient(135deg, #ff7d3f 0%, #ffaa6e 100%) !important;
+  box-shadow: 0 6px 28px rgba(255,107,43,0.40), 0 1px 0 rgba(255,255,255,0.18) inset !important;
+  transform: translateY(-1px) !important;
+}
+button.ok:active,
+button.intent-primary:active {
+  transform: translateY(0) scale(0.98) !important;
+  box-shadow: 0 2px 10px var(--or-glow) !important;
+}
+
+/* Secondary / ghost */
+[data-theme="dark"] button.secondary {
+  background: rgba(255,255,255,0.06) !important;
+  color: #c8d8f0 !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+}
+[data-theme="dark"] button.secondary:hover {
+  background: rgba(255,255,255,0.10) !important;
+  border-color: rgba(255,255,255,0.20) !important;
+  color: #eef2ff !important;
+}
+
+/* Danger */
+button.danger, button[class*="danger"], button[class*="Danger"] {
+  background: rgba(239,68,68,0.12) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239,68,68,0.25) !important;
+}
+button.danger:hover {
+  background: rgba(239,68,68,0.20) !important;
+  border-color: rgba(239,68,68,0.40) !important;
+}
+
+/* Positive / success */
+button.positive, button[class*="positive"] {
+  background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 14px rgba(34,197,94,0.25) !important;
+}
+
+/* Active nav tabs */
+.navPlayerListBtn.active-tab,
+.navRosterBtn.active-tab,
+.navRegistrationsBtn.active-tab,
+.coachPrimaryNav > button.ok {
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 16px var(--or-glow) !important;
+}
+
+/* Inactive nav buttons in dark */
+[data-theme="dark"] .navPlayerListBtn:not(.active-tab),
+[data-theme="dark"] .navRosterBtn:not(.active-tab),
+[data-theme="dark"] .navRegistrationsBtn:not(.active-tab) {
+  background: rgba(255,255,255,0.05) !important;
+  color: #8899bb !important;
+  border-color: rgba(255,255,255,0.09) !important;
+}
+[data-theme="dark"] .navPlayerListBtn:not(.active-tab):hover,
+[data-theme="dark"] .navRosterBtn:not(.active-tab):hover,
+[data-theme="dark"] .navRegistrationsBtn:not(.active-tab):hover {
+  background: rgba(255,255,255,0.09) !important;
+  color: #eef2ff !important;
+}
+
+/* Upgrade / billing CTA */
+button[class*="upgrade"], button[class*="Upgrade"], .upgradeBtn {
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 18px var(--or-glow) !important;
+  font-weight: 700 !important;
+}
+
+/* PDF / export */
+[data-theme="dark"] button.pdfBtn {
+  background: rgba(12,21,40,0.9) !important;
+  color: #a0b4d0 !important;
+  border: 1px solid rgba(255,255,255,0.11) !important;
+}
+[data-theme="dark"] button.pdfBtn:hover {
+  border-color: rgba(255,255,255,0.20) !important;
+  color: #eef2ff !important;
+}
+
+/* Floating back btn */
+[data-theme="dark"] .floatingBackBtn {
+  background: #1e3a5f !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  color: #c8d8f0 !important;
+}
+
+/* ── 6. Score buttons — tactile & satisfying ──────────────────────────── */
+.scoreRow { gap: 5px !important; }
+
+.scoreBtn {
+  border-radius: var(--radius-sm) !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+  font-variant-numeric: tabular-nums !important;
+  min-height: 48px !important;
+  transition: all 0.14s ease !important;
+  position: relative;
+}
+.scoreBtn:hover:not(.selected) {
+  border-color: var(--or-border) !important;
+  color: var(--or) !important;
+  transform: translateY(-1px) !important;
+}
+.scoreBtn:active {
+  transform: scale(0.94) translateY(0) !important;
+}
+.scoreBtn.selected {
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  box-shadow:
+    0 4px 20px rgba(255,107,43,0.45),
+    0 1px 0 rgba(255,255,255,0.20) inset !important;
+  transform: translateY(-1px) scale(1.04) !important;
+}
+
+[data-theme="dark"] .scoreBtn {
+  background: #111d35 !important;
+  color: #6b7f9e !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+[data-theme="dark"] .scoreBtn:hover:not(.selected) {
+  background: #172038 !important;
+  border-color: var(--or-border) !important;
+  color: var(--or) !important;
+}
+
+/* ── 7. Rubric category labels ────────────────────────────────────────── */
+.rubricCatLabel {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  border-radius: 6px !important;
+  padding: 4px 10px !important;
+}
+.rubricCatLabel.cat-skating  { background: linear-gradient(135deg,#1e3a5f,#2a5298) !important; }
+.rubricCatLabel.cat-puck     { background: linear-gradient(135deg,#0d6e6a,#0e9a95) !important; }
+.rubricCatLabel.cat-compete  { background: linear-gradient(135deg,#c2410c,#ea580c) !important; }
+.rubricCatLabel.cat-hockey   { background: linear-gradient(135deg,#4338ca,#6366f1) !important; }
+.rubricCatLabel.cat-goalie   { background: linear-gradient(135deg,#92400e,#d97706) !important; }
+.rubricCatLabel.cat-custom   { background: linear-gradient(135deg,#374151,#64748b) !important; }
+.rubricCatLabel.cat-default  { background: linear-gradient(135deg,#374151,#4b5563) !important; }
+.rubricCatLabel.cat-iq       { background: linear-gradient(135deg,#14532d,#16a34a) !important; }
+.rubricCatLabel.cat-physical { background: linear-gradient(135deg,#4c1d95,#7c3aed) !important; }
+
+/* Rubric item rows */
+.scoreRubricItem {
+  border-radius: var(--radius-md) !important;
+  transition: background var(--transition) !important;
+}
+[data-theme="dark"] .scoreRubricItem {
+  background: rgba(17,29,53,0.6) !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  padding: 14px !important;
+  margin-bottom: 8px !important;
+}
+[data-theme="dark"] .scoreRubricItem:hover {
+  background: rgba(23,38,68,0.8) !important;
+  border-color: rgba(255,255,255,0.10) !important;
+}
+
+/* ── 8. Player tiles ──────────────────────────────────────────────────── */
+.playerTile {
+  border-radius: var(--radius-lg) !important;
+  transition: all var(--transition) !important;
+  overflow: hidden;
+}
+.playerTile:hover {
+  border-color: var(--or-border) !important;
+  box-shadow: 0 6px 28px rgba(255,107,43,0.14), 0 2px 8px rgba(0,0,0,0.15) !important;
+  transform: translateY(-3px) !important;
+}
+[data-theme="dark"] .playerTile {
+  background: rgba(12,21,40,0.85) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+}
+[data-theme="dark"] .playerTile:hover {
+  background: rgba(21,34,64,0.95) !important;
+  border-color: var(--or-border) !important;
+}
+
+/* ── 9. Team hub tiles & banner ───────────────────────────────────────── */
+.teamHubTile {
+  border-radius: var(--radius-lg) !important;
+  transition: all var(--transition) !important;
+  overflow: hidden;
+}
+.teamHubTile:hover {
+  border-color: var(--or-border) !important;
+  box-shadow: 0 6px 28px rgba(255,107,43,0.12) !important;
+  transform: translateY(-3px) !important;
+}
+[data-theme="dark"] .teamHubTile {
+  background: rgba(12,21,40,0.85) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+}
+[data-theme="dark"] .teamHubTile:hover {
+  background: rgba(21,34,64,0.95) !important;
+}
+
+[data-theme="dark"] .teamHubBanner {
+  background: linear-gradient(135deg, #0c1e3d 0%, #1e3a5f 50%, #0f2a50 100%) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: 0 0 60px rgba(255,107,43,0.07), 0 20px 60px rgba(0,0,0,0.50) !important;
+}
+.teamHubBannerTitle {
+  font-weight: 900 !important;
+  letter-spacing: -0.03em !important;
+}
+
+/* ── 10. Login hero card ──────────────────────────────────────────────── */
+.loginHeroCard {
+  background: linear-gradient(155deg, #080f22 0%, #0f2347 45%, #0a1c3d 100%) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,107,43,0.08),
+    0 0 80px rgba(255,107,43,0.07),
+    0 0 60px rgba(0,87,184,0.10),
+    0 32px 80px rgba(0,0,0,0.60) !important;
+}
+.loginHeroCard::before {
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 40%, rgba(255,107,43,0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 60% at 85% 55%, rgba(0,87,184,0.12) 0%, transparent 65%) !important;
+}
+.loginTagline {
+  font-size: 15px !important;
+  color: #8899bb !important;
+  letter-spacing: 0.01em !important;
+}
+
+[data-theme="dark"] .loginHeroCard .authBox {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  border-radius: var(--radius-md) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* ── 11. Pills & badges ───────────────────────────────────────────────── */
+.pill {
+  background: rgba(255,107,43,0.09) !important;
+  border: 1px solid rgba(255,107,43,0.22) !important;
+  color: var(--or) !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+}
+
+[data-theme="dark"] .badge {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.11) !important;
+  color: #8899bb !important;
+  border-radius: 999px !important;
+}
+[data-theme="dark"] .badge.new {
+  background: rgba(0,87,184,0.14) !important;
+  border-color: rgba(0,87,184,0.32) !important;
+  color: #60a5fa !important;
+}
+[data-theme="dark"] .badge.anon {
+  background: rgba(255,107,43,0.12) !important;
+  border-color: rgba(255,107,43,0.28) !important;
+  color: #fb923c !important;
+}
+[data-theme="dark"] .badge.saved {
+  background: rgba(34,197,94,0.10) !important;
+  border-color: rgba(34,197,94,0.25) !important;
+  color: #4ade80 !important;
+}
+
+/* ── 12. Roster scoring filters ───────────────────────────────────────── */
+.rosterScoringFilters button {
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  transition: all var(--transition) !important;
+}
+[data-theme="dark"] .rosterScoringFilters button {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  color: #8899bb !important;
+}
+[data-theme="dark"] .rosterScoringFilters button:hover,
+[data-theme="dark"] .rosterScoringFilters button.active-tab {
+  background: var(--or-dim) !important;
+  border-color: var(--or-border) !important;
+  color: var(--or) !important;
+}
+
+/* ── 13. Roster progress bar ──────────────────────────────────────────── */
+.rosterProgressFill {
+  background: linear-gradient(90deg, #ff6b2b, #ff9a5c) !important;
+  border-radius: 4px !important;
+  transition: width 0.6s cubic-bezier(.4,0,.2,1) !important;
+}
+.rosterProgressBar {
+  border-radius: 4px !important;
+}
+[data-theme="dark"] .rosterProgressBar {
+  background: rgba(255,255,255,0.07) !important;
+}
+
+/* ── 14. Pending registration banner ──────────────────────────────────── */
+.rosterPendingBanner {
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden;
+}
+[data-theme="dark"] .rosterPendingBanner {
+  background: linear-gradient(135deg, rgba(255,107,43,0.07) 0%, rgba(12,21,40,0.9) 100%) !important;
+  border: 1px solid rgba(255,107,43,0.22) !important;
+  box-shadow: 0 0 32px rgba(255,107,43,0.06) !important;
+}
+.rosterPendingTitle {
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* ── 15. Empty state ──────────────────────────────────────────────────── */
+.emptyStateCard {
+  border-radius: var(--radius-xl) !important;
+}
+[data-theme="dark"] .emptyStateCard {
+  background: rgba(12,21,40,0.6) !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+}
+.emptyStateIcon {
+  font-size: 52px !important;
+  opacity: 0.7;
+}
+.emptyStateTitle {
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* ── 16. Forms & inputs ───────────────────────────────────────────────── */
+input, textarea, select {
+  border-radius: var(--radius-sm) !important;
+  font-family: "Inter","Manrope",sans-serif !important;
+  font-size: 14px !important;
+  transition: border-color var(--transition), box-shadow var(--transition) !important;
+}
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: rgba(17,29,53,0.8) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  color: #eef2ff !important;
+}
+[data-theme="dark"] input:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] select:focus {
+  border-color: rgba(255,107,43,0.50) !important;
+  box-shadow: 0 0 0 3px rgba(255,107,43,0.12) !important;
+  outline: none !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #3d5170 !important;
+}
+
+/* ── 17. Tables ───────────────────────────────────────────────────────── */
+[data-theme="dark"] table {
+  background: transparent !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden;
+}
+[data-theme="dark"] th {
+  background: rgba(11,18,36,0.95) !important;
+  color: #6b7f9e !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+}
+[data-theme="dark"] td {
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+  font-size: 13px !important;
+}
+[data-theme="dark"] tr:nth-child(even) td {
+  background: rgba(255,255,255,0.02) !important;
+}
+[data-theme="dark"] tr:hover td {
+  background: rgba(255,107,43,0.04) !important;
+}
+
+/* ── 18. Scrollbars ───────────────────────────────────────────────────── */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.20);
+}
+
+/* ── 19. Auth box polish ──────────────────────────────────────────────── */
+[data-theme="dark"] .authBox {
+  background: rgba(12,21,40,0.70) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: var(--radius-lg) !important;
+  backdrop-filter: blur(16px) !important;
+}
+
+/* Netlify identity button */
+[data-netlify-identity-button],
+.netlify-identity-button,
+button[data-netlify-identity-button] {
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: var(--radius-md) !important;
+  font-weight: 700 !important;
+  font-family: "Inter","Manrope",sans-serif !important;
+  box-shadow: 0 4px 18px var(--or-glow) !important;
+  transition: all var(--transition) !important;
+}
+[data-netlify-identity-button]:hover,
+.netlify-identity-button:hover {
+  box-shadow: 0 6px 28px rgba(255,107,43,0.42) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── 20. Logo glow ────────────────────────────────────────────────────── */
+[data-theme="dark"] .brandLogo,
+[data-theme="dark"] .logoInline {
+  filter: drop-shadow(0 4px 20px rgba(255,107,43,0.18)) contrast(1.05) !important;
+}
+
+/* ── 21. Selection highlight ──────────────────────────────────────────── */
+::selection {
+  background: rgba(255,107,43,0.28);
+  color: #fff;
+}
+
+/* ── 22. Focus ring ───────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--or) !important;
+  outline-offset: 2px !important;
+}
+
+/* ── 23. Skeleton loaders ─────────────────────────────────────────────── */
+[data-theme="dark"] .skeletonLine {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%
+  ) !important;
+  background-size: 200% 100% !important;
+}
+
+/* ── 24. Light mode polish ────────────────────────────────────────────── */
+[data-theme="light"] .card {
+  box-shadow: 0 1px 4px rgba(10,30,61,0.06), 0 4px 16px rgba(10,30,61,0.07) !important;
+  border: 1px solid rgba(0,0,0,0.07) !important;
+  border-left: 1px solid rgba(0,0,0,0.07) !important;
+}
+[data-theme="light"] .card:hover {
+  box-shadow: 0 4px 24px rgba(10,30,61,0.11) !important;
+  border-color: rgba(255,107,43,0.22) !important;
+}
+[data-theme="light"] .scoreBtn {
+  background: #f5f8fe !important;
+  border: 1px solid rgba(0,0,0,0.09) !important;
+  color: #4a5f82 !important;
+}
+[data-theme="light"] .scoreBtn:hover:not(.selected) {
+  border-color: var(--or-border) !important;
+  color: var(--or) !important;
+  background: rgba(255,107,43,0.05) !important;
+}
+[data-theme="light"] .topbarCard {
+  background: #fff !important;
+  border-bottom: 1px solid rgba(0,0,0,0.07) !important;
+  box-shadow: 0 2px 12px rgba(10,30,61,0.07) !important;
+}
+
 </style></head><body>
 ${cards}
 <script>window.onload=function(){window.print();};<\/script>
