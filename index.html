@@ -1605,11 +1605,83 @@
       align-items: center;
       gap: 14px;
       padding: 14px 16px;
-      background: linear-gradient(135deg, #0a2a5e 0%, #ff6b2b 60%, #e85a1f 100%);
+      background: linear-gradient(135deg, #080f22 0%, #0f1b30 100%);
       border-radius: 14px;
-      margin-bottom: 10px;
+      margin-bottom: 0;
       color: #fff;
+      border: 1px solid rgba(255,255,255,0.08);
     }
+    /* Live score ring inside header */
+    .liveRingWrap {
+      position: relative;
+      flex-shrink: 0;
+      width: 70px; height: 70px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .liveRingArc {
+      transition: stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1),
+                  stroke 0.4s ease;
+    }
+    .liveRingCenter {
+      position: absolute;
+      display: flex; flex-direction: column; align-items: center;
+      pointer-events: none;
+    }
+    .liveRingScore {
+      font-size: 17px; font-weight: 900; line-height: 1;
+      letter-spacing: -0.5px;
+      transition: color 0.4s ease;
+    }
+    .liveRingSub {
+      font-size: 8px; font-weight: 700; opacity: .55;
+      text-transform: uppercase; letter-spacing: .4px;
+      margin-top: 1px;
+    }
+    /* Player nav bar (swipe guidance + prev/next) */
+    .playerNavBar {
+      display: flex;
+      align-items: center;
+      background: rgba(8,15,34,0.9);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-top: none;
+      border-radius: 0 0 14px 14px;
+      margin-bottom: 10px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .playerNavBtn {
+      flex: 1; padding: 9px 12px;
+      background: none; border: none; color: rgba(255,255,255,0.6);
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .playerNavBtn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .playerNavBtn:active { background: rgba(255,107,43,0.12); color: #ff9a5c; }
+    .playerNavBtn.nav-next { justify-content: flex-end; }
+    .playerNavCenter {
+      text-align: center; font-size: 10px; font-weight: 700;
+      color: rgba(255,255,255,0.35); letter-spacing: .4px;
+      text-transform: uppercase; flex-shrink: 0; padding: 0 8px;
+      white-space: nowrap;
+    }
+    .playerNavName {
+      max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    /* Swipe hint toast */
+    .swipeHint {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: rgba(8,15,34,0.92); color: #fff;
+      padding: 14px 24px; border-radius: 16px;
+      font-size: 16px; font-weight: 800; pointer-events: none;
+      z-index: 9999; opacity: 0;
+      transition: opacity 0.2s ease;
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(12px);
+      white-space: nowrap;
+    }
+    .swipeHint.visible { opacity: 1; }
     .scorePlayerJersey{
       font-size: 40px;
       font-weight: 900;
@@ -18206,6 +18278,150 @@ function liveSaveAndNext(nextPid){
   setTimeout(() => openLiveAssessMode(nextPid), 400);
 }
 
+/* ── Live Score Ring (#2) ───────────────────────────────── */
+const LIVE_RING_R = 28, LIVE_RING_CIRC = Math.round(2 * Math.PI * 28); // 176
+
+function liveRingColor(avg) {
+  if (avg === null) return "#4a5f82";
+  if (avg >= 4.2) return "#22c55e";
+  if (avg >= 3.2) return "#ff6b2b";
+  if (avg >= 2.0) return "#f59e0b";
+  return "#ef4444";
+}
+
+function updateLiveRing() {
+  const vals = Object.values(workingScores)
+    .map(v => { const n = Number(v); return (!isNaN(n) && n > 0) ? (n > 5 ? n / 2 : n) : null; })
+    .filter(v => v !== null);
+  const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  const pct = avg !== null ? avg / 5 : 0;
+  const color = liveRingColor(avg);
+
+  const arc = document.getElementById("liveScoreArc");
+  const lbl = document.getElementById("liveScoreLabel");
+  if (arc) {
+    arc.style.strokeDashoffset = Math.round(LIVE_RING_CIRC * (1 - pct));
+    arc.setAttribute("stroke", color);
+  }
+  if (lbl) {
+    lbl.textContent = avg !== null ? avg.toFixed(1) : "—";
+    lbl.style.color = color;
+  }
+}
+
+function buildLiveRing() {
+  const vals = Object.values(workingScores)
+    .map(v => { const n = Number(v); return (!isNaN(n) && n > 0) ? (n > 5 ? n / 2 : n) : null; })
+    .filter(v => v !== null);
+  const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  const pct = avg !== null ? avg / 5 : 0;
+  const color = liveRingColor(avg);
+  const offset = Math.round(LIVE_RING_CIRC * (1 - pct));
+  const cx = 35, cy = 35;
+  return `
+  <div class="liveRingWrap" title="Live avg score">
+    <svg width="70" height="70" viewBox="0 0 70 70">
+      <circle cx="${cx}" cy="${cy}" r="${LIVE_RING_R}" fill="none"
+        stroke="rgba(255,255,255,0.08)" stroke-width="6"/>
+      <circle id="liveScoreArc" cx="${cx}" cy="${cy}" r="${LIVE_RING_R}" fill="none"
+        stroke="${color}" stroke-width="6"
+        stroke-linecap="round"
+        stroke-dasharray="${LIVE_RING_CIRC}"
+        stroke-dashoffset="${offset}"
+        transform="rotate(-90 ${cx} ${cy})"
+        class="liveRingArc"/>
+    </svg>
+    <div class="liveRingCenter">
+      <span id="liveScoreLabel" class="liveRingScore" style="color:${color}">
+        ${avg !== null ? avg.toFixed(1) : "—"}
+      </span>
+      <span class="liveRingSub">avg</span>
+    </div>
+  </div>`;
+}
+
+/* ── Player Swipe Navigation (#3) ─────────────────────── */
+let _swipeStartX = 0, _swipeStartY = 0, _swipeActive = false;
+
+function getRosterForNav() {
+  return (getTryout()?.roster || []).filter(p => p && p.id);
+}
+
+function getAdjacentPlayer(dir) {
+  const roster = getRosterForNav();
+  if (!roster.length) return null;
+  const idx = roster.findIndex(p => p.id === currentPlayerId);
+  if (idx < 0) return null;
+  const next = idx + dir;
+  if (next < 0 || next >= roster.length) return null;
+  return roster[next];
+}
+
+function buildPlayerNavBar() {
+  const roster = getRosterForNav();
+  if (roster.length < 2) return "";
+  const idx = roster.findIndex(p => p.id === currentPlayerId);
+  const prev = idx > 0 ? roster[idx - 1] : null;
+  const next = idx < roster.length - 1 ? roster[idx + 1] : null;
+  const evalIds = new Set((getTryout()?.evals || []).map(e => e.playerId));
+  const scored = roster.filter(p => evalIds.has(p.id)).length;
+  const prevName = prev ? (prev.first || prev.name || "Prev").split(" ")[0] : "";
+  const nextName = next ? (next.first || next.name || "Next").split(" ")[0] : "";
+  return `
+  <div class="playerNavBar">
+    ${prev ? `<button class="playerNavBtn nav-prev" onclick="navigateScorePlayer(-1)">
+      ← <span class="playerNavName">${escapeHTML(prevName)}</span>
+    </button>` : `<div style="flex:1"></div>`}
+    <div class="playerNavCenter">${scored}/${roster.length}</div>
+    ${next ? `<button class="playerNavBtn nav-next" onclick="navigateScorePlayer(1)">
+      <span class="playerNavName">${escapeHTML(nextName)}</span> →
+    </button>` : `<div style="flex:1"></div>`}
+  </div>`;
+}
+
+function navigateScorePlayer(dir) {
+  const target = getAdjacentPlayer(dir);
+  if (!target) return;
+  showSwipeHint(dir === 1
+    ? (target.first || target.name || "Next player")
+    : (target.first || target.name || "Prev player"), dir);
+  setTimeout(() => startNewEval(target.id), 180);
+}
+
+function showSwipeHint(name, dir) {
+  let el = document.getElementById("swipeHint");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "swipeHint";
+    el.className = "swipeHint";
+    document.body.appendChild(el);
+  }
+  el.textContent = (dir > 0 ? "→ " : "← ") + name;
+  el.classList.add("visible");
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove("visible"), 900);
+}
+
+function initScoreSwipe() {
+  const el = document.getElementById("app");
+  if (!el || el._swipeInit) return;
+  el._swipeInit = true;
+  el.addEventListener("touchstart", e => {
+    _swipeStartX = e.touches[0].clientX;
+    _swipeStartY = e.touches[0].clientY;
+    _swipeActive = currentView === "score";
+  }, { passive: true });
+  el.addEventListener("touchend", e => {
+    if (!_swipeActive || currentView !== "score") return;
+    const dx = e.changedTouches[0].clientX - _swipeStartX;
+    const dy = e.changedTouches[0].clientY - _swipeStartY;
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 80) {
+      navigateScorePlayer(dx < 0 ? 1 : -1);
+    }
+    _swipeActive = false;
+  }, { passive: true });
+}
+
 function renderScore(){
   const t = getTryout();
   if(!t) return goHome();
@@ -18249,9 +18465,13 @@ function renderScore(){
         <div class="scorePlayerName">${escapeHTML(playerDisplayName(p))}</div>
         <div class="scorePlayerMeta">${escapeHTML(displayPosition || "—")} • ${escapeHTML(p.shoots||"—")} • ${escapeHTML(t.name || "Assessment")}</div>
       </div>
-      <button class="secondary" style="width:auto;padding:8px 12px;font-size:13px;background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.25);color:#fff;" onclick="openPlayerHub('${p.id}')">← Back</button>
-      <button class="secondary" style="width:auto;padding:8px 12px;font-size:13px;background:rgba(255,107,43,0.7);border-color:rgba(255,107,43,0.8);color:#fff;" onclick="openLiveAssessMode('${p.id}')">⚡ Live Mode</button>
+      ${buildLiveRing()}
+      <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+        <button class="secondary" style="width:auto;padding:7px 12px;font-size:12px;background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.18);color:#fff;" onclick="openPlayerHub('${escapeJS(p.id)}')">← Back</button>
+        <button class="secondary" style="width:auto;padding:7px 12px;font-size:12px;background:rgba(255,107,43,0.55);border-color:rgba(255,107,43,0.7);color:#fff;" onclick="openLiveAssessMode('${escapeJS(p.id)}')">⚡ Live</button>
+      </div>
     </div>
+    ${buildPlayerNavBar()}
 
     <div class="card">
       <h3>Assessment Details</h3>
@@ -18326,6 +18546,7 @@ function renderScore(){
     </div>
   `;
   initTopbarCollapse();
+  initScoreSwipe();
 
   const host = document.getElementById("rubricList");
   host.innerHTML = catOrder.map(catKey=>{
@@ -18383,6 +18604,8 @@ function setScore(key, val, reRender=true, el=null){
       if(clean !== "" && clean !== null && clean !== undefined) el.classList.add("selected");
     }
   }
+  // Update live ring without full re-render
+  updateLiveRing();
   // lightweight re-render: just re-render current score view for consistent highlight
   if(reRender) renderScore();
 }
