@@ -58,19 +58,19 @@
       --btn-secondary-border:rgba(0,0,0,0.12);
       --btn-secondary-text:#1e3a5f;
       --btn-positive:#16a34a;
-      --btn-edit:#0057B8;
+      --btn-edit:#ff6b2b;
       --btn-danger:#dc2626;
       --upgrade:#ff6b2b;
       --upgradeHover:#e85a1f;
-      --btn2:#0057B8;
+      --btn2:#ff6b2b;
       --btnText:#ffffff;
       --danger:#dc2626;
       --ok:#ff6b2b;
       --warn:#d97706;
       --success:#16a34a;
-      --info:#0057B8;
+      --info:#ff6b2b;
       --brand-glow-1:rgba(255,107,43,0.14);
-      --brand-glow-2:rgba(0,87,184,0.10);
+      --brand-glow-2:rgba(255,107,43,0.06);
       --brand-grid:rgba(10,30,61,0.06);
       --black-font-replacement:#0d1629;
       --radius:14px;
@@ -122,7 +122,7 @@
     [data-theme="dark"] body::before{
       background:
         radial-gradient(900px 300px at 0% 0%, rgba(249,115,22,0.06), transparent 70%),
-        radial-gradient(1200px 400px at 80% 10%, rgba(0,87,184,0.10), transparent 60%),
+        radial-gradient(1200px 400px at 80% 10%, rgba(255,107,43,0.06), transparent 60%),
         linear-gradient(180deg, #161b22 0%, #0d1117 100%);
     }
     [data-theme="dark"] body::after{
@@ -231,7 +231,7 @@
       color:var(--ink);
     }
     [data-theme="dark"] .aiBadge{
-      color:#00AEEF;
+      color:#ff9a5c;
     }
     [data-theme="dark"] button.intent-primary{ background:var(--btn); color:#fff; }
     [data-theme="dark"] button.intent-nav{ background:var(--btn-nav); color:#fff; }
@@ -348,7 +348,7 @@
       margin:12px 0;
       box-shadow:var(--shadow);
       border:1px solid var(--border);
-      border-left:4px solid rgba(0,174,239,0.42);
+      border-left:1px solid rgba(255,107,43,0.18);
       content-visibility:auto;
       contain-intrinsic-size:1px 420px;
     }
@@ -414,10 +414,10 @@
       transition:border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
     }
     input:focus,select:focus,textarea:focus{
-      outline:2px solid rgba(0,87,184,0.6);
+      outline:2px solid rgba(255,107,43,0.25);
       outline-offset:-1px;
-      border-color:rgba(0,87,184,0.6);
-      box-shadow:0 0 0 3px rgba(0,174,239,0.24);
+      border-color:rgba(255,107,43,0.25);
+      box-shadow:0 0 0 3px rgba(255,107,43,0.24);
     }
     input[type="checkbox"]{width:auto;margin:0 8px 0 0;}
     textarea{min-height:100px;resize:vertical;}
@@ -603,7 +603,7 @@
       background:var(--btn);
       border-color:var(--btn);
       color:#fff;
-      box-shadow:0 0 0 4px rgba(0,87,184,0.18);
+      box-shadow:0 0 0 4px rgba(255,107,43,0.10);
     }
     .wizardDot.done{
       background:var(--ok);
@@ -634,7 +634,7 @@
       .wizardDot{ width:26px; height:26px; font-size:11px; }
     }
     button:focus-visible{
-      outline:2px solid rgba(0,87,184,0.6);
+      outline:2px solid rgba(255,107,43,0.25);
       outline-offset:2px;
     }
 
@@ -677,11 +677,11 @@
     .divider{height:1px;background:var(--border);margin:14px 0;}
     .pillRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
     .pill{
-      background:rgba(0,87,184,0.08);
+      background:rgba(255,107,43,0.05);
       padding:6px 12px;
       border-radius:999px;
       font-size:13px;
-      border:1px solid rgba(0,87,184,0.2);
+      border:1px solid rgba(255,107,43,0.10);
     }
     .badge{
       display:inline-block;
@@ -692,7 +692,7 @@
       margin-left:6px;
       border:1px solid var(--border);
     }
-    .badge.new{background:rgba(0,87,184,.12);border:1px solid rgba(0,87,184,.35);}
+    .badge.new{background:rgba(255,107,43,0.06);border:1px solid rgba(255,107,43,0.20);}
     .badge.anon{background:rgba(180,83,9,.12);border:1px solid rgba(180,83,9,.35);}
     .badge.saved{background:rgba(37,99,235,.12);border:1px solid rgba(37,99,235,.35);}
 
@@ -905,7 +905,7 @@
       overflow:hidden;
       text-align:center;
       border:none;
-      background:linear-gradient(160deg, #0a2a5e 0%, #0057B8 50%, #00699e 100%);
+      background:linear-gradient(160deg, #0a2a5e 0%, #ff6b2b 50%, #e85a1f 100%);
       padding:34px 24px 30px;
       isolation:isolate;
     }
@@ -934,7 +934,7 @@
       filter:drop-shadow(0 6px 18px rgba(0,0,0,0.5)) contrast(1.08) saturate(1.02);
     }
     .loginHeroCard{
-      background:linear-gradient(160deg, #0a2a5e 0%, #0057B8 60%, #00699e 100%);
+      background:linear-gradient(160deg, #0a2a5e 0%, #ff6b2b 60%, #e85a1f 100%);
       border:1px solid rgba(59,130,246,0.2);
       border-radius:var(--radius);
       padding:56px 24px 38px;
@@ -1145,13 +1145,13 @@
       flex-shrink: 0;
       font-family: "Space Grotesk", "Manrope", sans-serif;
     }
-    .ptAvatar.pos-forward{ background: #0057B8; }
+    .ptAvatar.pos-forward{ background: #ff6b2b; }
     .ptAvatar.pos-defence{ background: #0d9488; }
     .ptAvatar.pos-goalie{ background: #F97316; }
     .ptAvatar.pos-other{ background: #6366f1; }
     [data-theme="dark"] .ptJerseyWatermark{ opacity: 0.08; }
     .playerTile:hover{
-      border-color:rgba(0,87,184,0.35);
+      border-color:rgba(255,107,43,0.18);
       box-shadow:0 10px 18px rgba(10,30,61,0.12);
       transform:translateY(-2px);
     }
@@ -1209,8 +1209,8 @@
       margin-top:10px;
       padding:10px;
       border-radius:12px;
-      background:rgba(0,87,184,0.08);
-      border:1px dashed rgba(0,87,184,0.25);
+      background:rgba(255,107,43,0.05);
+      border:1px dashed rgba(255,107,43,0.12);
       display:flex;
       flex-direction:column;
       gap:6px;
@@ -1232,8 +1232,8 @@
       font-weight:700;
       padding:3px 8px;
       border-radius:999px;
-      background:rgba(0,87,184,0.18);
-      border:1px solid rgba(0,87,184,0.4);
+      background:rgba(255,107,43,0.10);
+      border:1px solid rgba(255,107,43,0.20);
       color:var(--btn);
     }
     .aiMeta{font-size:12px;color:var(--muted);}
@@ -1258,8 +1258,8 @@
       text-align:center;
       padding:36px 24px;
       border-radius:18px;
-      background:linear-gradient(150deg, rgba(0,87,184,0.06), rgba(0,174,239,0.10));
-      border:1px dashed rgba(0,87,184,0.25);
+      background:linear-gradient(150deg, rgba(255,107,43,0.04), rgba(255,107,43,0.08));
+      border:1px dashed rgba(255,107,43,0.12);
       margin:12px 0;
     }
     .emptyStateIcon{
@@ -1267,7 +1267,7 @@
       line-height:1;
       margin-bottom:14px;
       display:block;
-      filter:drop-shadow(0 4px 12px rgba(0,87,184,0.18));
+      filter:drop-shadow(0 4px 12px rgba(255,107,43,0.10));
     }
     .emptyStateTitle{
       font-size:20px;
@@ -1297,8 +1297,8 @@
       border-radius:12px;
     }
     [data-theme="dark"] .emptyStateCard{
-      background:linear-gradient(150deg, rgba(0,87,184,0.12), rgba(0,174,239,0.08));
-      border-color:rgba(0,174,239,0.2);
+      background:linear-gradient(150deg, rgba(255,107,43,0.06), rgba(255,107,43,0.06));
+      border-color:rgba(255,107,43,0.12);
     }
     .friendPkg{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px;letter-spacing:.03em;margin-left:4px;vertical-align:middle;}
     .friendPkgBar{height:3px;border-radius:0 0 3px 3px;margin:-2px -4px 4px;opacity:.85;}
@@ -1364,9 +1364,9 @@
     }
     .broadcastStatus.sending{
       display: block;
-      background: rgba(0,87,184,0.1);
-      color: #0057B8;
-      border: 1px solid rgba(0,87,184,0.25);
+      background: rgba(255,107,43,0.06);
+      color: #ff6b2b;
+      border: 1px solid rgba(255,107,43,0.12);
     }
     .broadcastStatus.success{
       display: block;
@@ -1498,7 +1498,7 @@
       color: #fff;
       border: 3px solid;
     }
-    .podiumSlot.rank1 .podiumAvatar{ background:#0057B8; border-color:#60a5fa; width:56px; height:56px; font-size:22px; }
+    .podiumSlot.rank1 .podiumAvatar{ background:#ff6b2b; border-color:#60a5fa; width:56px; height:56px; font-size:22px; }
     .podiumSlot.rank2 .podiumAvatar{ background:#475569; border-color:#94a3b8; }
     .podiumSlot.rank3 .podiumAvatar{ background:#92400e; border-color:#d97706; }
     .podiumName{
@@ -1591,7 +1591,7 @@
       border-radius: 999px;
       color: #fff;
     }
-    .rubricCatLabel.cat-skating{ background: #0057B8; }
+    .rubricCatLabel.cat-skating{ background: #ff6b2b; }
     .rubricCatLabel.cat-puck{ background: #0d9488; }
     .rubricCatLabel.cat-compete{ background: #F97316; }
     .rubricCatLabel.cat-hockey{ background: #6366f1; }
@@ -1603,7 +1603,7 @@
       align-items: center;
       gap: 14px;
       padding: 14px 16px;
-      background: linear-gradient(135deg, #0a2a5e 0%, #0057B8 60%, #00699e 100%);
+      background: linear-gradient(135deg, #0a2a5e 0%, #ff6b2b 60%, #e85a1f 100%);
       border-radius: 14px;
       margin-bottom: 10px;
       color: #fff;
@@ -1747,7 +1747,7 @@
     }
     .onlineDot{
       width:10px; height:10px; border-radius:50%;
-      background:#00AEEF;
+      background:#ff9a5c;
       flex-shrink:0;
       display:flex;
       align-items:center;
@@ -1841,8 +1841,8 @@
       contain-intrinsic-size: 1px 180px;
     }
     .assessmentDashTile:hover{
-      border-color:rgba(0,87,184,0.35);
-      box-shadow:0 8px 24px rgba(0,87,184,0.1);
+      border-color:rgba(255,107,43,0.18);
+      box-shadow:0 8px 24px rgba(255,107,43,0.06);
     }
     .createEventCard{
       position:relative;
@@ -1873,7 +1873,7 @@
     }
     .createEventHelp[open] > summary{
       color:var(--ink);
-      border-color:rgba(0,87,184,0.35);
+      border-color:rgba(255,107,43,0.18);
     }
     .createEventHelpBody{
       margin-top:8px;
@@ -1981,12 +1981,12 @@
     }
     .adtProgressFill{
       height:100%;
-      background:linear-gradient(90deg,#0057B8,#00AEEF);
+      background:linear-gradient(90deg,#ff6b2b,#ff9a5c);
       border-radius:999px;
       transition:width 0.4s ease;
     }
     .adtProgressFill.complete{
-      background:linear-gradient(90deg,#0057B8,#00AEEF);
+      background:linear-gradient(90deg,#ff6b2b,#ff9a5c);
     }
     .adtProgressLabel{
       font-size:12px;
@@ -2020,8 +2020,8 @@
       white-space:nowrap;
     }
     .adtBadge.active{
-      background:rgba(0,87,184,0.12);
-      border:1px solid rgba(0,87,184,0.3);
+      background:rgba(255,107,43,0.06);
+      border:1px solid rgba(255,107,43,0.15);
       color:var(--ok);
     }
     .adtBadge.idle{
@@ -2030,8 +2030,8 @@
       color:var(--muted);
     }
     .adtBadge.new{
-      background:rgba(0,87,184,0.12);
-      border:1px solid rgba(0,87,184,0.3);
+      background:rgba(255,107,43,0.06);
+      border:1px solid rgba(255,107,43,0.15);
       color:var(--btn);
     }
     .adtLastRec{
@@ -2047,8 +2047,8 @@
       font-weight:800;
       border:1px solid;
     }
-    .adtRecPill.make{ background:rgba(0,87,184,0.1); border-color:rgba(0,87,184,0.3); color:#0057B8; }
-    .adtRecPill.keep{ background:rgba(0,87,184,0.1); border-color:rgba(0,87,184,0.3); color:#0057B8; }
+    .adtRecPill.make{ background:rgba(255,107,43,0.06); border-color:rgba(255,107,43,0.15); color:#ff6b2b; }
+    .adtRecPill.keep{ background:rgba(255,107,43,0.06); border-color:rgba(255,107,43,0.15); color:#ff6b2b; }
     .adtRecPill.bubble{ background:rgba(180,83,9,0.1); border-color:rgba(180,83,9,0.3); color:#b45309; }
     .adtRecPill.release{ background:rgba(180,35,24,0.1); border-color:rgba(180,35,24,0.3); color:#b42318; }
 
@@ -2084,8 +2084,8 @@
       filter:drop-shadow(0 5px 14px rgba(0,0,0,0.45)) contrast(1.08) saturate(1.02);
     }
     .teamHubBanner{
-      background:linear-gradient(145deg, rgba(10,30,61,0.96), rgba(0,87,184,0.95) 60%, rgba(0,174,239,0.9));
-      border:1px solid rgba(0,174,239,0.35);
+      background:linear-gradient(145deg, rgba(6,12,24,0.97), rgba(15,27,48,0.97) 60%, rgba(255,107,43,0.12));
+      border:1px solid rgba(255,107,43,0.20);
       border-radius:18px;
       padding:14px 14px 12px;
       color:#fff;
@@ -2143,13 +2143,13 @@
     .teamHubNextUp{
       padding:12px 12px 10px;
       border-radius:16px;
-      border:1px solid rgba(0,174,239,0.3);
-      background:linear-gradient(150deg, rgba(0,174,239,0.14), rgba(249,115,22,0.16));
+      border:1px solid rgba(255,107,43,0.18);
+      background:linear-gradient(150deg, rgba(255,107,43,0.08), rgba(249,115,22,0.16));
       margin-bottom:10px;
     }
     .teamHubNextStrip{
       display:inline-block;
-      background:#00AEEF;
+      background:#ff9a5c;
       color:#fff;
       border-radius:999px;
       font-size:11px;
@@ -2231,7 +2231,7 @@
     .summaryCardValue{font-size:1.55rem;font-weight:900;color:#0a1e3d;line-height:1.1;letter-spacing:-0.02em;}
     .summaryCardLabel{font-size:10px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;}
     .summaryCard.sc-blue .summaryCardIcon{filter:drop-shadow(0 0 4px #0057b840);}
-    .summaryCard.sc-blue .summaryCardValue{color:#0057B8;}
+    .summaryCard.sc-blue .summaryCardValue{color:#ff6b2b;}
     .summaryCard.sc-teal .summaryCardValue{color:#0d9488;}
     .summaryCard.sc-gold .summaryCardValue{color:#b45309;font-size:1.1rem;}
     .summaryCard.sc-purple .summaryCardValue{color:#6366f1;}
@@ -2257,8 +2257,8 @@
     .radarWrap svg{overflow:visible;}
     .radarLabel{font-size:9.5px;font-weight:700;fill:#475569;text-anchor:middle;}
     .radarGrid{fill:none;stroke:#e2e8f0;stroke-width:1;}
-    .radarPoly{fill:rgba(0,87,184,0.18);stroke:#0057B8;stroke-width:2;stroke-linejoin:round;}
-    .radarDot{fill:#0057B8;}
+    .radarPoly{fill:rgba(255,107,43,0.10);stroke:#ff6b2b;stroke-width:2;stroke-linejoin:round;}
+    .radarDot{fill:#ff6b2b;}
     [data-theme="dark"] .radarGrid{stroke:rgba(255,255,255,0.1);}
     [data-theme="dark"] .radarPoly{fill:rgba(96,165,250,0.2);stroke:#60a5fa;}
     [data-theme="dark"] .radarDot{fill:#60a5fa;}
@@ -2283,7 +2283,7 @@
     }
     .liveAssessJersey{
       width:54px;height:54px;border-radius:50%;
-      background:linear-gradient(135deg,#0057B8,#00AEEF);
+      background:linear-gradient(135deg,#ff6b2b,#ff9a5c);
       display:flex;align-items:center;justify-content:center;
       font-size:20px;font-weight:900;color:#fff;flex-shrink:0;
     }
@@ -2306,15 +2306,15 @@
       color:rgba(255,255,255,0.7);font-size:18px;font-weight:900;cursor:pointer;
       transition:all 0.15s ease;text-align:center;
     }
-    .liveScoreBtn:hover{background:rgba(0,87,184,0.4);border-color:#0057B8;color:#fff;}
-    .liveScoreBtn.sel{background:#0057B8;border-color:#0057B8;color:#fff;transform:scale(1.06);}
+    .liveScoreBtn:hover{background:rgba(255,107,43,0.20);border-color:#ff6b2b;color:#fff;}
+    .liveScoreBtn.sel{background:#ff6b2b;border-color:#ff6b2b;color:#fff;transform:scale(1.06);}
     .liveAssessFooter{
       padding:12px 16px;display:flex;gap:10px;
       border-top:1px solid rgba(255,255,255,0.1);
       background:rgba(0,0,0,0.2);flex-shrink:0;
     }
     .liveAssessSaveBtn{
-      flex:1;padding:16px;border-radius:14px;background:#0057B8;
+      flex:1;padding:16px;border-radius:14px;background:#ff6b2b;
       border:none;color:#fff;font-size:17px;font-weight:900;cursor:pointer;
       transition:background 0.15s;
     }
@@ -2333,7 +2333,7 @@
     .tbPlayerRow:active{cursor:grabbing;}
     .tbPlayerRow.dragging{opacity:0.35;}
     .tbTeamDropZone{transition:border-color 0.15s,background 0.15s;}
-    .tbTeamDropZone.dragover{border-color:#0057B8 !important;background:rgba(0,87,184,0.07) !important;}
+    .tbTeamDropZone.dragover{border-color:#ff6b2b !important;background:rgba(255,107,43,0.04) !important;}
 
     /* ── Home Dashboard ─────────────────── */
     .homeDashLogo{
@@ -2357,7 +2357,7 @@
       gap:12px;
       padding:14px 16px;
       border-radius:16px;
-      background:linear-gradient(145deg, rgba(10,30,61,0.96), rgba(0,87,184,0.95) 60%, rgba(0,174,239,0.9));
+      background:linear-gradient(145deg, rgba(6,12,24,0.97), rgba(15,27,48,0.97) 60%, rgba(255,107,43,0.12));
       color:#fff;
       box-shadow:0 12px 30px rgba(10,30,61,0.26);
       margin-bottom:12px;
@@ -2809,7 +2809,7 @@
     }
     .planCard.featured{
       border-color:var(--btn);
-      box-shadow:0 16px 40px rgba(0,87,184,0.18);
+      box-shadow:0 16px 40px rgba(255,107,43,0.10);
     }
     .planCard.featured::before{
       content:"Most Popular";
@@ -2866,8 +2866,8 @@
       left:0;top:3px;
       width:14px;height:14px;
       border-radius:50%;
-      background:rgba(0,87,184,0.1);
-      border:1.5px solid rgba(0,87,184,0.3);
+      background:rgba(255,107,43,0.06);
+      border:1.5px solid rgba(255,107,43,0.15);
     }
     .planFeatures li.included::before{
       background:var(--btn);
@@ -2920,8 +2920,8 @@
       border-radius:999px;
       font-size:13px;
       font-weight:700;
-      background:rgba(0,87,184,0.12);
-      border:1px solid rgba(0,87,184,0.25);
+      background:rgba(255,107,43,0.06);
+      border:1px solid rgba(255,107,43,0.12);
       color:var(--btn);
       cursor:pointer;
     }
@@ -3067,7 +3067,7 @@
       font-size:15px;
       cursor:pointer;
     }
-    .qrModalPrint{background:var(--btn,#0057B8);color:#fff;}
+    .qrModalPrint{background:var(--btn,#ff6b2b);color:#fff;}
     .qrModalPrint:hover{opacity:0.9;}
     .qrModalDismiss{background:var(--tile,#f3f7ff);color:var(--ink,#0a1e3d);border:1px solid var(--border,#d9e6ea) !important;}
     .qrModalDismiss:hover{background:var(--border,#eee);}
@@ -3258,7 +3258,7 @@
     }
     .teamTile:hover, .teamTile:focus{
       border-color:var(--btn);
-      box-shadow:0 0 0 2px rgba(0,87,184,0.15);
+      box-shadow:0 0 0 2px rgba(255,107,43,0.08);
       outline:none;
     }
     .teamTileMain{
@@ -3364,7 +3364,7 @@
       transition:background 0.15s,color 0.15s,border-color 0.15s;
     }
     .dashTab:hover{
-      background:rgba(0,87,184,0.06);
+      background:rgba(255,107,43,0.04);
       transform:none;
     }
     .dashTab.active{
@@ -3410,7 +3410,7 @@
     }
     .calCell.today{
       border-color:var(--btn);
-      background:rgba(0,87,184,0.06);
+      background:rgba(255,107,43,0.04);
     }
     .calDayNum{
       font-size:13px;
@@ -3437,8 +3437,8 @@
       opacity:0.85;
     }
     .calEvent.tryout{
-      background:rgba(0,87,184,0.15);
-      color:#0057B8;
+      background:rgba(255,107,43,0.08);
+      color:#ff6b2b;
     }
     .calEvent.teamAssessment{
       background:rgba(0,128,58,0.15);
@@ -3449,8 +3449,8 @@
       color:#b45309;
     }
     .calEvent.game{
-      background:rgba(0,87,184,0.15);
-      color:#0057B8;
+      background:rgba(255,107,43,0.08);
+      color:#ff6b2b;
     }
     .calEvent.practice{
       background:rgba(0,128,58,0.15);
@@ -3461,8 +3461,8 @@
       color:#b45309;
     }
     [data-theme="dark"] .calEvent.tryout{
-      background:rgba(0,174,239,0.2);
-      color:#00AEEF;
+      background:rgba(255,107,43,0.12);
+      color:#ff9a5c;
     }
     [data-theme="dark"] .calEvent.teamAssessment{
       background:rgba(0,180,80,0.2);
@@ -3473,8 +3473,8 @@
       color:#fb923c;
     }
     [data-theme="dark"] .calEvent.game{
-      background:rgba(0,174,239,0.2);
-      color:#00AEEF;
+      background:rgba(255,107,43,0.12);
+      color:#ff9a5c;
     }
     [data-theme="dark"] .calEvent.practice{
       background:rgba(0,180,80,0.2);
@@ -3486,9 +3486,9 @@
     }
     [data-theme="dark"] .adtRecPill.make,
     [data-theme="dark"] .adtRecPill.keep{
-      background:rgba(0,174,239,0.15);
-      border-color:rgba(0,174,239,0.35);
-      color:#00AEEF;
+      background:rgba(255,107,43,0.10);
+      border-color:rgba(255,107,43,0.20);
+      color:#ff9a5c;
     }
     [data-theme="dark"] .adtRecPill.bubble{
       background:rgba(251,146,60,0.15);
@@ -3596,8 +3596,8 @@
       flex-wrap:wrap;
     }
     .assessmentCompact:hover{
-      border-color:rgba(0,87,184,0.3);
-      box-shadow:0 4px 12px rgba(0,87,184,0.08);
+      border-color:rgba(255,107,43,0.15);
+      box-shadow:0 4px 12px rgba(255,107,43,0.05);
     }
     .acInfo{
       flex:1 1 200px;
@@ -4378,7 +4378,7 @@
     }
     /* ── Parent Portal Visual Polish ─────────────────────────────── */
     .portalHeader{
-      background:linear-gradient(135deg,#0057B8 0%,#6366f1 100%);
+      background:linear-gradient(135deg,#ff6b2b 0%,#6366f1 100%);
       border-radius:12px;
       padding:20px 18px 16px;
       color:#fff;
@@ -4526,7 +4526,7 @@
     body.mobile-mode{ padding-top:38px; padding-bottom:72px; }
     .mobileBanner{
       position:fixed;top:0;left:0;right:0;z-index:9999;
-      background:linear-gradient(90deg,#0057B8,#6366f1);
+      background:linear-gradient(90deg,#ff6b2b,#6366f1);
       color:#fff;display:flex;align-items:center;justify-content:space-between;
       padding:8px 14px;font-size:13px;font-weight:700;
       box-shadow:0 2px 8px rgba(0,0,0,0.18);
@@ -4547,7 +4547,7 @@
       padding:8px 4px 10px;border:none;background:transparent;cursor:pointer;gap:2px;
       color:var(--muted,#64748b);transition:color 0.12s;
     }
-    .mobileNavBtn.active,.mobileNavBtn:active{ color:#0057B8; }
+    .mobileNavBtn.active,.mobileNavBtn:active{ color:#ff6b2b; }
     .mobileNavIcon{ font-size:22px;line-height:1; }
     .mobileNavLabel{ font-size:10px;font-weight:700;letter-spacing:0.3px; }
     .mobilePlayerRow{
@@ -4558,7 +4558,7 @@
     }
     .mobilePlayerRow:active{ background:var(--hover,#f1f5f9); }
     .mobilePlayerAvatar{
-      width:42px;height:42px;border-radius:50%;background:#0057B8;
+      width:42px;height:42px;border-radius:50%;background:#ff6b2b;
       color:#fff;display:flex;align-items:center;justify-content:center;
       font-weight:900;font-size:14px;flex-shrink:0;
     }
@@ -4585,12 +4585,12 @@
       cursor:pointer;transition:all 0.1s;color:var(--ink,#0a1e3d);
     }
     .mobileBigBtn.selected{
-      background:#0057B8;border-color:#0057B8;color:#fff;
-      box-shadow:0 4px 12px rgba(0,87,184,0.35);
+      background:#ff6b2b;border-color:#ff6b2b;color:#fff;
+      box-shadow:0 4px 12px rgba(255,107,43,0.18);
     }
     .mobileBigBtn:active{ transform:scale(0.92); }
     .mobileToggleBtn{
-      background:linear-gradient(135deg,#0057B8,#6366f1) !important;
+      background:linear-gradient(135deg,#ff6b2b,#6366f1) !important;
       color:#fff !important;border-color:transparent !important;
     }
 
@@ -4633,7 +4633,7 @@
       top:0;
       z-index:1;
     }
-    .attendMatrix tbody tr:hover td{ background:rgba(0,87,184,0.04); }
+    .attendMatrix tbody tr:hover td{ background:rgba(255,107,43,0.04); }
     .attendPlayerCell{
       font-weight:700;
       text-align:left;
@@ -4702,7 +4702,7 @@
     }
     .bgOrb1{
       width:680px;height:680px;
-      background:radial-gradient(circle,rgba(0,87,184,0.20) 0%,transparent 65%);
+      background:radial-gradient(circle,rgba(255,107,43,0.12) 0%,transparent 65%);
       top:-160px;left:-160px;
       animation:orbFloat1 22s ease-in-out infinite;
     }
@@ -4718,7 +4718,7 @@
       bottom:-80px;left:22%;
       animation:orbFloat3 19s ease-in-out 8s infinite;
     }
-    [data-theme="dark"] .bgOrb1{background:radial-gradient(circle,rgba(0,87,184,0.12) 0%,transparent 65%);}
+    [data-theme="dark"] .bgOrb1{background:radial-gradient(circle,rgba(255,107,43,0.06) 0%,transparent 65%);}
     [data-theme="dark"] .bgOrb2{background:radial-gradient(circle,rgba(99,102,241,0.09) 0%,transparent 65%);}
     [data-theme="dark"] .bgOrb3{background:radial-gradient(circle,rgba(249,115,22,0.07) 0%,transparent 65%);}
     @keyframes orbFloat1{
@@ -4746,20 +4746,20 @@
     /* Visual glass effect achieved via opaque white + inset highlight + shadow */
     .card{
       background:#ffffff;
-      border:1px solid rgba(0,87,184,0.10);
-      border-left:4px solid rgba(0,174,239,0.45);
-      box-shadow:0 4px 16px rgba(0,87,184,0.08),0 1px 0 rgba(255,255,255,1) inset;
+      border:1px solid rgba(255,107,43,0.06);
+      border-left:4px solid rgba(255,107,43,0.45);
+      box-shadow:0 4px 16px rgba(255,107,43,0.05),0 1px 0 rgba(255,255,255,1) inset;
       transition:transform 0.20s ease;   /* only transform — compositor layer, no repaint */
       will-change:auto;
     }
     .card:hover{
       transform:translateY(-3px);
-      box-shadow:0 14px 40px rgba(0,87,184,0.14),0 1px 0 rgba(255,255,255,1) inset;
+      box-shadow:0 14px 40px rgba(255,107,43,0.08),0 1px 0 rgba(255,255,255,1) inset;
     }
     [data-theme="dark"] .card{
       background:#1a2030;
       border:1px solid rgba(255,255,255,0.07);
-      border-left:4px solid rgba(0,174,239,0.28);
+      border-left:4px solid rgba(255,107,43,0.16);
       box-shadow:0 4px 20px rgba(0,0,0,0.40),0 1px 0 rgba(255,255,255,0.04) inset;
     }
     [data-theme="dark"] .card:hover{
@@ -4784,11 +4784,11 @@
     .profilePlanBar{
       background:linear-gradient(135deg,
         #0A1E3D 0%,
-        #0057B8 45%,
-        #00AEEF 80%,
+        #ff6b2b 45%,
+        #ff9a5c 80%,
         #6366f1 100%)!important;
       border-radius:20px!important;
-      box-shadow:0 16px 40px rgba(0,87,184,0.30),0 1px 0 rgba(255,255,255,0.18) inset!important;
+      box-shadow:0 16px 40px rgba(255,107,43,0.30),0 1px 0 rgba(255,255,255,0.18) inset!important;
       position:relative;
       overflow:hidden;
     }
@@ -4808,7 +4808,7 @@
 
     /* ── Gradient text utility ───────────────────────────────── */
     .gradientText{
-      background:linear-gradient(135deg,#0057B8 0%,#6366f1 100%);
+      background:linear-gradient(135deg,#ff6b2b 0%,#6366f1 100%);
       -webkit-background-clip:text;
       -webkit-text-fill-color:transparent;
       background-clip:text;
@@ -4823,7 +4823,7 @@
     .summaryCard{
       border-radius:18px!important;
       border:none!important;
-      box-shadow:0 6px 24px rgba(0,87,184,0.12)!important;
+      box-shadow:0 6px 24px rgba(255,107,43,0.06)!important;
       transition:transform 0.2s ease,box-shadow 0.2s ease!important;
       position:relative;
       overflow:hidden;
@@ -4835,7 +4835,7 @@
       background:linear-gradient(135deg,rgba(255,255,255,0.5) 0%,transparent 60%);
       pointer-events:none;
     }
-    .summaryCard:hover{transform:translateY(-5px)!important;box-shadow:0 14px 36px rgba(0,87,184,0.20)!important;}
+    .summaryCard:hover{transform:translateY(-5px)!important;box-shadow:0 14px 36px rgba(255,107,43,0.12)!important;}
     .summaryCard.sc-blue{background:linear-gradient(145deg,#eff6ff,#dbeafe)!important;}
     .summaryCard.sc-teal{background:linear-gradient(145deg,#f0fdfa,#ccfbf1)!important;}
     .summaryCard.sc-gold{background:linear-gradient(145deg,#fffbeb,#fef3c7)!important;}
@@ -4861,13 +4861,13 @@
     }
     button.ok:active,button.intent-primary:active{transform:translateY(0);}
     button.intent-edit,.pdfBtn{
-      background:linear-gradient(135deg,#0057B8,#0284c7)!important;
-      box-shadow:0 4px 14px rgba(0,87,184,0.30)!important;
+      background:linear-gradient(135deg,#ff6b2b,#0284c7)!important;
+      box-shadow:0 4px 14px rgba(255,107,43,0.30)!important;
       border-color:transparent!important;
       color:#fff!important;
     }
     button.intent-edit:hover,.pdfBtn:hover{
-      box-shadow:0 8px 24px rgba(0,87,184,0.45)!important;
+      box-shadow:0 8px 24px rgba(255,107,43,0.22)!important;
       transform:translateY(-1px);
       filter:none!important;
     }
@@ -4902,14 +4902,14 @@
     /* ── Refined input focus ring ────────────────────────────── */
     input:focus,select:focus,textarea:focus{
       outline:none!important;
-      border-color:rgba(0,87,184,0.7)!important;
-      box-shadow:0 0 0 4px rgba(0,87,184,0.15),0 2px 8px rgba(0,87,184,0.12)!important;
+      border-color:rgba(255,107,43,0.28)!important;
+      box-shadow:0 0 0 4px rgba(255,107,43,0.08),0 2px 8px rgba(255,107,43,0.06)!important;
     }
 
     /* ── Section headings with gradient underline ────────────── */
     h2.sectionHeading,h3.sectionHeading{
       display:inline-block;
-      background:linear-gradient(135deg,#0057B8,#6366f1);
+      background:linear-gradient(135deg,#ff6b2b,#6366f1);
       -webkit-background-clip:text;
       -webkit-text-fill-color:transparent;
       background-clip:text;
@@ -4939,7 +4939,7 @@
       transform:translateX(-50%);
       width:70%;height:3px;
       border-radius:999px;
-      background:linear-gradient(90deg,#0057B8,#6366f1);
+      background:linear-gradient(90deg,#ff6b2b,#6366f1);
     }
 
     /* ── Team hub tiles: premium gradient fill ───────────────── */
@@ -12347,7 +12347,7 @@ function renderHomeContent(){
     <div class="homeSection" style="${teamsSectionStyle}">
       <div class="card">
         <div style="
-          background: linear-gradient(135deg, #0a2a5e 0%, #0057B8 60%, #00699e 100%);
+          background: linear-gradient(135deg, #0a2a5e 0%, #ff6b2b 60%, #e85a1f 100%);
           border-radius: 14px;
           padding: 14px 16px;
           margin-bottom: 10px;
@@ -16437,7 +16437,7 @@ function openImportCSVModal(){
   if(label){
     label.addEventListener("dragenter", e => {
       e.preventDefault(); e.stopPropagation();
-      label.style.borderColor  = "#0057B8";
+      label.style.borderColor  = "#ff6b2b";
       label.style.background   = "#dbeafe";
     });
     label.addEventListener("dragover", e => {
@@ -17247,7 +17247,7 @@ function renderRosterTiles(){
         const avatarClass = getPositionAvatarClass(p.pos, getSportFromTryout(t));
         const avatarInitials = getPositionInitials(p.pos);
         // Score ring: map position class → fill colour, compute arc length (scale 0-5, r=18 → circ≈113)
-        const _ptAvatarBgMap = {'pos-forward':'#0057B8','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'};
+        const _ptAvatarBgMap = {'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'};
         const _ptAvatarBg = _ptAvatarBgMap[avatarClass] || '#6366f1';
         const _ptRingFill = overall > 0 ? Math.min((overall/5)*113,113).toFixed(1) : "0";
         const jerseyDisplay = p.jersey ? String(p.jersey) : "";
@@ -17577,7 +17577,7 @@ function renderCompare(){
         const catLabels = useSpecial
           ? getSportGoCatLabels(sport)
           : getSportSkCatLabels(sport);
-        const COLORS = ["#0057B8","#00AEEF","#0A1E3D","#b45309","#be185d"];
+        const COLORS = ["#ff6b2b","#ff9a5c","#0A1E3D","#b45309","#be185d"];
         return catKeys.map(ck=>{
           const vals = players.map(p=>{
             const v = categoryAverages(p.id)?.[ck];
@@ -17636,7 +17636,7 @@ function renderCompare(){
           ` : ""}
         </div>
         ${ai.recommendation ? `
-          <div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(0,87,184,0.06);border:1px solid rgba(0,87,184,0.2);">
+          <div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,107,43,0.04);border:1px solid rgba(255,107,43,0.2);">
             <div style="font-size:12px;font-weight:700;color:var(--btn);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;">Coaching Recommendation</div>
             <div style="font-size:15px;line-height:1.5;">${escapeHTML(ai.recommendation)}</div>
           </div>
@@ -18155,7 +18155,7 @@ function renderScore(){
         <div class="scorePlayerMeta">${escapeHTML(displayPosition || "—")} • ${escapeHTML(p.shoots||"—")} • ${escapeHTML(t.name || "Assessment")}</div>
       </div>
       <button class="secondary" style="width:auto;padding:8px 12px;font-size:13px;background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.25);color:#fff;" onclick="openPlayerHub('${p.id}')">← Back</button>
-      <button class="secondary" style="width:auto;padding:8px 12px;font-size:13px;background:rgba(0,87,184,0.7);border-color:rgba(0,87,184,0.8);color:#fff;" onclick="openLiveAssessMode('${p.id}')">⚡ Live Mode</button>
+      <button class="secondary" style="width:auto;padding:8px 12px;font-size:13px;background:rgba(255,107,43,0.7);border-color:rgba(255,107,43,0.8);color:#fff;" onclick="openLiveAssessMode('${p.id}')">⚡ Live Mode</button>
     </div>
 
     <div class="card">
@@ -21088,19 +21088,19 @@ body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2f
 .rcAssmt{font-size:11px;color:#888;margin-top:3px;}
 .rcRight{text-align:right;flex-shrink:0;}
 .rcOverallLabel{font-size:11px;color:#888;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
-.rcOverall{font-size:32px;font-weight:900;color:#0057B8;line-height:1;}
+.rcOverall{font-size:32px;font-weight:900;color:#ff6b2b;line-height:1;}
 .rcOf{font-size:15px;color:#888;font-weight:600;}
 .rcRank{font-size:12px;color:#555;margin-top:2px;}
 .rcRec{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:800;margin-top:4px;}
 .rcOverallBar{height:8px;background:#e5e7eb;border-radius:999px;margin-bottom:14px;}
-.rcOverallFill{height:100%;background:linear-gradient(90deg,#0057B8,#6366f1);border-radius:999px;}
+.rcOverallFill{height:100%;background:linear-gradient(90deg,#ff6b2b,#6366f1);border-radius:999px;}
 .rcCategories{margin-bottom:10px;}
 .catRow{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
 .catLabel{width:140px;font-size:12px;font-weight:700;color:#374151;flex-shrink:0;display:flex;align-items:center;gap:4px;}
 .rankBadge{background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:0 6px;font-size:10px;font-weight:800;}
 .barTrack{flex:1;height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;}
-.barFill{height:100%;background:linear-gradient(90deg,#0057B8,#2563eb);border-radius:999px;}
-.catScore{width:36px;text-align:right;font-size:12px;font-weight:800;color:#0057B8;}
+.barFill{height:100%;background:linear-gradient(90deg,#ff6b2b,#2563eb);border-radius:999px;}
+.catScore{width:36px;text-align:right;font-size:12px;font-weight:800;color:#ff6b2b;}
 .rcSection{margin-top:8px;padding:8px 10px;background:#f9fafb;border-radius:8px;}
 .rcSectionLabel{font-size:11px;font-weight:800;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
 .rcSectionText{font-size:12px;color:#374151;line-height:1.5;}
@@ -21261,7 +21261,7 @@ input, textarea, select{
 [data-theme="dark"] body::before{
   background:
     radial-gradient(900px 300px at 0% 0%, rgba(255,107,43,0.05), transparent 70%),
-    radial-gradient(1200px 400px at 80% 10%, rgba(0,87,184,0.08), transparent 60%),
+    radial-gradient(1200px 400px at 80% 10%, rgba(255,107,43,0.05), transparent 60%),
     linear-gradient(180deg, #0f1b30 0%, #070d1a 100%) !important;
 }
 
@@ -21338,7 +21338,7 @@ body {
 [data-theme="dark"] body::before {
   background:
     radial-gradient(ellipse 80% 40% at 0% 0%,   rgba(255,107,43,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 100% 0%,  rgba(0,87,184,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 0%,  rgba(255,107,43,0.05) 0%, transparent 60%),
     linear-gradient(180deg, #0c1528 0%, #060c18 100%) !important;
 }
 
@@ -21662,13 +21662,13 @@ button[class*="upgrade"], button[class*="Upgrade"], .upgradeBtn {
   box-shadow:
     0 0 0 1px rgba(255,107,43,0.08),
     0 0 80px rgba(255,107,43,0.07),
-    0 0 60px rgba(0,87,184,0.10),
+    0 0 60px rgba(255,107,43,0.06),
     0 32px 80px rgba(0,0,0,0.60) !important;
 }
 .loginHeroCard::before {
   background:
     radial-gradient(ellipse 60% 50% at 15% 40%, rgba(255,107,43,0.08) 0%, transparent 65%),
-    radial-gradient(ellipse 50% 60% at 85% 55%, rgba(0,87,184,0.12) 0%, transparent 65%) !important;
+    radial-gradient(ellipse 50% 60% at 85% 55%, rgba(255,107,43,0.06) 0%, transparent 65%) !important;
 }
 .loginTagline {
   font-size: 15px !important;
@@ -21701,8 +21701,8 @@ button[class*="upgrade"], button[class*="Upgrade"], .upgradeBtn {
   border-radius: 999px !important;
 }
 [data-theme="dark"] .badge.new {
-  background: rgba(0,87,184,0.14) !important;
-  border-color: rgba(0,87,184,0.32) !important;
+  background: rgba(255,107,43,0.08) !important;
+  border-color: rgba(255,107,43,0.20) !important;
   color: #60a5fa !important;
 }
 [data-theme="dark"] .badge.anon {
@@ -23666,7 +23666,7 @@ function renderSeasonHubState(message, tone="info"){
       <span style="cursor:pointer;text-decoration:underline;" onclick="goHome()">Home</span> ›
       <span style="cursor:pointer;text-decoration:underline;" onclick="goHome()">My Teams</span>
     </div>
-    <div class="card" style="padding:20px; border-color:${isError ? "rgba(220,38,38,0.35)" : "rgba(0,174,239,0.28)"};">
+    <div class="card" style="padding:20px; border-color:${isError ? "rgba(220,38,38,0.35)" : "rgba(255,107,43,0.16)"};">
       <h2 style="margin:0 0 8px;">${isError ? "Team Hub unavailable" : "Loading Team Hub"}</h2>
       <div class="muted">${escapeHTML(message)}</div>
       ${isError ? `<button class="ok small" style="width:auto;margin-top:12px;" onclick="goHub()">HUB</button>` : ``}
@@ -23914,7 +23914,7 @@ function renderSeasonHub(){
               <button class="ok tinyBtn" onclick="openSeasonSchedule('${escapeJS(season.id)}')">View All</button>
             </div>
             ${upcoming.slice(0, 4).map(ev => {
-              const typeColors = { Game: "#f97316", Practice: "#008c9e", Event: "#0057B8" };
+              const typeColors = { Game: "#f97316", Practice: "#008c9e", Event: "#ff6b2b" };
               const color = typeColors[ev.type] || "#555";
               return `
                 <div style="display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;">
@@ -24279,7 +24279,7 @@ function renderSeasonSettings(){
   if(!season){ go("seasonList"); return; }
   app.innerHTML = `
     ${teamHubChrome(season, "Settings")}
-    <div class="card" style="padding:14px; background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(0,174,239,0.12)); border-color:rgba(0,174,239,0.25);">
+    <div class="card" style="padding:14px; background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(255,107,43,0.08)); border-color:rgba(255,107,43,0.15);">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
         <div>
           <h2 style="margin:0;">Season Settings</h2>
@@ -24846,7 +24846,7 @@ function renderSeasonSchedule(){
   }
   app.innerHTML = `
     ${teamHubChrome(season, "Schedule & Calendar")}
-    <div class="card" style="background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(0,174,239,0.12)); border-color:rgba(0,174,239,0.25);">
+    <div class="card" style="background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(255,107,43,0.08)); border-color:rgba(255,107,43,0.15);">
       <div class="topbar">
         <div class="topbarLeft">
           <div>
@@ -24905,7 +24905,7 @@ function renderSeasonSchedule(){
           <div style="margin-bottom:22px;">
             <div style="font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border);">${escapeHTML(label)}</div>
             ${monthEvents.map(ev => {
-              const colors = { Game: "#0057B8", Practice: "#00803a", Event: "#b45309" };
+              const colors = { Game: "#ff6b2b", Practice: "#00803a", Event: "#b45309" };
               const color = colors[ev.type] || "#555";
               const isSelectedDate = ev.date === seasonCalendarSelectedDate;
               return `
@@ -24913,7 +24913,7 @@ function renderSeasonSchedule(){
                   id="seasonEvent-${escapeAttr(String(ev.id || ""))}"
                   class="seasonEventRow"
                   data-event-date="${escapeAttr(String(ev.date || ""))}"
-                  style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; ${isSelectedDate ? "background:rgba(0,87,184,0.06); border-radius:10px; padding-left:10px; padding-right:10px;" : ""}"
+                  style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; ${isSelectedDate ? "background:rgba(255,107,43,0.04); border-radius:10px; padding-left:10px; padding-right:10px;" : ""}"
                 >
                   <div style="flex:1 1 200px;">
                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
@@ -24934,7 +24934,7 @@ function renderSeasonSchedule(){
                     <button class="tinyBtn availabilityActionBtn" onclick="openSeasonAvailability('${escapeJS(ev.id)}')">Availability</button>
                     <button class="secondary tinyBtn" onclick="openEditEvent('${escapeJS(ev.id)}')">Edit</button>
                     <button class="danger tinyBtn" onclick="deleteEventPrompt('${escapeJS(ev.id)}')">Delete</button>
-                    <button class="tinyBtn" style="background:#0057B8; color:#fff;" onclick="notifyFamilies('${escapeJS(season.id)}', '${escapeJS(ev.id)}')" title="Email all family contacts">✉ Notify</button>
+                    <button class="tinyBtn" style="background:#ff6b2b; color:#fff;" onclick="notifyFamilies('${escapeJS(season.id)}', '${escapeJS(ev.id)}')" title="Email all family contacts">✉ Notify</button>
                   </div>
                 </div>
               `;
@@ -24957,7 +24957,7 @@ function renderSeasonSchedule(){
         </div>
       </div>
       <div style="margin-top:14px;">
-        <button class="pdfBtn" style="background:#0057B8;color:#fff;border-color:#0057B8;" onclick="shareScheduleLink('${escapeJS(season.id)}')">📤 Share Schedule</button>
+        <button class="pdfBtn" style="background:#ff6b2b;color:#fff;border-color:#ff6b2b;" onclick="shareScheduleLink('${escapeJS(season.id)}')">📤 Share Schedule</button>
         <div class="tiny" style="margin-top:4px;">Generate a read-only link parents can bookmark to view the schedule — no login required.</div>
       </div>
     </div>
@@ -25135,7 +25135,7 @@ function renderSeasonAvailability(){
 
   app.innerHTML = `
     ${teamHubChrome(season, "Availability")}
-    <div class="card" style="background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(0,174,239,0.12)); border-color:rgba(0,174,239,0.25);">
+    <div class="card" style="background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(255,107,43,0.08)); border-color:rgba(255,107,43,0.15);">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap;">
         <div>
           <h2 style="margin:0 0 4px;">${escapeHTML(title)}</h2>
@@ -25201,7 +25201,7 @@ function renderAttendanceDash(){
     .slice()
     .sort((a,b)=> new Date(a.date + (a.startTime?"T"+a.startTime:"")).getTime() - new Date(b.date + (b.startTime?"T"+b.startTime:"")).getTime());
 
-  const typeColor = { Game:"#0057B8", Practice:"#0f766e", Event:"#b45309" };
+  const typeColor = { Game:"#ff6b2b", Practice:"#0f766e", Event:"#b45309" };
 
   // ── Stats ────────────────────────────────────────────────
   let totalResponses = 0, totalPossible = 0;
@@ -25228,7 +25228,7 @@ function renderAttendanceDash(){
 
   const statsHTML = `
     <div class="attendStatGrid">
-      <div class="attendStat" style="background:linear-gradient(135deg,#0057B8,#2563eb);">
+      <div class="attendStat" style="background:linear-gradient(135deg,#ff6b2b,#2563eb);">
         <div class="attendStatVal">${events.length}</div>
         <div class="attendStatLabel">Total Events</div>
       </div>
@@ -25327,7 +25327,7 @@ function renderAttendanceDash(){
   app.innerHTML = `
     ${teamHubChrome(season, "Attendance")}
 
-    <div class="card" style="background:linear-gradient(150deg,rgba(10,30,61,0.07),rgba(0,174,239,0.12));border-color:rgba(0,174,239,0.25);">
+    <div class="card" style="background:linear-gradient(150deg,rgba(10,30,61,0.07),rgba(255,107,43,0.08));border-color:rgba(255,107,43,0.15);">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
         <div>
           <h2 style="margin:0 0 2px;">Attendance Dashboard</h2>
@@ -25591,7 +25591,7 @@ function renderSeasonRoster(){
 
   app.innerHTML = `
     ${teamHubChrome(season, "Team List")}
-    <div class="card" style="background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(0,174,239,0.12)); border-color:rgba(0,174,239,0.25);">
+    <div class="card" style="background:linear-gradient(150deg, rgba(10,30,61,0.07), rgba(255,107,43,0.08)); border-color:rgba(255,107,43,0.15);">
       <div class="topbar">
         <div class="topbarLeft">
           <h2 style="margin:0;">${escapeHTML(season.teamName || season.name)} — Team List</h2>
@@ -26417,7 +26417,7 @@ function openSeasonRosterBuildTryoutSelector(){
         </label>
         <div style="max-height:360px; overflow:auto; border:1px solid var(--border); border-radius:12px; padding:8px;">
           ${standardTryouts.length ? `
-            <div class="card" style="margin:0 0 10px; padding:10px 12px; background:rgba(0,87,184,0.08); border-color:rgba(0,87,184,0.24);">
+            <div class="card" style="margin:0 0 10px; padding:10px 12px; background:rgba(255,107,43,0.05); border-color:rgba(255,107,43,0.15);">
               <div style="font-weight:800;">Build from Tryout or Assessment</div>
             </div>
             ${standardTryouts.map(t=>`
@@ -26844,7 +26844,7 @@ function renderEventForm(season, ev) {
       <label class="muted" style="margin-bottom:8px;">Event Type</label>
       <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px;">
         ${["Game","Practice","Event"].map(type => {
-          const colors = { Game:"#0057B8", Practice:"#00803a", Event:"#b45309" };
+          const colors = { Game:"#ff6b2b", Practice:"#00803a", Event:"#b45309" };
           const icons = { Game:"🏒", Practice:"⛸", Event:"📅" };
           const selected = (!ev && type === "Game") || (ev && ev.type === type);
           return `
@@ -26898,7 +26898,7 @@ function renderEventForm(season, ev) {
         <textarea id="sevNotes" placeholder="Any notes for families..." style="margin-top:8px;">${escapeHTML(ev?.notes || "")}</textarea>
       </details>
 
-      <div style="margin-top:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(0,174,239,0.3);background:linear-gradient(150deg, rgba(0,174,239,0.08), rgba(249,115,22,0.08));">
+      <div style="margin-top:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,107,43,0.18);background:linear-gradient(150deg, rgba(255,107,43,0.06), rgba(249,115,22,0.08));">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;font-size:13px;">
           <input type="checkbox" id="sevNotify" ${getPlanLimits().canSeasonEmailNotifications ? "" : "disabled"}>
           ✉ Notify players &amp; families when saving
@@ -26930,7 +26930,7 @@ function renderEventForm(season, ev) {
 function selectEventType(type) {
   const hidden = document.getElementById("sevType");
   if(hidden) hidden.value = type;
-  const colors = { Game: "#0057B8", Practice: "#00803a", Event: "#b45309" };
+  const colors = { Game: "#ff6b2b", Practice: "#00803a", Event: "#b45309" };
   ["Game","Practice","Event"].forEach(t => {
     const btn = document.getElementById("typeBtn_" + t);
     if(!btn) return;
@@ -27548,7 +27548,7 @@ function renderPublicSchedule(data, token){
       </div>
 
       <div style="display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; justify-content:center;">
-        <button onclick="publicScheduleDownloadICS()" style="padding:10px 20px; background:#0057B8; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:14px;">⬇ Download Calendar</button>
+        <button onclick="publicScheduleDownloadICS()" style="padding:10px 20px; background:#ff6b2b; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:14px;">⬇ Download Calendar</button>
         <button onclick="publicScheduleShowSubscribe()" style="padding:10px 20px; background:#00803a; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:14px;">🔗 Subscribe to Calendar</button>
       </div>
 
@@ -30167,7 +30167,7 @@ function renderMobileScore(){
     return na.localeCompare(nb);
   });
 
-  const avatarColors = {"pos-forward":"#0057B8","pos-defence":"#0d9488","pos-goalie":"#f97316","pos-other":"#6366f1"};
+  const avatarColors = {"pos-forward":"#ff6b2b","pos-defence":"#0d9488","pos-goalie":"#f97316","pos-other":"#6366f1"};
 
   app.innerHTML = `
     <div style="padding:4px;">
@@ -30195,7 +30195,7 @@ function renderMobileScore(){
               <div class="tiny">#${escapeHTML(player.jersey||"—")} · ${escapeHTML(player.pos||"—")}</div>
             </div>
             <div style="text-align:right;flex-shrink:0;">
-              <div style="font-size:20px;font-weight:900;color:${scored?"#0057B8":"#cbd5e1"};">${overall!==null?num2(overall):"—"}</div>
+              <div style="font-size:20px;font-weight:900;color:${scored?"#ff6b2b":"#cbd5e1"};">${overall!==null?num2(overall):"—"}</div>
               <div class="tiny" style="color:${scored?"#16a34a":"#94a3b8"};">${scored?"✓ Scored":"Not scored"}</div>
             </div>
             <span style="color:#cbd5e1;font-size:20px;margin-left:4px;">›</span>
@@ -30242,7 +30242,7 @@ function renderMobileScorePlayer(){
       </div>
 
       <div style="background:var(--border,#e5e7eb);border-radius:999px;height:6px;margin-bottom:14px;overflow:hidden;">
-        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#0057B8,#6366f1);border-radius:999px;transition:width 0.3s;"></div>
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#ff6b2b,#6366f1);border-radius:999px;transition:width 0.3s;"></div>
       </div>
       <div class="tiny" style="text-align:right;margin-top:-10px;margin-bottom:12px;color:var(--muted);">${scored}/${total} categories scored</div>
 
