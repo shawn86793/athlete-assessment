@@ -938,14 +938,13 @@
       filter:drop-shadow(0 6px 18px rgba(0,0,0,0.5)) contrast(1.08) saturate(1.02);
     }
     .loginHeroCard{
-      background:linear-gradient(160deg, #0a2a5e 0%, #ff6b2b 60%, #e85a1f 100%);
-      border:1px solid rgba(59,130,246,0.2);
+      background:linear-gradient(155deg, #080f22 0%, #0c1e40 50%, #0a1830 100%);
+      border:1px solid rgba(255,255,255,0.07);
       border-radius:var(--radius);
       padding:56px 24px 38px;
       text-align:center;
-      box-shadow:0 0 60px rgba(59,130,246,0.09),
-                 0 0 40px rgba(249,115,22,0.07),
-                 0 24px 64px rgba(0,0,0,0.48);
+      box-shadow:0 2px 0 rgba(255,255,255,0.04) inset,
+                 0 24px 64px rgba(0,0,0,0.60);
       position:relative;
       overflow:hidden;
       max-width:880px;
@@ -956,16 +955,15 @@
       content:"";
       position:absolute;
       inset:0;
-      background:radial-gradient(ellipse 70% 50% at 20% 50%, rgba(59,130,246,0.1) 0%, transparent 70%),
-                 radial-gradient(ellipse 60% 50% at 80% 60%, rgba(249,115,22,0.09) 0%, transparent 70%);
+      background:radial-gradient(ellipse 60% 40% at 50% 80%, rgba(255,107,43,0.08) 0%, transparent 70%);
       pointer-events:none;
     }
     .loginHeroCard>*{position:relative;}
     .loginHeroCard .authBox{
       max-width:460px;
       margin:0 auto;
-      background:rgba(10,30,61,0.24);
-      border-color:rgba(148,163,184,0.28);
+      background:rgba(255,255,255,0.04);
+      border-color:rgba(255,255,255,0.10);
     }
     .logoLogin{
       max-width:min(1100px, 96vw);
@@ -21105,6 +21103,12 @@ body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2f
   box-shadow: 0 2px 16px rgba(0,0,0,0.40) !important;
 }
 
+/* Kill mobile tap highlight across all interactive elements */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent !important;
+  tap-highlight-color: transparent !important;
+}
+
 /* Primary / ok / intent-primary buttons */
 button.ok,
 button.intent-primary{
@@ -21119,6 +21123,28 @@ button.ok:hover,
 button.intent-primary:hover{
   box-shadow: 0 6px 24px rgba(255,107,43,0.40) !important;
   transform: translateY(-1px);
+}
+button.ok:active,
+button.intent-primary:active {
+  background: linear-gradient(135deg, #e85a1f, #ff7a3d) !important;
+  box-shadow: 0 2px 8px rgba(255,107,43,0.30) !important;
+  transform: translateY(1px) scale(0.98) !important;
+}
+
+/* Login-page secondary button — always white ghost, never inherits orange bg */
+.loginHeroCard button.secondary,
+.loginHeroCard button.secondary:hover,
+.loginHeroCard button.secondary:active {
+  background: rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255,255,255,0.35) !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+.loginHeroCard button.secondary:hover {
+  background: rgba(255,255,255,0.20) !important;
+}
+.loginHeroCard button.secondary:active {
+  background: rgba(255,255,255,0.08) !important;
 }
 
 /* Active tab nav buttons */
@@ -23803,14 +23829,14 @@ function renderSeasonHub(){
                 <div class="teamHubTileStat">${playerCount} player${playerCount === 1 ? "" : "s"} on team</div>
               </div>
             </button>
-            <button class="teamHubTile" style="background:linear-gradient(145deg,#F97316,#ea580c);" onclick="openSeasonSchedule('${escapeJS(season.id)}')">
+            <button class="teamHubTile" style="background:linear-gradient(145deg,#4338ca,#6366f1);" onclick="openSeasonSchedule('${escapeJS(season.id)}')">
               <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">⊙</div>
               <div>
                 <div class="teamHubTileLabel">Schedule &amp; Calendar</div>
                 <div class="teamHubTileStat">${nextEvent ? "Next: " + escapeHTML(nextEventDate) : "No next event yet"}</div>
               </div>
             </button>
-            <button class="teamHubTile" style="background:linear-gradient(145deg,#6366f1,#4f46e5);" onclick="openSeasonRoster('${escapeJS(season.id)}')">
+            <button class="teamHubTile" style="background:linear-gradient(145deg,#7c3aed,#9333ea);" onclick="openSeasonRoster('${escapeJS(season.id)}')">
               <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">🔗</div>
               <div>
                 <div class="teamHubTileLabel">Guardian Portal</div>
@@ -23818,7 +23844,7 @@ function renderSeasonHub(){
               </div>
             </button>
           </div>
-          <button class="teamHubTile" style="background:linear-gradient(145deg,#0f766e,#134e4a);grid-column:1/-1;" onclick="openAttendanceDash('${escapeJS(season.id)}')">
+          <button class="teamHubTile" style="background:linear-gradient(145deg,#1e3a5f,#2d4e7a);grid-column:1/-1;" onclick="openAttendanceDash('${escapeJS(season.id)}')">
             <div class="teamHubTileIcon" style="color:#fff;font-size:22px;">📋</div>
             <div>
               <div class="teamHubTileLabel">Attendance Dashboard</div>
