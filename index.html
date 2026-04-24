@@ -12190,6 +12190,130 @@ function _skipOnboardingWizard(){
   renderHomeContent();
 }
 
+/* ── Session Summary Ring ── */
+function buildSessionSummaryRing(activeTryouts) {
+  if (!activeTryouts || !activeTryouts.length) return "";
+
+  let totalPlayers = 0, totalEvaluated = 0;
+  let allScores = [];
+  let topPlayerName = "", topPlayerScore = -Infinity;
+  let firstTryoutId = activeTryouts[0]?.id || "";
+
+  for (const t of activeTryouts) {
+    const roster = Array.isArray(t.roster) ? t.roster : [];
+    const evals  = Array.isArray(t.evals)  ? t.evals  : [];
+    totalPlayers += roster.length;
+
+    for (const p of roster) {
+      const pEvals = evals.filter(e => e && e.playerId === p.id);
+      if (!pEvals.length) continue;
+      totalEvaluated++;
+
+      // Average all numeric scores in all evals for this player → 1-5 scale
+      const vals = [];
+      for (const e of pEvals) {
+        for (const [, raw] of Object.entries(e.scores || {})) {
+          const n = Number(raw);
+          if (!isNaN(n) && n > 0) {
+            // Normalise: if score > 5 assume 1-10 scale → halve it
+            vals.push(n > 5 ? n / 2 : n);
+          }
+        }
+      }
+      if (!vals.length) continue;
+      const playerAvg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      allScores.push(playerAvg);
+      if (playerAvg > topPlayerScore) {
+        topPlayerScore = playerAvg;
+        topPlayerName = (p.first || p.name || "").trim() + (p.last ? " " + p.last.trim() : "");
+      }
+    }
+  }
+
+  const pct = totalPlayers > 0 ? Math.round((totalEvaluated / totalPlayers) * 100) : 0;
+  const avgScore = allScores.length
+    ? (allScores.reduce((a, b) => a + b, 0) / allScores.length)
+    : null;
+  const avgStr  = avgScore !== null ? avgScore.toFixed(1) : "—";
+  const topStr  = topPlayerScore > 0 ? topPlayerScore.toFixed(1) : null;
+
+  const scoreColor = avgScore === null ? "#8899bb"
+    : avgScore >= 4.2 ? "#22c55e"
+    : avgScore >= 3.2 ? "#ff6b2b"
+    : avgScore >= 2   ? "#f59e0b"
+    : "#ef4444";
+
+  const r = 48, cx = 60, cy = 60;
+  const circ = Math.round(2 * Math.PI * r);
+  const targetOffset = Math.round(circ * (1 - pct / 100));
+
+  const label = activeTryouts.length === 1
+    ? escapeHTML(activeTryouts[0].name || "Assessment")
+    : `${activeTryouts.length} active assessments`;
+
+  return `
+  <div class="sessionRingCard" onclick="openTryout('${escapeJS(firstTryoutId)}')" title="Open assessment">
+    <div class="srRingWrap">
+      <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="${pct}% scored">
+        <defs>
+          <linearGradient id="srGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ff6b2b"/>
+            <stop offset="100%" stop-color="#ff9a5c"/>
+          </linearGradient>
+        </defs>
+        <!-- track -->
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+          stroke="rgba(255,255,255,0.07)" stroke-width="9"/>
+        <!-- fill — starts empty, animated to target by animateSessionRing() -->
+        <circle id="srFillArc" cx="${cx}" cy="${cy}" r="${r}" fill="none"
+          stroke="url(#srGrad)" stroke-width="9"
+          stroke-linecap="round"
+          stroke-dasharray="${circ}"
+          stroke-dashoffset="${circ}"
+          transform="rotate(-90 ${cx} ${cy})"
+          class="srRingFill"
+          data-target="${targetOffset}"/>
+      </svg>
+      <div class="srRingCenter">
+        <div class="srRingPct">${pct}<span style="font-size:13px;font-weight:700;">%</span></div>
+        <div class="srRingLabel">scored</div>
+      </div>
+    </div>
+
+    <div class="srStats">
+      <div class="srTitle">${escapeHTML(label)}</div>
+
+      <div class="srAvgRow">
+        <div class="srAvgNum" style="color:${scoreColor}">${avgStr}</div>
+        <div class="srAvgSub">avg score<br><span style="font-size:10px;opacity:.7;">out of 5.0</span></div>
+      </div>
+
+      <div class="srProgressRow">
+        <span class="srProgressLabel">${totalEvaluated} / ${totalPlayers} players</span>
+        <div class="srProgressBar">
+          <div class="srProgressFill" id="srProgBar" data-target="${pct}"></div>
+        </div>
+      </div>
+
+      ${topStr && topPlayerName ? `
+      <div class="srTopPlayer">
+        <span style="font-size:14px;">★</span>
+        <span class="srTopName">${escapeHTML(topPlayerName)}</span>
+        <span class="srTopScore" style="color:${scoreColor}">${topStr}</span>
+      </div>` : ""}
+    </div>
+  </div>`;
+}
+
+function animateSessionRing() {
+  requestAnimationFrame(() => {
+    const arc = document.getElementById("srFillArc");
+    if (arc) arc.style.strokeDashoffset = arc.dataset.target;
+    const bar = document.getElementById("srProgBar");
+    if (bar) bar.style.width = bar.dataset.target + "%";
+  });
+}
+
 function renderHomeContent(){
   const container = document.getElementById("homeTabContent");
   if(!container) return;
@@ -12299,7 +12423,13 @@ function renderHomeContent(){
     `;
   }).join("");
 
+  const activeForRing = Object.values(DB.tryouts || {})
+    .filter(t => !isArchivedTryout(t))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const summaryRingHTML = buildSessionSummaryRing(activeForRing);
+
   container.innerHTML = `
+    ${summaryRingHTML}
     <div style="margin-bottom:16px;">
       <div style="position:relative;">
         <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;">🔍</span>
@@ -12310,7 +12440,7 @@ function renderHomeContent(){
     <div class="homeSection" style="${teamsSectionStyle}">
       <div class="card">
         <div style="
-          background: linear-gradient(135deg, #0a2a5e 0%, #ff6b2b 60%, #e85a1f 100%);
+          background: linear-gradient(135deg, #1e3a5f 0%, #2d4e7a 100%);
           border-radius: 14px;
           padding: 14px 16px;
           margin-bottom: 10px;
@@ -12341,6 +12471,8 @@ function renderHomeContent(){
     </div>
 
   `;
+  // Kick off ring + bar animations after DOM is painted
+  animateSessionRing();
 }
 
 function setHomeSectionTab(nextTab){
@@ -21073,6 +21205,154 @@ body{font-family:-apple-system,Helvetica Neue,Arial,sans-serif;background:#f0f2f
    SKIN REFRESH — OURA-inspired design system
    Appended to index.html. Zero functional changes.
    ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Session Summary Ring ──────────────────────────────────── */
+.sessionRingCard {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px 22px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.sessionRingCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 0% 50%, rgba(255,107,43,0.06), transparent 70%);
+  pointer-events: none;
+}
+.sessionRingCard:hover {
+  border-color: rgba(255,107,43,0.25);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.18);
+  transform: translateY(-1px);
+}
+[data-theme="dark"] .sessionRingCard {
+  background: rgba(12,21,40,0.85);
+  border-color: rgba(255,255,255,0.07);
+}
+.srRingWrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.srRingFill {
+  transition: stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1);
+}
+.srRingCenter {
+  position: absolute;
+  text-align: center;
+  pointer-events: none;
+}
+.srRingPct {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text1, #f0f4ff);
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+.srRingLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text2, #8899bb);
+  margin-top: 3px;
+}
+.srStats {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.srTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text2, #8899bb);
+  margin-bottom: 2px;
+}
+.srAvgRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.srAvgNum {
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+.srAvgSub {
+  font-size: 12px;
+  color: var(--text2, #8899bb);
+  font-weight: 600;
+}
+.srProgressRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.srProgressLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text1, #f0f4ff);
+  white-space: nowrap;
+}
+.srProgressBar {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.srProgressFill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ff6b2b, #ff9a5c);
+  transition: width 1.4s cubic-bezier(.4,0,.2,1);
+  width: 0%;
+}
+.srTopPlayer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text2, #8899bb);
+  background: rgba(255,107,43,0.07);
+  border: 1px solid rgba(255,107,43,0.15);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+.srTopName {
+  font-weight: 700;
+  color: var(--text1, #f0f4ff);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.srTopScore {
+  font-weight: 900;
+  font-size: 14px;
+}
+@media (max-width: 480px) {
+  .sessionRingCard { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .srRingWrap { width: 100%; justify-content: center; }
+  .srAvgNum { font-size: 32px; }
+}
 
 /* Card: remove legacy blue left-border accent, unified border */
 .card{
