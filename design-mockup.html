@@ -375,50 +375,125 @@ html, body {
 }
 .filter-chip:hover, .filter-chip.active { border-color: var(--orange); color: var(--orange); background: var(--orange-dim); }
 
-.player-list { display: flex; flex-direction: column; gap: 8px; }
+/* ── Player Cards ────────────────────────────────────────────────────── */
+.player-list { display: flex; flex-direction: column; gap: 10px; }
+
 .player-row {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 20px;
-  display: flex; align-items: center; gap: 16px;
+  border-radius: 16px;
+  padding: 14px 18px 14px 16px;
+  display: flex; align-items: center; gap: 14px;
   cursor: pointer;
-  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(.4,0,.2,1);
 }
-.player-row:hover { border-color: var(--border-accent); background: var(--card2); }
+.player-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 16px 0 0 16px;
+  background: var(--row-accent, var(--border));
+  transition: opacity 0.2s;
+}
+.player-row:hover {
+  border-color: rgba(255,255,255,0.12);
+  background: var(--card2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+}
+.player-row:hover::before { opacity: 1; }
 
-.player-num {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: var(--bg3);
+/* Avatar */
+.player-avatar {
+  width: 48px; height: 48px;
+  border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: var(--text2);
+  font-size: 15px; font-weight: 900; color: #fff;
   flex-shrink: 0;
+  position: relative;
+  letter-spacing: -0.5px;
 }
+.player-avatar .jersey-badge {
+  position: absolute;
+  bottom: -3px; right: -5px;
+  background: var(--bg2);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  font-size: 9px; font-weight: 800;
+  color: var(--text2);
+  padding: 1px 4px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Identity */
 .player-info { flex: 1; min-width: 0; }
-.player-name { font-size: 14px; font-weight: 600; color: var(--text1); }
-.player-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.player-name {
+  font-size: 14px; font-weight: 700; color: var(--text1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+.player-meta { font-size: 11px; color: var(--text3); margin-top: 3px; font-weight: 500; }
+
+/* Position badge */
 .player-pos {
-  padding: 3px 9px; border-radius: 6px;
-  font-size: 11px; font-weight: 700;
-  background: var(--navy); color: #6eb3f7;
+  padding: 4px 10px; border-radius: 8px;
+  font-size: 10px; font-weight: 800;
+  letter-spacing: .5px;
   flex-shrink: 0;
+  text-transform: uppercase;
 }
-.player-score-ring { flex-shrink: 0; }
 
-.player-metrics { display: flex; gap: 20px; flex-shrink: 0; }
-.pm-item { text-align: center; }
-.pm-val { font-size: 16px; font-weight: 800; color: var(--text1); letter-spacing: -.5px; }
-.pm-lab { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); }
-
-.score-pill {
-  padding: 6px 14px; border-radius: 20px;
-  font-size: 15px; font-weight: 800;
-  flex-shrink: 0;
+/* Category mini bars */
+.player-metrics { display: flex; gap: 14px; flex-shrink: 0; align-items: center; }
+.pm-item { text-align: center; min-width: 38px; }
+.pm-val {
+  font-size: 15px; font-weight: 800; color: var(--text1);
+  letter-spacing: -.5px; line-height: 1;
 }
-.score-great { background: rgba(34,197,94,.15); color: var(--green); }
-.score-good  { background: rgba(15,184,201,.15); color: var(--teal); }
-.score-avg   { background: rgba(245,158,11,.15); color: var(--yellow); }
-.score-low   { background: rgba(239,68,68,.15); color: var(--red); }
+.pm-bar-track {
+  height: 3px; background: var(--bg3); border-radius: 2px;
+  margin-top: 4px; overflow: hidden;
+}
+.pm-bar-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--bar-color, var(--orange)), var(--bar-end, #ff9a5c));
+  transition: width 0.4s ease;
+}
+.pm-lab { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); margin-top: 3px; }
+
+/* Overall score */
+.player-overall {
+  display: flex; flex-direction: column; align-items: center;
+  flex-shrink: 0; min-width: 48px;
+}
+.po-num {
+  font-size: 22px; font-weight: 900; letter-spacing: -1px; line-height: 1;
+}
+.po-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text3); margin-top: 3px;
+}
+
+/* Score colours */
+.score-great { color: var(--green); }
+.score-good  { color: var(--teal); }
+.score-avg   { color: var(--yellow); }
+.score-low   { color: var(--red); }
+
+/* Position colour themes */
+.pos-fwd  { background: rgba(255,107,43,.15); color: #ff8c55; --row-accent: #ff6b2b; }
+.pos-def  { background: rgba(99,102,241,.15); color: #a5b4fc; --row-accent: #6366f1; }
+.pos-gtl  { background: rgba(245,158,11,.15); color: var(--yellow); --row-accent: #f59e0b; }
+.pos-other{ background: var(--bg3); color: var(--text2); --row-accent: var(--border); }
+
+.avatar-fwd  { background: linear-gradient(135deg, #ff6b2b, #ff9a5c); }
+.avatar-def  { background: linear-gradient(135deg, #3730a3, #6366f1); }
+.avatar-gtl  { background: linear-gradient(135deg, #92400e, #f59e0b); }
+.avatar-other{ background: linear-gradient(135deg, #1e3a5f, #334e7a); }
 
 /* ── Scoring Screen ──────────────────────────────────────────────────── */
 .scoring-layout {
@@ -602,7 +677,10 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
   .roster-controls { flex-wrap: wrap; gap: 8px; }
   .search-box { max-width: 100%; width: 100%; }
   .player-metrics { display: none; }
-  .player-row { gap: 10px; padding: 14px 14px; }
+  .player-row { gap: 10px; padding: 12px 12px 12px 14px; }
+  .player-avatar { width: 42px; height: 42px; font-size: 13px; border-radius: 12px; }
+  .player-overall { min-width: 40px; }
+  .po-num { font-size: 18px; }
 
   /* Scoring */
   .scoring-layout { grid-template-columns: 1fr; }
@@ -1380,109 +1458,216 @@ circle.fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1
         </div>
       </div>
 
-      <div class="player-list">
-        <!-- Header -->
-        <div style="display:flex;align-items:center;gap:16px;padding:0 20px 8px;color:var(--text3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px">
-          <div style="width:36px"></div>
-          <div style="flex:1">Player</div>
-          <div style="min-width:60px;text-align:center">Pos</div>
-          <div style="width:180px;display:flex;gap:20px">
-            <span style="flex:1;text-align:center">Skating</span>
-            <span style="flex:1;text-align:center">Skills</span>
-            <span style="flex:1;text-align:center">IQ</span>
-          </div>
-          <div style="min-width:60px;text-align:center">Overall</div>
+      <!-- Column headers -->
+      <div style="display:flex;align-items:center;gap:14px;padding:0 18px 10px 16px;color:var(--text3);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;">
+        <div style="width:48px;flex-shrink:0"></div>
+        <div style="flex:1">Player</div>
+        <div style="width:52px;text-align:center;flex-shrink:0;">Pos</div>
+        <div style="display:flex;gap:14px;flex-shrink:0;">
+          <div style="min-width:38px;text-align:center;">Skate</div>
+          <div style="min-width:38px;text-align:center;">Skills</div>
+          <div style="min-width:38px;text-align:center;">IQ</div>
         </div>
+        <div style="min-width:48px;text-align:center;flex-shrink:0;">Overall</div>
+      </div>
 
-        <!-- Players -->
-        <div class="player-row" onclick="switchTab('profile',null)">
-          <div class="player-num" style="background:var(--orange-dim);color:var(--orange);font-weight:800;">9</div>
+      <div class="player-list">
+        <!-- Connor MacDonald — FWD #9 — Elite -->
+        <div class="player-row" style="--row-accent:#ff6b2b;" onclick="switchTab('profile',null)">
+          <div class="player-avatar avatar-fwd">
+            CM<span class="jersey-badge">#9</span>
+          </div>
           <div class="player-info">
             <div class="player-name">Connor MacDonald</div>
-            <div class="player-meta">2011 · Right Shot · 5'10"</div>
+            <div class="player-meta">2011 · Right Shot · 5'10" · U15 Rep</div>
           </div>
-          <div class="player-pos">FWD</div>
+          <div class="player-pos pos-fwd">FWD</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">4.4</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">4.1</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">4.5</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item">
+              <div class="pm-val">4.4</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:88%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">Skate</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">4.1</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:82%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">Skills</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">4.5</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:90%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">IQ</div>
+            </div>
           </div>
-          <div class="score-pill score-great">4.5</div>
+          <div class="player-overall">
+            <div class="po-num score-great">4.5</div>
+            <div class="po-label">Overall</div>
+          </div>
         </div>
 
-        <div class="player-row" onclick="switchTab('profile',null)">
-          <div class="player-num">27</div>
-          <div class="player-info">
-            <div class="player-name">Liam Tremblay</div>
-            <div class="player-meta">2011 · Left Shot · 5'8"</div>
+        <!-- Alexei Volkov — FWD #88 — Great -->
+        <div class="player-row" style="--row-accent:#ff6b2b;" onclick="switchTab('profile',null)">
+          <div class="player-avatar avatar-fwd">
+            AV<span class="jersey-badge">#88</span>
           </div>
-          <div class="player-pos">DEF</div>
-          <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">3.8</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">3.9</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">4.1</div><div class="pm-lab">IQ</div></div>
-          </div>
-          <div class="score-pill score-good">3.9</div>
-        </div>
-
-        <div class="player-row" onclick="switchTab('profile',null)">
-          <div class="player-num">44</div>
-          <div class="player-info">
-            <div class="player-name">Ethan Nguyen</div>
-            <div class="player-meta">2012 · Left Shot · 5'6"</div>
-          </div>
-          <div class="player-pos">FWD</div>
-          <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">3.5</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">3.6</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">3.4</div><div class="pm-lab">IQ</div></div>
-          </div>
-          <div class="score-pill score-good">3.5</div>
-        </div>
-
-        <div class="player-row">
-          <div class="player-num">1</div>
-          <div class="player-info">
-            <div class="player-name">Jake Morrison</div>
-            <div class="player-meta">2011 · Catches Left · 5'9"</div>
-          </div>
-          <div class="player-pos" style="background:rgba(245,158,11,.15);color:var(--yellow);">GTL</div>
-          <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">3.2</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">4.0</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">3.8</div><div class="pm-lab">IQ</div></div>
-          </div>
-          <div class="score-pill score-avg">3.4</div>
-        </div>
-
-        <div class="player-row">
-          <div class="player-num">15</div>
-          <div class="player-info">
-            <div class="player-name">Ryan Kowalski</div>
-            <div class="player-meta">2012 · Right Shot · 5'5"</div>
-          </div>
-          <div class="player-pos">DEF</div>
-          <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">2.9</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">3.0</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">3.1</div><div class="pm-lab">IQ</div></div>
-          </div>
-          <div class="score-pill score-low">2.9</div>
-        </div>
-
-        <div class="player-row">
-          <div class="player-num">88</div>
           <div class="player-info">
             <div class="player-name">Alexei Volkov</div>
-            <div class="player-meta">2011 · Left Shot · 6'0"</div>
+            <div class="player-meta">2011 · Left Shot · 6'0" · U15 Rep</div>
           </div>
-          <div class="player-pos">FWD</div>
+          <div class="player-pos pos-fwd">FWD</div>
           <div class="player-metrics">
-            <div class="pm-item"><div class="pm-val">4.1</div><div class="pm-lab">Skate</div></div>
-            <div class="pm-item"><div class="pm-val">4.3</div><div class="pm-lab">Skills</div></div>
-            <div class="pm-item"><div class="pm-val">4.0</div><div class="pm-lab">IQ</div></div>
+            <div class="pm-item">
+              <div class="pm-val">4.1</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:82%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">Skate</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">4.3</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:86%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">Skills</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">4.0</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:80%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">IQ</div>
+            </div>
           </div>
-          <div class="score-pill score-great">4.1</div>
+          <div class="player-overall">
+            <div class="po-num score-great">4.1</div>
+            <div class="po-label">Overall</div>
+          </div>
+        </div>
+
+        <!-- Liam Tremblay — DEF #27 — Good -->
+        <div class="player-row" style="--row-accent:#6366f1;" onclick="switchTab('profile',null)">
+          <div class="player-avatar avatar-def">
+            LT<span class="jersey-badge">#27</span>
+          </div>
+          <div class="player-info">
+            <div class="player-name">Liam Tremblay</div>
+            <div class="player-meta">2011 · Left Shot · 5'8" · U15 Rep</div>
+          </div>
+          <div class="player-pos pos-def">DEF</div>
+          <div class="player-metrics">
+            <div class="pm-item">
+              <div class="pm-val">3.8</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:76%;--bar-color:#6366f1;--bar-end:#a5b4fc;"></div></div>
+              <div class="pm-lab">Skate</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">3.9</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:78%;--bar-color:#6366f1;--bar-end:#a5b4fc;"></div></div>
+              <div class="pm-lab">Skills</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">4.1</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:82%;--bar-color:#6366f1;--bar-end:#a5b4fc;"></div></div>
+              <div class="pm-lab">IQ</div>
+            </div>
+          </div>
+          <div class="player-overall">
+            <div class="po-num score-good">3.9</div>
+            <div class="po-label">Overall</div>
+          </div>
+        </div>
+
+        <!-- Ethan Nguyen — FWD #44 — Good -->
+        <div class="player-row" style="--row-accent:#ff6b2b;" onclick="switchTab('profile',null)">
+          <div class="player-avatar avatar-fwd">
+            EN<span class="jersey-badge">#44</span>
+          </div>
+          <div class="player-info">
+            <div class="player-name">Ethan Nguyen</div>
+            <div class="player-meta">2012 · Left Shot · 5'6" · U15 Rep</div>
+          </div>
+          <div class="player-pos pos-fwd">FWD</div>
+          <div class="player-metrics">
+            <div class="pm-item">
+              <div class="pm-val">3.5</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:70%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">Skate</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">3.6</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:72%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">Skills</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">3.4</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:68%;--bar-color:#ff6b2b;--bar-end:#ff9a5c;"></div></div>
+              <div class="pm-lab">IQ</div>
+            </div>
+          </div>
+          <div class="player-overall">
+            <div class="po-num score-good">3.5</div>
+            <div class="po-label">Overall</div>
+          </div>
+        </div>
+
+        <!-- Jake Morrison — GTL #1 — Average -->
+        <div class="player-row" style="--row-accent:#f59e0b;">
+          <div class="player-avatar avatar-gtl">
+            JM<span class="jersey-badge">#1</span>
+          </div>
+          <div class="player-info">
+            <div class="player-name">Jake Morrison</div>
+            <div class="player-meta">2011 · Catches Left · 5'9" · U15 Rep</div>
+          </div>
+          <div class="player-pos pos-gtl">GTL</div>
+          <div class="player-metrics">
+            <div class="pm-item">
+              <div class="pm-val">3.2</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:64%;--bar-color:#f59e0b;--bar-end:#fcd34d;"></div></div>
+              <div class="pm-lab">Skate</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">4.0</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:80%;--bar-color:#f59e0b;--bar-end:#fcd34d;"></div></div>
+              <div class="pm-lab">Skills</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">3.8</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:76%;--bar-color:#f59e0b;--bar-end:#fcd34d;"></div></div>
+              <div class="pm-lab">IQ</div>
+            </div>
+          </div>
+          <div class="player-overall">
+            <div class="po-num score-avg">3.4</div>
+            <div class="po-label">Overall</div>
+          </div>
+        </div>
+
+        <!-- Ryan Kowalski — DEF #15 — Developing -->
+        <div class="player-row" style="--row-accent:#6366f1;">
+          <div class="player-avatar avatar-def">
+            RK<span class="jersey-badge">#15</span>
+          </div>
+          <div class="player-info">
+            <div class="player-name">Ryan Kowalski</div>
+            <div class="player-meta">2012 · Right Shot · 5'5" · U15 Rep</div>
+          </div>
+          <div class="player-pos pos-def">DEF</div>
+          <div class="player-metrics">
+            <div class="pm-item">
+              <div class="pm-val">2.9</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:58%;--bar-color:#ef4444;--bar-end:#f87171;"></div></div>
+              <div class="pm-lab">Skate</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">3.0</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:60%;--bar-color:#ef4444;--bar-end:#f87171;"></div></div>
+              <div class="pm-lab">Skills</div>
+            </div>
+            <div class="pm-item">
+              <div class="pm-val">3.1</div>
+              <div class="pm-bar-track"><div class="pm-bar-fill" style="width:62%;--bar-color:#ef4444;--bar-end:#f87171;"></div></div>
+              <div class="pm-lab">IQ</div>
+            </div>
+          </div>
+          <div class="player-overall">
+            <div class="po-num score-low">2.9</div>
+            <div class="po-label">Overall</div>
+          </div>
         </div>
       </div>
     </div>
