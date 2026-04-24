@@ -162,9 +162,9 @@
       border-color: transparent;
     }
     [data-theme="dark"] .floatingBackBtn{
-      background: #0099cc;
-      color: #fff;
-      border-color: #0080aa;
+      background: #1a3050;
+      color: #c8d8f0;
+      border-color: #2a4a70;
     }
     [data-theme="dark"] button.pdfBtn{
       background:#1f3b5a;
@@ -267,10 +267,10 @@
       padding:10px 14px;
       border-radius:999px;
       border:1px solid var(--border);
-      background:#00BFFF;
-      color:#fff;
-      border-color:#00a8e0;
-      box-shadow:0 10px 26px rgba(10,30,61,0.28);
+      background:#1a3050;
+      color:#e8f0fe;
+      border-color:#2a4a70;
+      box-shadow:0 10px 26px rgba(0,0,0,0.30);
       z-index:12000;
     }
     .floatingBackBtn{
@@ -285,11 +285,11 @@
       color:var(--btnText);
     }
     .floatingBackBtn:hover{
-      background:#00BFFF;
+      background:#22406a;
       transform:translateY(-1px);
     }
     .floatingBackBtn:active{
-      background:#00a8e0;
+      background:#1a3050;
       color:#fff;
     }
     .floatingBackBtn.dragging{
@@ -814,7 +814,7 @@
       object-fit:contain;
       flex-shrink:0;
       border-radius:6px;
-      filter:drop-shadow(0 1px 4px rgba(0,160,255,0.35));
+      filter:drop-shadow(0 1px 4px rgba(255,107,43,0.20));
       image-rendering:crisp-edges;
       image-rendering:-webkit-optimize-contrast;
     }
@@ -2230,7 +2230,7 @@
     .summaryCardIcon{font-size:22px;margin-bottom:4px;line-height:1;}
     .summaryCardValue{font-size:1.55rem;font-weight:900;color:#0a1e3d;line-height:1.1;letter-spacing:-0.02em;}
     .summaryCardLabel{font-size:10px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;}
-    .summaryCard.sc-blue .summaryCardIcon{filter:drop-shadow(0 0 4px #0057b840);}
+    .summaryCard.sc-blue .summaryCardIcon{filter:drop-shadow(0 0 4px rgba(255,107,43,0.25));}
     .summaryCard.sc-blue .summaryCardValue{color:#ff6b2b;}
     .summaryCard.sc-teal .summaryCardValue{color:#0d9488;}
     .summaryCard.sc-gold .summaryCardValue{color:#b45309;font-size:1.1rem;}
@@ -2318,7 +2318,7 @@
       border:none;color:#fff;font-size:17px;font-weight:900;cursor:pointer;
       transition:background 0.15s;
     }
-    .liveAssessSaveBtn:hover{background:#0047a0;}
+    .liveAssessSaveBtn:hover{background:#e85a1f;}
     .liveAssessNextBtn{
       flex:1;padding:16px;border-radius:14px;background:rgba(255,255,255,0.08);
       border:1px solid rgba(255,255,255,0.18);color:#fff;font-size:17px;font-weight:800;cursor:pointer;
@@ -4884,11 +4884,11 @@
 
     /* ── Floating back button glow ───────────────────────────── */
     .floatingBackBtn{
-      background:linear-gradient(135deg,#00BFFF,#0099cc)!important;
-      box-shadow:0 8px 24px rgba(0,153,204,0.40)!important;
+      background:linear-gradient(135deg,#1a3050,#22406a)!important;
+      box-shadow:0 8px 24px rgba(0,0,0,0.40)!important;
     }
     .floatingBackBtn:hover{
-      box-shadow:0 12px 32px rgba(0,153,204,0.55)!important;
+      box-shadow:0 12px 32px rgba(0,0,0,0.55)!important;
       transform:translateY(-2px)!important;
     }
     .floatingHomeBtn{
@@ -12189,7 +12189,7 @@ function renderOnboardingWizard(){
         <div style="color:#64748b;font-size:15px;">You're all set up. Choose how you'd like to get started:</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:14px;">
-        <div onclick="startCreateSeason()" style="background:#fff;border:2px solid #e2e8f0;border-radius:14px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='#0057b8'" onmouseout="this.style.borderColor='#e2e8f0'">
+        <div onclick="startCreateSeason()" style="background:#fff;border:2px solid #e2e8f0;border-radius:14px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:16px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='#ff6b2b'" onmouseout="this.style.borderColor='#e2e8f0'">
           <div style="font-size:32px;">🏟️</div>
           <div>
             <div style="font-weight:900;font-size:15px;color:#0a1e3d;">Team Hub</div>
@@ -15556,14 +15556,14 @@ function _renderFreshTB(){
           <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:10px;">Sort Method</div>
           <div style="display:flex;flex-direction:column;gap:6px;">
             <label style="display:flex;gap:9px;padding:10px 11px;border:2px solid #e2e8f0;border-radius:9px;cursor:pointer;align-items:flex-start;" id="ftbLabelAvg">
-              <input type="radio" name="ftbSort" value="average" checked onclick="ftbStyleSort()" style="margin-top:2px;accent-color:#0057b8;">
+              <input type="radio" name="ftbSort" value="average" checked onclick="ftbStyleSort()" style="margin-top:2px;accent-color:#ff6b2b;">
               <div>
                 <div style="font-size:12px;font-weight:700;color:#0f172a;">📊 Score Average</div>
                 <div style="font-size:10px;color:#64748b;margin-top:1px;">Balanced by combine score · friend packages kept together</div>
               </div>
             </label>
             <label style="display:flex;gap:9px;padding:10px 11px;border:2px solid #e2e8f0;border-radius:9px;cursor:pointer;align-items:flex-start;" id="ftbLabelSerp">
-              <input type="radio" name="ftbSort" value="serpentine" onclick="ftbStyleSort()" style="margin-top:2px;accent-color:#0057b8;">
+              <input type="radio" name="ftbSort" value="serpentine" onclick="ftbStyleSort()" style="margin-top:2px;accent-color:#ff6b2b;">
               <div>
                 <div style="font-size:12px;font-weight:700;color:#0f172a;">🐍 Serpentine</div>
                 <div style="font-size:10px;color:#64748b;margin-top:1px;">Classic snake draft · alternating pick order 1-2-3-3-2-1</div>
@@ -15655,8 +15655,8 @@ function ftbStyleSort(){
   const avg  = document.getElementById("ftbLabelAvg");
   const serp = document.getElementById("ftbLabelSerp");
   const val  = document.querySelector('input[name="ftbSort"]:checked')?.value || 'average';
-  if(avg)  avg.style.borderColor  = val === 'average'    ? '#0057b8' : '#e2e8f0';
-  if(serp) serp.style.borderColor = val === 'serpentine' ? '#0057b8' : '#e2e8f0';
+  if(avg)  avg.style.borderColor  = val === 'average'    ? '#ff6b2b' : '#e2e8f0';
+  if(serp) serp.style.borderColor = val === 'serpentine' ? '#ff6b2b' : '#e2e8f0';
   if(avg)  avg.style.background   = val === 'average'    ? '#eff6ff' : '#fff';
   if(serp) serp.style.background  = val === 'serpentine' ? '#eff6ff' : '#fff';
 }
@@ -15834,11 +15834,11 @@ function ftbFilterPlayers(){
     const rank = rankMap[p.id];
     const playerPkgs = pkgs.filter(pk=>(pk.playerIds||[]).includes(p.id));
     const pkgBadges  = playerPkgs.map(pk =>
-      `<span style="font-size:9px;font-weight:900;padding:1px 7px;border-radius:999px;color:#fff;background:${pk.highlighted?'#f97316':'#0057b8'};white-space:nowrap;">${escapeHTML(pk.name)}</span>`
+      `<span style="font-size:9px;font-weight:900;padding:1px 7px;border-radius:999px;color:#fff;background:${pk.highlighted?'#f97316':'#334e7a'};white-space:nowrap;">${escapeHTML(pk.name)}</span>`
     ).join("");
 
     const sc = score !== null ? score : null;
-    const scoreColor = sc===null ? '#94a3b8' : sc>=4.2?'#16a34a':sc>=3.2?'#0057b8':sc>=2?'#d97706':'#dc2626';
+    const scoreColor = sc===null ? '#94a3b8' : sc>=4.2?'#16a34a':sc>=3.2?'#ff6b2b':sc>=2?'#d97706':'#dc2626';
     const scoreStr   = sc!==null ? num2(sc) : "—";
     const isG = isSpecialPosition(p.pos, sport);
 
@@ -15959,7 +15959,7 @@ function renderTeamBuilderDashboard(){
       const fpLabel = dashFPLookup.get(pid) || "";
       const explicitPkg = explicitPkgsByPlayerId.get(pid);
       const pkgTag = fpLabel
-        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${explicitPkg?.highlighted ? '#f97316' : '#0057b8'};margin-left:4px;vertical-align:middle;" title="${escapeAttr(explicitPkg?.name || fpLabel)}">${escapeHTML(fpLabel)}</span>`
+        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${explicitPkg?.highlighted ? '#f97316' : '#334e7a'};margin-left:4px;vertical-align:middle;" title="${escapeAttr(explicitPkg?.name || fpLabel)}">${escapeHTML(fpLabel)}</span>`
         : "";
       const overallStr = (det.overall !== null && det.overall !== undefined && Number.isFinite(Number(det.overall))) ? num2(det.overall) : "—";
       const displayName = det.name || playerDisplayName(player) || `#${player.jersey||"?"}`;
@@ -16006,7 +16006,7 @@ function renderTeamBuilderDashboard(){
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
           <button onclick="openImportCSVModal()" style="padding:8px 14px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📂 Import CSV</button>
           <button onclick="exportTeamBuilderCSV(event)" style="padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Export CSV</button>
-          <button onclick="exportTeamBuilderPDF(event)" style="padding:8px 14px;background:#0057b8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📄 Export PDF</button>
+          <button onclick="exportTeamBuilderPDF(event)" style="padding:8px 14px;background:#ff6b2b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📄 Export PDF</button>
           <button onclick="shareTeamBuilderResults(event)" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">🔗 Share Link</button>
           <button onclick="closeTeamBuilderDashboard()" style="padding:8px 14px;background:rgba(220,38,38,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✕ Close</button>
         </div>
@@ -16272,7 +16272,7 @@ function renderFriendPackagesList(){
           <option value="">— Add player to package —</option>
           ${availableOptions}
         </select>
-        <button onclick="addPkgPlayer('${escapeAttr(pkg.id)}')" style="padding:6px 12px;background:#0057b8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">Add</button>
+        <button onclick="addPkgPlayer('${escapeAttr(pkg.id)}')" style="padding:6px 12px;background:#ff6b2b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;">Add</button>
       </div>` : ""}
     </div>`;
   }).join("");
@@ -16417,7 +16417,7 @@ function openImportCSVModal(){
       <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">Accepts <strong>.csv</strong> or <strong>.xlsx</strong> files. Must include a header row with player names. Recognized columns (case-insensitive, typos OK):<br>
         <code style="background:#f1f5f9;padding:2px 4px;border-radius:4px;font-size:11px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild</code><br>
         Unknown columns are ignored.</div>
-      <label style="display:block;border:2px dashed #bfdbfe;border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#0057b8;font-size:14px;margin-bottom:14px;font-weight:700;background:#f0f9ff;transition:border-color 0.15s,background 0.15s;" id="csvFilePickerLabel">
+      <label style="display:block;border:2px dashed rgba(255,107,43,0.35);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#ff6b2b;font-size:14px;margin-bottom:14px;font-weight:700;background:rgba(255,107,43,0.04);transition:border-color 0.15s,background 0.15s;" id="csvFilePickerLabel">
         📁 Tap to select or drag &amp; drop a CSV or Excel file here
         <div style="font-size:11px;font-weight:400;color:#64748b;margin-top:4px;">Works on phone or desktop · .csv and .xlsx supported</div>
         <input type="file" accept=".csv,.xlsx,text/csv" onchange="handleCSVImport(event)" style="display:none;">
@@ -16851,7 +16851,7 @@ function exportTeamBuilderPDF(ev){
       return `
         <tr>
           <td>${escapeHTML(playerDisplayName(player))}</td>
-          <td style="text-align:center;font-weight:700;color:${fpLabel ? '#0057b8' : 'inherit'};">${escapeHTML(fpLabel || "—")}</td>
+          <td style="text-align:center;font-weight:700;color:${fpLabel ? '#ff6b2b' : 'inherit'};">${escapeHTML(fpLabel || "—")}</td>
           <td>${escapeHTML(position)}</td>
           <td>${escapeHTML(detail.role || teamBuilderRoleLabelFromPosition(position, sport))}</td>
           <td>${escapeHTML(gender)}</td>
@@ -23624,7 +23624,7 @@ function buildHubTimelineHTML(season, seasonTryouts, events){
   // Merge events and assessments into one sorted list
   const items = [];
   (events||[]).forEach(ev => {
-    items.push({ type:"event", date: ev.date||"", time: ev.startTime||"", label: ev.title||ev.type||"Event", sub: ev.location||"", color:"#0057b8", icon:"📅", id: ev.id });
+    items.push({ type:"event", date: ev.date||"", time: ev.startTime||"", label: ev.title||ev.type||"Event", sub: ev.location||"", color:"#334e7a", icon:"📅", id: ev.id });
   });
   (seasonTryouts||[]).forEach(t => {
     items.push({ type:"assessment", date: t.date||"", time: t.startTime||"", label: t.name||"Assessment", sub: assessmentStatusBadge(t).replace(/<[^>]+>/g,"").trim(), color:"#f97316", icon:"📋", id: t.id });
