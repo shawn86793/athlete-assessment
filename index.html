@@ -7,7 +7,8 @@
   <meta name="description" content="The all-in-one platform for athlete tryouts and assessments. Evaluate players with customizable rubrics, QR code registration, cloud sync, and detailed reporting." />
   <meta name="application-name" content="Athlete Assessment Systems" />
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#0A1E3D" />
+  <meta name="theme-color" content="#070d1a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f0f4fa" media="(prefers-color-scheme: light)" />
   <meta property="og:title" content="Athlete Assessment Systems" />
   <meta property="og:description" content="The all-in-one platform for athlete tryouts and assessments. Evaluate players with customizable rubrics, QR code registration, cloud sync, and detailed reporting." />
   <meta property="og:type" content="website" />
@@ -25,18 +26,21 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" /></noscript>
 
-  <!-- Dark mode anti-flash: applied before any rendering -->
+  <!-- Dark mode anti-flash: applied synchronously before first paint -->
   <script>
     (function(){
-      let saved = null;
-      try{
-        saved = localStorage.getItem("aasDarkMode");
-      } catch{
-        saved = null;
-      }
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      if(saved === "dark" || (saved === null && prefersDark)){
+      var saved = null;
+      try{ saved = localStorage.getItem("aasDarkMode"); } catch(e){}
+      var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var isDark = saved === "dark" || (saved === null && prefersDark);
+      if(isDark){
         document.documentElement.setAttribute("data-theme","dark");
+        /* Lock background immediately so no white flash on load/refresh */
+        document.documentElement.style.background = "#070d1a";
+        document.documentElement.style.colorScheme = "dark";
+      } else {
+        document.documentElement.style.background = "#f0f4fa";
+        document.documentElement.style.colorScheme = "light";
       }
     })();
   </script>
@@ -11910,45 +11914,7 @@ function renderHome(){
   const showSuperAdmin = isSuperAdminEligible(userEmail);
   queueSuperAdminEligibilityCheck(userEmail);
   const now = Date.now();
-  let orgAvailabilityHTML = "";
-  if(limits.canOrgAvailabilityDashboard){
-    let yes = 0;
-    let maybe = 0;
-    let no = 0;
-    let respondedEvents = 0;
-    for(const season of allSeasons){
-      const roster = Array.isArray(season?.roster) ? season.roster : [];
-      const events = Array.isArray(season?.events) ? season.events : [];
-      for(const ev of events){
-        let eventHasResponse = false;
-        for(const player of roster){
-          const playerId = String(player?.id || "").trim();
-          if(!playerId) continue;
-          const value = getEventAvailabilityValue(ev, playerId);
-          if(value === "yes"){ yes++; eventHasResponse = true; }
-          else if(value === "maybe"){ maybe++; eventHasResponse = true; }
-          else if(value === "no"){ no++; eventHasResponse = true; }
-        }
-        if(eventHasResponse) respondedEvents++;
-      }
-    }
-    const totalResponses = yes + maybe + no;
-    orgAvailabilityHTML = `
-      <div class="card" style="margin-bottom:12px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-          <h3 style="margin:0;">Organization Availability</h3>
-          <div class="tiny">${allSeasons.length} team${allSeasons.length === 1 ? "" : "s"}</div>
-        </div>
-        <div class="tiny" style="margin-top:6px;">Live availability responses across all teams and events in this organization account.</div>
-        <div class="availabilitySummary" style="margin-top:10px;">
-          <span class="availabilityYes">Yes ${yes}</span>
-          <span class="availabilityMaybe">? ${maybe}</span>
-          <span class="availabilityNo">No ${no}</span>
-        </div>
-        <div class="tiny" style="margin-top:6px;">${totalResponses} total responses across ${respondedEvents} event${respondedEvents === 1 ? "" : "s"}.</div>
-      </div>
-    `;
-  }
+  /* Organization Availability card removed — not shown on dashboard */
 
   // Find orphaned teams (in DB.teams but with no corresponding season), excluding deleted
   const seasonTeamIds = new Set(allSeasons.map(s => s.teamId).filter(Boolean));
@@ -12086,7 +12052,6 @@ function renderHome(){
         <button class="small danger" style="width:auto;padding:8px 16px;" onclick="logoutAuth()">Sign Out</button>
       </div>
     </div>
-  ${orgAvailabilityHTML}
     ${_dashSummaryHTML}
     ${showOnboarding ? `<div id="homeOnboardingMount"></div>` : ``}
 
