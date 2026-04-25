@@ -16012,7 +16012,7 @@ function renderRoster(){
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <h3 style="margin:0;">Player List</h3>
             ${canManage && t.roster.length > 0 ? `
-              <button class="secondary small" style="padding:4px 12px;font-size:12px;border-color:#dc2626;color:#dc2626;" onclick="toggleRosterSelectMode()">
+              <button class="secondary small" style="padding:4px 12px;font-size:12px;border-color:#dc2626;color:#dc2626;background:var(--card);" onclick="toggleRosterSelectMode()">
                 ${rosterSelectMode ? "✕ Cancel" : "🗑 Select to Delete"}
               </button>
             ` : ``}
