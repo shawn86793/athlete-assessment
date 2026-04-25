@@ -9,7 +9,14 @@ describe('Authentication', () => {
   })
 
   it('shows the login screen when not signed in', () => {
-    cy.visit('/')
+    // Clear the live site's localStorage here (beforeEach clears the wrong
+    // origin — about:blank — because the AUT hasn't navigated yet).
+    cy.visit('/', {
+      onBeforeLoad(win) {
+        win.localStorage.clear()
+        win.sessionStorage.clear()
+      },
+    })
     cy.get('[data-netlify-identity-button], .netlify-identity-button, button', { timeout: 8000 })
       .should('exist')
     cy.get('#homeScreen, #mainContent, .homeContainer', { timeout: 5000 })

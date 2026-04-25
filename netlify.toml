@@ -21,6 +21,20 @@ NPM_FLAGS = "--include=dev"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
+# HTML pages must never be served stale by CDN nodes.
+# s-maxage=0 tells shared/edge caches to always revalidate with origin;
+# max-age=0,must-revalidate tells browsers to revalidate too.
+# This ensures a Netlify deploy reaches every visitor immediately.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, s-maxage=0, must-revalidate"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, s-maxage=0, must-revalidate"
+
 [[redirects]]
   from   = "/api/seasons/:seasonId/calendar.ics"
   to     = "/.netlify/functions/season-calendar"

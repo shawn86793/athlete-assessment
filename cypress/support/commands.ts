@@ -120,6 +120,14 @@ function mountSession(email: string, session: any) {
     onBeforeLoad(win: Cypress.AUTWindow) {
       const w = win as any
 
+      // ── 0. Wipe any stale data from previous test runs ────────────────
+      // cy.clearLocalStorage() runs before cy.visit() (in beforeEach), but at
+      // that point the AUT frame is still at about:blank — the wrong origin.
+      // Clearing here, inside onBeforeLoad, guarantees we're wiping the live
+      // site's localStorage before a single line of app JS has executed.
+      win.localStorage.clear()
+      win.sessionStorage.clear()
+
       // ── 1. Pre-load session ────────────────────────────────────────────
       win.localStorage.setItem('gotrue-session', JSON.stringify(session))
 
