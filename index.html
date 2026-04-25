@@ -16595,18 +16595,21 @@ function _renderFreshTB(){
         </div>
 
         <!-- Friend Packages -->
-        <div style="flex:1;display:flex;flex-direction:column;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <!-- min-height:0 is required so this flex child doesn't overflow the
+             parent column: without it the child's intrinsic height escapes the
+             bounded container and the ftbPkgList scroll never activates. -->
+        <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;">
             <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">🤝 Friend Packages</div>
-            <button onclick="ftbAddPkg()" style="font-size:11px;padding:3px 10px;background:#0a1e3d;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:900;">+ Add</button>
+            <button onclick="ftbAddPkg()" id="ftbAddPkgBtn" style="font-size:11px;padding:3px 10px;background:#0a1e3d;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:900;">+ Add</button>
           </div>
           <!-- Package search -->
-          <div style="position:relative;margin-bottom:8px;">
+          <div style="position:relative;margin-bottom:8px;flex-shrink:0;">
             <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;color:#94a3b8;">🔍</span>
             <input id="ftbPkgSearch" type="text" placeholder="Search packages…" oninput="ftbRenderPkgs()"
               style="width:100%;padding:6px 8px 6px 26px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#0f172a;box-sizing:border-box;">
           </div>
-          <div id="ftbPkgList" style="flex:1;overflow-y:auto;"></div>
+          <div id="ftbPkgList" style="flex:1;min-height:0;overflow-y:auto;"></div>
         </div>
 
       </div><!-- /left -->
@@ -16694,6 +16697,17 @@ function ftbRenderPkgs(){
   const state = window._ftb || {};
   const q = (document.getElementById("ftbPkgSearch")?.value || "").trim().toLowerCase();
 
+  // Update Add button state and count badge
+  const addBtn = document.getElementById("ftbAddPkgBtn");
+  if(addBtn){
+    const atLimit = pkgs.length >= 100;
+    addBtn.disabled = atLimit;
+    addBtn.style.background  = atLimit ? "#94a3b8" : "#0a1e3d";
+    addBtn.style.cursor      = atLimit ? "not-allowed" : "pointer";
+    addBtn.title = atLimit ? "Maximum 100 packages reached" : "Add a new friend package";
+    addBtn.textContent = `+ Add (${pkgs.length}/100)`;
+  }
+
   const visible = q ? pkgs.filter(pk => pk.name.toLowerCase().includes(q)) : pkgs;
 
   if(!visible.length){
@@ -16742,7 +16756,7 @@ function ftbAddPkg(){
   const t = getTryout();
   if(!t) return;
   if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
-  if(t.friendPackages.length >= 50) return showActionBanner("Maximum 50 packages.","error");
+  if(t.friendPackages.length >= 100) return showActionBanner("Maximum 100 packages.","error");
   t.friendPackages.push({id:uid(), name:`Package ${t.friendPackages.length+1}`, playerIds:[], highlighted:false});
   touchTryout(t); saveDB();
   if(authState.user) dbSaveTryout(t.id);
@@ -17304,13 +17318,13 @@ function renderFriendPackagesList(){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
         <div>
           <h3 style="margin:0;font-size:18px;color:#0a1e3d;">🤝 Friend Packages</h3>
-          <div style="font-size:12px;color:#64748b;margin-top:3px;">${pkgs.length}/50 packages &nbsp;·&nbsp; Groups stay together when building teams</div>
+          <div style="font-size:12px;color:#64748b;margin-top:3px;">${pkgs.length}/100 packages &nbsp;·&nbsp; Groups stay together when building teams</div>
         </div>
         <button onclick="closeFriendPackagesPanel()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#64748b;line-height:1;">✕</button>
       </div>
       ${pkgs.length === 0 ? '<div style="text-align:center;padding:36px 20px;color:#94a3b8;font-size:14px;">No packages yet.<br>Click <strong>+ Add Package</strong> to create your first group.</div>' : pkgsHTML}
       <div style="margin-top:14px;border-top:1px solid #e2e8f0;padding-top:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <button onclick="addPkg()" ${pkgs.length >= 50 ? "disabled" : ""} style="padding:10px 20px;background:${pkgs.length >= 50 ? '#94a3b8' : '#0a1e3d'};color:#fff;border:none;border-radius:9px;cursor:${pkgs.length >= 50 ? 'not-allowed' : 'pointer'};font-weight:700;font-size:14px;">+ Add Package</button>
+        <button onclick="addPkg()" ${pkgs.length >= 100 ? "disabled" : ""} style="padding:10px 20px;background:${pkgs.length >= 100 ? '#94a3b8' : '#0a1e3d'};color:#fff;border:none;border-radius:9px;cursor:${pkgs.length >= 100 ? 'not-allowed' : 'pointer'};font-weight:700;font-size:14px;">+ Add Package</button>
         <button onclick="closeFriendPackagesPanel()" style="padding:10px 20px;border:1px solid #e2e8f0;border-radius:9px;background:#f8fafc;cursor:pointer;font-size:14px;">Done</button>
       </div>
     </div>
@@ -17321,7 +17335,7 @@ function addPkg(){
   const t = getTryout();
   if(!t) return;
   if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
-  if(t.friendPackages.length >= 50) return showActionBanner("Maximum 50 packages allowed.", "error");
+  if(t.friendPackages.length >= 100) return showActionBanner("Maximum 100 packages allowed.", "error");
   t.friendPackages.push({ id: uid(), name: `Package ${t.friendPackages.length + 1}`, playerIds: [], highlighted: false });
   touchTryout(t); saveDB();
   if(authState.user) dbSaveTryout(t.id);
