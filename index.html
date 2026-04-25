@@ -11297,6 +11297,7 @@ function render(){
   else if(currentView==="home") renderHome();
   else if(currentView==="roster") renderRoster();
   else if(currentView==="registrations") renderRegistrations();
+  else if(currentView==="regHub") renderRegistrationHub();
   else if(currentView==="rosterLibrary") renderRosterLibrary();
   else if(currentView==="player") renderPlayerHub();
   else if(currentView==="editPlayer") renderEditPlayer();
@@ -13873,7 +13874,8 @@ function renderRegistrations(){
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="secondary small" onclick="refreshRegistrations()" id="regRefreshBtn">Refresh</button>
-          <button class="secondary small" onclick="exportRegistrationsCsv()">Export to CSV</button>
+          <button class="secondary small" onclick="exportRegistrationsCsv()">Export CSV</button>
+          <button class="ok small" onclick="go('regHub')">📊 Registration Hub</button>
         </div>
       </div>
       <div class="divider"></div>
@@ -14339,6 +14341,859 @@ function exportRegistrationsCsv(){
   const filename = `${eventName.replace(/[^a-zA-Z0-9_\- ]/g,"_")}_registrations.csv`;
   downloadBlob(filename, blob, "text/csv");
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   REGISTRATION HUB  ─  Age-group management, professional reports & exports
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// ── Hub state ─────────────────────────────────────────────────────────────
+var regHubTab = "overview";
+var regHubSearch = "";
+var regHubFilterGroup = "";
+var regHubFilterPos = "";
+var regHubSortField = "name";
+var regHubSortDir = 1;
+var _regHubTempGroups = null; // working copy for settings tab
+
+// ── Age-group helpers ─────────────────────────────────────────────────────
+
+/** Return age groups saved on tryout, or sensible sport-aware defaults */
+function getAgeGroups(t){
+  if(Array.isArray(t?.ageGroups) && t.ageGroups.length) return t.ageGroups;
+  const yr = new Date().getFullYear();
+  return [
+    { key:"u9",  label:"U9",       minYob: yr-9,  maxYob: yr-8,  color:"#22c55e", capacity:0 },
+    { key:"u11", label:"U11",      minYob: yr-11, maxYob: yr-10, color:"#0d9488", capacity:0 },
+    { key:"u13", label:"U13",      minYob: yr-13, maxYob: yr-12, color:"#6366f1", capacity:0 },
+    { key:"u15", label:"U15",      minYob: yr-15, maxYob: yr-14, color:"#ff6b2b", capacity:0 },
+    { key:"u17", label:"U17",      minYob: yr-17, maxYob: yr-16, color:"#f59e0b", capacity:0 },
+    { key:"u18", label:"U18/Midget",minYob:yr-19, maxYob: yr-18, color:"#ec4899", capacity:0 },
+  ];
+}
+
+/** Return the age group key for a registration (or "" if unassigned) */
+function assignAgeGroup(reg, groups){
+  const yob = parseInt(reg.yearOfBirth || "", 10);
+  if(isNaN(yob)) return "";
+  for(const g of groups){
+    const lo = parseInt(g.minYob, 10), hi = parseInt(g.maxYob, 10);
+    if(!isNaN(lo) && !isNaN(hi) && yob >= lo && yob <= hi) return g.key;
+  }
+  return "";
+}
+
+/** Returns { [groupKey]: [...regs], "": [...unassigned] } */
+function groupRegistrationsByAge(regs, groups){
+  const map = { "": [] };
+  for(const g of groups) map[g.key] = [];
+  for(const r of regs){
+    const key = assignAgeGroup(r, groups);
+    if(!map[key]) map[key] = [];
+    map[key].push(r);
+  }
+  return map;
+}
+
+// ── Main view ─────────────────────────────────────────────────────────────
+
+function renderRegistrationHub(){
+  const t = getTryout();
+  if(!t) return goHome();
+  const cloudId = String(t?.cloud?.id || "").trim().toUpperCase();
+  const allRegs = registrationsCache || [];
+  const pending = allRegs.filter(r => r.movedToRoster !== true);
+
+  // Use temp groups while editing settings, otherwise saved groups
+  const groups = (regHubTab === "settings" && _regHubTempGroups)
+    ? _regHubTempGroups
+    : getAgeGroups(t);
+
+  const grouped = groupRegistrationsByAge(pending, groups);
+
+  const tabs = [
+    { key:"overview", label:"Overview"          },
+    { key:"groups",   label:"By Age Group"      },
+    { key:"all",      label:"All Registrations" },
+    { key:"settings", label:"⚙ Age Groups"      },
+    { key:"report",   label:"📋 Report"         },
+  ];
+
+  const tabNav = `<div class="regHub-tabs">
+    ${tabs.map(tab =>
+      `<button class="regHub-tab ${regHubTab===tab.key?"active":""}"
+        onclick="if('${tab.key}'!=='settings')_regHubTempGroups=null;regHubTab='${tab.key}';renderRegistrationHub();">${tab.label}</button>`
+    ).join("")}
+  </div>`;
+
+  let content = "";
+  if(regHubTab === "overview") content = _regHubOverviewHTML(t, pending, allRegs, groups, grouped, cloudId);
+  else if(regHubTab === "groups")   content = _regHubGroupsHTML(t, pending, groups, grouped);
+  else if(regHubTab === "all")      content = _regHubAllHTML(t, pending, groups);
+  else if(regHubTab === "settings") content = _regHubSettingsHTML(t, groups);
+  else if(regHubTab === "report")   content = _regHubReportHTML(t, pending, allRegs, groups, grouped);
+
+  app.innerHTML = `
+    ${topTabsHTML()}
+    <div class="card" style="padding-bottom:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <div>
+          <h2 style="margin:0;font-size:18px;">Registration Hub</h2>
+          <div class="muted" style="font-size:13px;">${escapeHTML(t.name||"Assessment")} &bull; ${pending.length} pending &bull; ${allRegs.filter(r=>r.movedToRoster===true).length} moved to roster</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${cloudId ? `<button class="secondary small" onclick="refreshRegistrations()">↺ Refresh</button>` : ""}
+          <button class="secondary small" onclick="go('registrations')">← Back</button>
+        </div>
+      </div>
+      ${tabNav}
+    </div>
+    ${content}
+  `;
+  initTopbarCollapse();
+}
+
+// ── OVERVIEW tab ──────────────────────────────────────────────────────────
+function _regHubOverviewHTML(t, pending, allRegs, groups, grouped, cloudId){
+  const total = pending.length;
+  const movedCount = allRegs.filter(r=>r.movedToRoster===true).length;
+  const withGuardian = pending.filter(r=>r.guardianEmail||r.guardianPhone).length;
+  const withMedical = pending.filter(r=>String(r.medicalInfo||"").trim()).length;
+  const sortOuts = pending.filter(r=>r.sortOut===true).length;
+  const unassigned = (grouped[""]||[]).length;
+
+  const positions = {}, teams = {}, timeline = {};
+  for(const r of pending){
+    const pos = r.positionTryingOutFor || "Unknown";
+    positions[pos] = (positions[pos]||0)+1;
+    const team = r.currentTeam || "Unknown";
+    teams[team] = (teams[team]||0)+1;
+    const day = r.registeredAt ? new Date(r.registeredAt).toLocaleDateString("en-CA") : "Unknown";
+    timeline[day] = (timeline[day]||0)+1;
+  }
+  const topPos = Object.entries(positions).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const topTeams = Object.entries(teams).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const timelineDays = Object.entries(timeline).sort((a,b)=>a[0]<b[0]?-1:1);
+  const maxDay = Math.max(1, ...timelineDays.map(([,n])=>n));
+
+  const statTiles = [
+    { label:"Total Registered",  value:total,        color:"#ff6b2b" },
+    { label:"Moved to Roster",   value:movedCount,   color:"#22c55e" },
+    { label:"Pending",           value:total,        color:"#6366f1" },
+    { label:"Sort Outs",         value:sortOuts,     color:"#f97316" },
+    { label:"Guardian Info",     value:withGuardian, color:"#0d9488" },
+    { label:"Medical Flags",     value:withMedical,  color:"#f87171" },
+  ].map(s=>`<div class="regHub-stat">
+    <div class="regHub-stat-label">${s.label}</div>
+    <div class="regHub-stat-value" style="color:${s.color};">${s.value}</div>
+  </div>`).join("");
+
+  const groupBars = groups.map(g=>{
+    const count = (grouped[g.key]||[]).length;
+    const cap = parseInt(g.capacity)||0;
+    const pct = cap ? Math.min(100,Math.round(count/cap*100)) : (total ? Math.round(count/total*100) : 0);
+    const capStr = cap ? `${count} / ${cap}` : `${count}`;
+    const capBadge = (cap && count>=cap)
+      ? `<span style="color:#f87171;font-weight:700;font-size:11px;"> FULL</span>`
+      : (cap && count>=cap*0.8 ? `<span style="color:#f59e0b;font-weight:700;font-size:11px;"> NEAR FULL</span>` : "");
+    return `<div class="regHub-group-bar">
+      <div class="regHub-group-bar-head">
+        <span style="font-weight:700;">${escapeHTML(g.label)}</span>
+        <span style="color:#94a3b8;font-size:11px;">YOB ${g.minYob}–${g.maxYob}</span>
+        <span style="font-weight:800;color:${g.color};">${capStr}${capBadge}</span>
+      </div>
+      <div class="regHub-bar-track">
+        <div class="regHub-bar-fill" style="width:${pct}%;background:${g.color};"></div>
+      </div>
+    </div>`;
+  }).join("");
+
+  const tlBars = timelineDays.slice(-14).map(([day,n])=>{
+    const pct = Math.round(n/maxDay*100);
+    const label = day.length>=7 ? day.slice(5).replace("-","/") : day;
+    return `<div class="regHub-timeline-bar" title="${day}: ${n}">
+      <div class="regHub-timeline-fill" style="height:${pct}%;"></div>
+      <div class="regHub-timeline-label">${label}</div>
+    </div>`;
+  }).join("");
+
+  return `
+    <div class="card">
+      <h3 style="margin-bottom:10px;">Summary</h3>
+      <div class="regHub-stat-grid">${statTiles}</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:12px;">Registrations by Age Group</h3>
+      <div style="display:flex;flex-direction:column;gap:12px;">${groupBars}</div>
+      ${unassigned ? `<div class="muted" style="margin-top:10px;font-size:12px;">⚠ ${unassigned} registration${unassigned!==1?"s":""} not matched to any age group — check YOB or Settings.</div>` : ""}
+    </div>
+
+    <div class="card">
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:150px;">
+          <h3 style="margin-bottom:8px;">Position Breakdown</h3>
+          ${topPos.map(([pos,n])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;"><span>${escapeHTML(pos)}</span><span style="font-weight:700;">${n}</span></div>`).join("")}
+        </div>
+        <div style="flex:1;min-width:150px;">
+          <h3 style="margin-bottom:8px;">Top Teams</h3>
+          ${topTeams.map(([team,n])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;gap:8px;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHTML(team)}</span><span style="font-weight:700;">${n}</span></div>`).join("")}
+        </div>
+      </div>
+    </div>
+
+    ${timelineDays.length >= 2 ? `
+    <div class="card">
+      <h3 style="margin-bottom:10px;">Registration Timeline <span class="muted" style="font-size:12px;font-weight:400;">(last 14 days)</span></h3>
+      <div class="regHub-timeline">${tlBars}</div>
+    </div>` : ""}
+
+    <div class="card">
+      <h3 style="margin-bottom:8px;">Quick Actions</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="secondary small" onclick="exportRegistrationsCsv()">Export All CSV</button>
+        <button class="secondary small" onclick="exportRegHubCsvWithGroups()">Export with Age Groups</button>
+        <button class="secondary small" onclick="exportRegContactsCsv()">Export Guardian Contacts</button>
+        <button class="ok small" onclick="regHubTab='report';renderRegistrationHub();">View Full Report</button>
+      </div>
+    </div>
+  `;
+}
+
+// ── BY AGE GROUP tab ──────────────────────────────────────────────────────
+function _regHubGroupsHTML(t, pending, groups, grouped){
+  const groupCards = groups.map(g=>{
+    const regs = grouped[g.key] || [];
+    const cap = parseInt(g.capacity)||0;
+    const isFull = cap && regs.length >= cap;
+    const capLabel = cap ? ` (${regs.length}/${cap})` : ` (${regs.length})`;
+    const rows = regs.map(r=>{
+      const name = escapeHTML(`${r.firstName||""} ${r.lastName||""}`.trim()||"Unknown");
+      const yob = r.yearOfBirth ? `Born ${r.yearOfBirth}` : "";
+      const pos = r.positionTryingOutFor||"";
+      const team = r.currentTeam||"";
+      const meta = [yob, pos, team].filter(Boolean).join(" · ");
+      const sortBadge = r.sortOut ? `<span style="background:#f97316;color:#fff;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;">SORT OUT</span>` : "";
+      const medBadge = String(r.medicalInfo||"").trim() ? `<span style="background:#f87171;color:#fff;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;">MEDICAL</span>` : "";
+      return `<div class="regHub-player-row">
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${name} ${sortBadge} ${medBadge}</div>
+          ${meta ? `<div class="muted" style="font-size:11px;margin-top:2px;">${meta}</div>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:14px;height:14px;border-radius:50%;background:${g.color};flex-shrink:0;"></div>
+          <div>
+            <span style="font-weight:900;font-size:16px;">${escapeHTML(g.label)}${capLabel}</span>
+            <span class="muted" style="font-size:12px;margin-left:8px;">YOB ${g.minYob}–${g.maxYob}</span>
+            ${isFull ? `<span style="background:#ef4444;color:#fff;font-size:9px;font-weight:900;padding:1px 7px;border-radius:999px;margin-left:6px;">FULL</span>` : ""}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${regs.length ? `<button class="secondary small" onclick="exportRegGroupCsv('${escapeJS(g.key)}')">↓ CSV</button>` : ""}
+          <button class="ok small" onclick="createTryoutFromAgeGroup('${escapeJS(g.key)}')">+ Create ${escapeHTML(g.label)} Tryout</button>
+        </div>
+      </div>
+      ${regs.length
+        ? `<div class="regHub-player-list">${rows}</div>`
+        : `<div class="muted" style="font-size:12px;padding:6px 0;">No registrations in this group yet.</div>`}
+    </div>`;
+  }).join("");
+
+  const unassigned = grouped[""] || [];
+  const unassignedCard = unassigned.length ? `
+    <div class="card" style="border-color:rgba(248,113,113,0.40);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div>
+          <span style="font-weight:900;font-size:16px;color:#f87171;">⚠ Unassigned (${unassigned.length})</span>
+          <div class="muted" style="font-size:12px;margin-top:2px;">YOB missing or outside all defined age group ranges</div>
+        </div>
+        <button class="secondary small" onclick="exportRegGroupCsv('')">↓ Export Unassigned CSV</button>
+      </div>
+      <div class="regHub-player-list">
+        ${unassigned.map(r=>`<div class="regHub-player-row">
+          <div>
+            <div style="font-weight:700;font-size:13px;">${escapeHTML(`${r.firstName||""} ${r.lastName||""}`.trim()||"Unknown")}</div>
+            <div class="muted" style="font-size:11px;">${r.yearOfBirth?"YOB "+r.yearOfBirth:"No year of birth"} · ${escapeHTML(r.positionTryingOutFor||"")}</div>
+          </div>
+        </div>`).join("")}
+      </div>
+    </div>` : "";
+
+  return groupCards + unassignedCard + `
+    <div class="card">
+      <div class="muted" style="font-size:13px;">Tip: Configure age group ranges in the <button class="secondary small" style="width:auto;display:inline-block;padding:4px 10px;font-size:12px;" onclick="regHubTab='settings';renderRegistrationHub();">⚙ Age Groups</button> tab.</div>
+    </div>`;
+}
+
+// ── ALL REGISTRATIONS tab ─────────────────────────────────────────────────
+function _regHubAllHTML(t, pending, groups){
+  let filtered = [...pending];
+  const q = regHubSearch.toLowerCase();
+  if(q) filtered = filtered.filter(r=>`${r.firstName||""} ${r.lastName||""} ${r.currentTeam||""} ${r.guardianEmail||""}`.toLowerCase().includes(q));
+  if(regHubFilterGroup) filtered = filtered.filter(r=>assignAgeGroup(r,groups)===regHubFilterGroup);
+  if(regHubFilterPos)   filtered = filtered.filter(r=>(r.positionTryingOutFor||"")===regHubFilterPos);
+  filtered.sort((a,b)=>{
+    let va="", vb="";
+    if(regHubSortField==="name")  { va=`${a.lastName||""}${a.firstName||""}`.toLowerCase(); vb=`${b.lastName||""}${b.firstName||""}`.toLowerCase(); }
+    else if(regHubSortField==="yob")  { va=String(a.yearOfBirth||""); vb=String(b.yearOfBirth||""); }
+    else if(regHubSortField==="date") { va=a.registeredAt||0; vb=b.registeredAt||0; }
+    return va<vb ? -regHubSortDir : va>vb ? regHubSortDir : 0;
+  });
+
+  const positions = [...new Set(pending.map(r=>r.positionTryingOutFor||"").filter(Boolean))].sort();
+  const groupOpts  = groups.map(g=>`<option value="${escapeAttr(g.key)}" ${regHubFilterGroup===g.key?"selected":""}>${escapeHTML(g.label)}</option>`).join("");
+  const posOpts    = positions.map(p=>`<option value="${escapeAttr(p)}" ${regHubFilterPos===p?"selected":""}>${escapeHTML(p)}</option>`).join("");
+
+  function sortBtn(field, label){
+    const active = regHubSortField===field;
+    const arrow = active ? (regHubSortDir===1?" ↑":" ↓") : "";
+    return `<button class="secondary small" style="${active?"border-color:rgba(255,107,43,0.5);color:#ff6b2b;":""}" onclick="regHubSortField='${field}';regHubSortDir=${active?-regHubSortDir:1};renderRegistrationHub();">${label}${arrow}</button>`;
+  }
+
+  const rows = filtered.map(r=>{
+    const name = escapeHTML(`${r.firstName||""} ${r.lastName||""}`.trim()||"Unknown");
+    const yob = r.yearOfBirth || "—";
+    const pos = r.positionTryingOutFor || "—";
+    const team = r.currentTeam || "—";
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    const grpBadge = grp
+      ? `<span style="background:${grp.color};color:#fff;font-size:9px;font-weight:900;padding:1px 7px;border-radius:999px;">${escapeHTML(grp.label)}</span>`
+      : `<span style="background:#334155;color:#fff;font-size:9px;font-weight:900;padding:1px 7px;border-radius:999px;">UNASSIGNED</span>`;
+    const sortBadge = r.sortOut ? `<span style="background:#f97316;color:#fff;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;">SORT OUT</span>` : "";
+    const medBadge = String(r.medicalInfo||"").trim() ? `<span style="background:#f87171;color:#fff;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;">MEDICAL</span>` : "";
+    const guardian = [r.guardianName,r.guardianEmail,r.guardianPhone].filter(Boolean).join(" · ");
+    const ts = r.registeredAt ? new Date(r.registeredAt).toLocaleDateString() : "";
+    return `<div class="regHub-player-row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:10px 14px;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span style="font-weight:800;font-size:14px;">${name}</span>
+        ${grpBadge} ${sortBadge} ${medBadge}
+      </div>
+      <div class="muted" style="font-size:12px;">YOB ${yob} &bull; ${escapeHTML(pos)} &bull; ${escapeHTML(team)}${ts ? " &bull; "+ts : ""}</div>
+      ${guardian ? `<div class="muted" style="font-size:11px;">${escapeHTML(guardian)}</div>` : ""}
+    </div>`;
+  }).join("");
+
+  return `<div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <input type="text" placeholder="Search name, team, email…" value="${escapeAttr(regHubSearch)}"
+        oninput="regHubSearch=this.value;renderRegistrationHub();"
+        style="flex:1;min-width:180px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+      <select onchange="regHubFilterGroup=this.value;renderRegistrationHub();"
+        style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+        <option value="">All Age Groups</option>${groupOpts}
+      </select>
+      <select onchange="regHubFilterPos=this.value;renderRegistrationHub();"
+        style="padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+        <option value="">All Positions</option>${posOpts}
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+      <span class="muted" style="font-size:12px;">Sort:</span>
+      ${sortBtn("name","Name")} ${sortBtn("yob","YOB")} ${sortBtn("date","Date")}
+      ${(regHubSearch||regHubFilterGroup||regHubFilterPos) ? `<button class="secondary small" onclick="regHubSearch='';regHubFilterGroup='';regHubFilterPos='';renderRegistrationHub();">✕ Clear</button>` : ""}
+    </div>
+    <div class="muted" style="font-size:12px;margin-bottom:6px;">${filtered.length} of ${pending.length} registrations shown</div>
+    <div class="regHub-player-list" style="margin-top:0;">
+      ${rows || `<div style="padding:24px;text-align:center;color:#64748b;">No registrations match your filters.</div>`}
+    </div>
+  </div>`;
+}
+
+// ── SETTINGS tab ──────────────────────────────────────────────────────────
+function _regHubSettingsHTML(t, groups){
+  const yr = new Date().getFullYear();
+  const rows = groups.map((g, idx)=>`
+    <div class="regHub-ag-row" id="regHubAgRow_${idx}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;">
+        <input type="color" value="${escapeAttr(g.color)}" title="Group colour"
+          oninput="updateAgeGroupField(${idx},'color',this.value)"
+          style="width:36px;height:36px;padding:2px;border:none;border-radius:8px;cursor:pointer;flex-shrink:0;">
+        <input type="text" placeholder="Label" value="${escapeAttr(g.label)}"
+          oninput="updateAgeGroupField(${idx},'label',this.value)"
+          style="width:88px;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b;">
+          YOB
+          <input type="number" placeholder="Min" value="${escapeAttr(String(g.minYob||""))}"
+            oninput="updateAgeGroupField(${idx},'minYob',parseInt(this.value)||0)"
+            style="width:70px;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+          –
+          <input type="number" placeholder="Max" value="${escapeAttr(String(g.maxYob||""))}"
+            oninput="updateAgeGroupField(${idx},'maxYob',parseInt(this.value)||0)"
+            style="width:70px;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#64748b;">
+          Cap
+          <input type="number" placeholder="0=unlimited" value="${escapeAttr(String(g.capacity||""))}"
+            oninput="updateAgeGroupField(${idx},'capacity',parseInt(this.value)||0)"
+            style="width:78px;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
+        </div>
+        <button class="danger small" style="width:auto;margin-left:auto;" onclick="deleteAgeGroupRow(${idx})">✕</button>
+      </div>
+    </div>`).join("");
+
+  const hockeyPreset = JSON.stringify([
+    {key:"u9",label:"U9",minYob:yr-9,maxYob:yr-8,color:"#22c55e",capacity:0},
+    {key:"u11",label:"U11",minYob:yr-11,maxYob:yr-10,color:"#0d9488",capacity:0},
+    {key:"u13",label:"U13",minYob:yr-13,maxYob:yr-12,color:"#6366f1",capacity:0},
+    {key:"u15",label:"U15",minYob:yr-15,maxYob:yr-14,color:"#ff6b2b",capacity:0},
+    {key:"u17",label:"U17",minYob:yr-17,maxYob:yr-16,color:"#f59e0b",capacity:0},
+    {key:"u18",label:"U18/Midget",minYob:yr-19,maxYob:yr-18,color:"#ec4899",capacity:0},
+  ]);
+  const soccerPreset = JSON.stringify([
+    {key:"u8",label:"U8",minYob:yr-8,maxYob:yr-7,color:"#22c55e",capacity:0},
+    {key:"u10",label:"U10",minYob:yr-10,maxYob:yr-9,color:"#0d9488",capacity:0},
+    {key:"u12",label:"U12",minYob:yr-12,maxYob:yr-11,color:"#6366f1",capacity:0},
+    {key:"u14",label:"U14",minYob:yr-14,maxYob:yr-13,color:"#ff6b2b",capacity:0},
+    {key:"u16",label:"U16",minYob:yr-16,maxYob:yr-15,color:"#f59e0b",capacity:0},
+    {key:"u18",label:"U18",minYob:yr-18,maxYob:yr-17,color:"#ec4899",capacity:0},
+  ]);
+  const basketPreset = JSON.stringify([
+    {key:"u10",label:"U10",minYob:yr-10,maxYob:yr-9,color:"#22c55e",capacity:0},
+    {key:"u12",label:"U12",minYob:yr-12,maxYob:yr-11,color:"#0d9488",capacity:0},
+    {key:"u14",label:"U14",minYob:yr-14,maxYob:yr-13,color:"#6366f1",capacity:0},
+    {key:"u16",label:"U16",minYob:yr-16,maxYob:yr-15,color:"#ff6b2b",capacity:0},
+    {key:"u18",label:"U18",minYob:yr-18,maxYob:yr-17,color:"#f59e0b",capacity:0},
+  ]);
+
+  return `<div class="card">
+    <h3 style="margin-bottom:4px;">Age Group Configuration</h3>
+    <div class="muted" style="font-size:12px;margin-bottom:16px;">
+      Define groups by year of birth (YOB). Players are auto-assigned when you view "By Age Group".
+      Cap = max registrations per group (0 = unlimited).
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <div class="muted" style="font-size:12px;margin-bottom:8px;font-weight:700;">Quick Presets:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="secondary small" onclick="applyAgeGroupPreset(${escapeAttr(JSON.stringify(hockeyPreset))})">🏒 Hockey (Minor)</button>
+        <button class="secondary small" onclick="applyAgeGroupPreset(${escapeAttr(JSON.stringify(soccerPreset))})">⚽ Soccer (Youth)</button>
+        <button class="secondary small" onclick="applyAgeGroupPreset(${escapeAttr(JSON.stringify(basketPreset))})">🏀 Basketball</button>
+      </div>
+    </div>
+
+    <div id="regHubAgRows" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      ${rows || `<div class="muted" style="padding:12px 0;">No age groups defined. Add one below.</div>`}
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="secondary small" onclick="addNewAgeGroupRow()">+ Add Group</button>
+      <button class="ok small" onclick="saveAgeGroupSettings()">✓ Save Age Groups</button>
+      <button class="secondary small" onclick="_regHubTempGroups=null;regHubTab='overview';renderRegistrationHub();">Cancel</button>
+    </div>
+  </div>`;
+}
+
+// ── REPORT tab ────────────────────────────────────────────────────────────
+function _regHubReportHTML(t, pending, allRegs, groups, grouped){
+  const total = pending.length;
+  const movedCount = allRegs.filter(r=>r.movedToRoster===true).length;
+  const positions = {};
+  for(const r of pending){ const p=r.positionTryingOutFor||"Unknown"; positions[p]=(positions[p]||0)+1; }
+  const sortedPos = Object.entries(positions).sort((a,b)=>b[1]-a[1]);
+  const medFlags = pending.filter(r=>String(r.medicalInfo||"").trim());
+  const sortOuts = pending.filter(r=>r.sortOut===true);
+  const unassigned = (grouped[""]||[]).length;
+  const reportDate = new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+
+  const groupRows = groups.map(g=>{
+    const regs = grouped[g.key]||[];
+    const cap = parseInt(g.capacity)||0;
+    const capStr = cap ? `${regs.length} / ${cap}` : `${regs.length}`;
+    const fwd = regs.filter(r=>["F","C","LW","RW","Forward","Winger","Wing"].includes(r.positionTryingOutFor||"")).length;
+    const def = regs.filter(r=>["D","Defense","Defenseman","Defence"].includes(r.positionTryingOutFor||"")).length;
+    const gtl = regs.filter(r=>["G","Goalie","Goaltender","GK","Keeper"].includes(r.positionTryingOutFor||"")).length;
+    return `<tr>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${g.color};margin-right:8px;vertical-align:middle;"></span>${escapeHTML(g.label)}</td>
+      <td>${g.minYob} – ${g.maxYob}</td>
+      <td style="font-weight:800;color:${g.color};">${capStr}</td>
+      <td>${fwd||"—"}</td><td>${def||"—"}</td><td>${gtl||"—"}</td>
+    </tr>`;
+  }).join("");
+
+  const contactRows = pending.filter(r=>r.guardianEmail||r.guardianPhone).slice(0,60).map(r=>{
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    return `<tr>
+      <td>${escapeHTML(`${r.firstName||""} ${r.lastName||""}`.trim())}</td>
+      <td>${grp?escapeHTML(grp.label):"—"}</td>
+      <td>${r.yearOfBirth||"—"}</td>
+      <td>${escapeHTML(r.positionTryingOutFor||"—")}</td>
+      <td>${escapeHTML(r.guardianName||"—")}</td>
+      <td>${escapeHTML(r.guardianEmail||"—")}</td>
+      <td>${escapeHTML(r.guardianPhone||"—")}</td>
+    </tr>`;
+  }).join("");
+  const contactOverflow = pending.filter(r=>r.guardianEmail||r.guardianPhone).length > 60;
+
+  const medRows = medFlags.map(r=>{
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    return `<tr>
+      <td>${escapeHTML(`${r.firstName||""} ${r.lastName||""}`.trim())}</td>
+      <td>${grp?escapeHTML(grp.label):"—"}</td>
+      <td>${r.yearOfBirth||"—"}</td>
+      <td>${escapeHTML(r.guardianPhone||r.guardianEmail||"—")}</td>
+      <td>${escapeHTML(r.medicalInfo||"")}</td>
+    </tr>`;
+  }).join("");
+
+  const sortOutRows = sortOuts.map(r=>{
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    return `<tr>
+      <td>${escapeHTML(`${r.firstName||""} ${r.lastName||""}`.trim())}</td>
+      <td>${grp?escapeHTML(grp.label):"—"}</td>
+      <td>${r.yearOfBirth||"—"}</td>
+      <td>${escapeHTML(r.positionTryingOutFor||"—")}</td>
+      <td>${escapeHTML(r.currentTeam||"—")}</td>
+    </tr>`;
+  }).join("");
+
+  return `
+    <div class="card regHub-report-actions">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span style="font-weight:700;font-size:14px;">Export:</span>
+        <button class="ok small" onclick="window.print()">🖨 Print / Save as PDF</button>
+        <button class="secondary small" onclick="exportRegHubCsvWithGroups()">↓ CSV with Age Groups</button>
+        <button class="secondary small" onclick="exportRegContactsCsv()">↓ Guardian Contacts</button>
+        ${medFlags.length ? `<button class="secondary small" onclick="exportRegMedicalCsv()">↓ Medical Flags</button>` : ""}
+        ${sortOuts.length ? `<button class="secondary small" onclick="exportRegSortOutsCsv()">↓ Sort Outs</button>` : ""}
+      </div>
+    </div>
+
+    <div class="card regHub-report" id="regHubReportPrint">
+
+      <div class="regHub-report-header">
+        <div>
+          <h2 style="margin:0 0 4px;">${escapeHTML(t.name||"Registration Report")}</h2>
+          <div class="muted">${t.tryoutDate ? "Event Date: "+escapeHTML(t.tryoutDate)+" &bull; " : ""}${t.rink ? escapeHTML(t.rink)+" &bull; " : ""}Report Generated: ${escapeHTML(reportDate)}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:40px;font-weight:900;color:#ff6b2b;line-height:1;">${total}</div>
+          <div class="muted" style="font-size:12px;margin-top:2px;">Total Registrations</div>
+        </div>
+      </div>
+
+      <div class="regHub-report-section">
+        <div class="regHub-report-section-title">Registration Summary</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;">
+          ${[
+            {label:"Registered",    value:total,                 color:"#ff6b2b"},
+            {label:"On Roster",     value:movedCount,            color:"#22c55e"},
+            {label:"Pending",       value:total-movedCount,      color:"#6366f1"},
+            {label:"Sort Outs",     value:sortOuts.length,       color:"#f97316"},
+            {label:"Medical Flags", value:medFlags.length,       color:"#f87171"},
+            {label:"Unassigned",    value:unassigned,            color:"#94a3b8"},
+          ].map(s=>`<div style="border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+            <div style="font-size:26px;font-weight:900;color:${s.color};">${s.value}</div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-top:3px;">${s.label}</div>
+          </div>`).join("")}
+        </div>
+      </div>
+
+      <div class="regHub-report-section">
+        <div class="regHub-report-section-title">Registrations by Age Group</div>
+        <table class="regHub-report-table">
+          <thead><tr><th>Group</th><th>YOB Range</th><th>Count</th><th>Forwards</th><th>Defense</th><th>Goalies</th></tr></thead>
+          <tbody>${groupRows}</tbody>
+          ${unassigned ? `<tfoot><tr><td colspan="2"><em>Unassigned (no matching group)</em></td><td>${unassigned}</td><td>—</td><td>—</td><td>—</td></tr></tfoot>` : ""}
+        </table>
+      </div>
+
+      <div class="regHub-report-section">
+        <div class="regHub-report-section-title">Position Breakdown</div>
+        <table class="regHub-report-table">
+          <thead><tr><th>Position</th><th>Count</th><th>% of Total</th></tr></thead>
+          <tbody>${sortedPos.map(([pos,n])=>`<tr>
+            <td>${escapeHTML(pos)}</td>
+            <td style="font-weight:700;">${n}</td>
+            <td class="muted">${total?Math.round(n/total*100):0}%</td>
+          </tr>`).join("")}</tbody>
+        </table>
+      </div>
+
+      ${sortOuts.length ? `
+      <div class="regHub-report-section" style="border-color:rgba(249,115,22,0.35);">
+        <div class="regHub-report-section-title" style="color:#f97316;">Sort Out List (${sortOuts.length})</div>
+        <table class="regHub-report-table">
+          <thead><tr><th>Athlete</th><th>Age Group</th><th>YOB</th><th>Position</th><th>Current Team</th></tr></thead>
+          <tbody>${sortOutRows}</tbody>
+        </table>
+      </div>` : ""}
+
+      <div class="regHub-report-section">
+        <div class="regHub-report-section-title">Guardian Contacts</div>
+        <table class="regHub-report-table" style="font-size:12px;">
+          <thead><tr><th>Athlete</th><th>Group</th><th>YOB</th><th>Position</th><th>Guardian</th><th>Email</th><th>Phone</th></tr></thead>
+          <tbody>${contactRows||`<tr><td colspan="7" class="muted" style="padding:12px;">No guardian info on file.</td></tr>`}</tbody>
+        </table>
+        ${contactOverflow ? `<div class="muted" style="font-size:11px;margin-top:8px;">Showing first 60 contacts. Use "Export Guardian Contacts" for full list.</div>` : ""}
+      </div>
+
+      ${medFlags.length ? `
+      <div class="regHub-report-section" style="border-color:rgba(248,113,113,0.40);">
+        <div class="regHub-report-section-title" style="color:#f87171;">Medical Flags (${medFlags.length}) — CONFIDENTIAL</div>
+        <table class="regHub-report-table" style="font-size:12px;">
+          <thead><tr><th>Athlete</th><th>Group</th><th>YOB</th><th>Emergency Contact</th><th>Medical Info</th></tr></thead>
+          <tbody>${medRows}</tbody>
+        </table>
+      </div>` : ""}
+
+    </div>`;
+}
+
+// ── Age group settings helpers ─────────────────────────────────────────────
+
+function updateAgeGroupField(idx, field, value){
+  const t = getTryout();
+  if(!t) return;
+  if(!_regHubTempGroups) _regHubTempGroups = JSON.parse(JSON.stringify(getAgeGroups(t)));
+  if(_regHubTempGroups[idx] !== undefined) _regHubTempGroups[idx][field] = value;
+}
+
+function addNewAgeGroupRow(){
+  const t = getTryout();
+  if(!t) return;
+  if(!_regHubTempGroups) _regHubTempGroups = JSON.parse(JSON.stringify(getAgeGroups(t)));
+  const yr = new Date().getFullYear();
+  _regHubTempGroups.push({ key:"grp_"+Date.now(), label:"New Group", minYob:yr-12, maxYob:yr-11, color:"#94a3b8", capacity:0 });
+  regHubTab = "settings";
+  renderRegistrationHub();
+}
+
+function deleteAgeGroupRow(idx){
+  const t = getTryout();
+  if(!t) return;
+  if(!_regHubTempGroups) _regHubTempGroups = JSON.parse(JSON.stringify(getAgeGroups(t)));
+  _regHubTempGroups.splice(idx, 1);
+  regHubTab = "settings";
+  renderRegistrationHub();
+}
+
+function applyAgeGroupPreset(jsonStrStr){
+  const t = getTryout();
+  if(!t) return;
+  try {
+    // double-encoded because of escapeAttr in the template
+    const jsonStr = JSON.parse(jsonStrStr);
+    _regHubTempGroups = JSON.parse(jsonStr);
+    regHubTab = "settings";
+    renderRegistrationHub();
+  } catch(e){ console.error("preset parse error", e); }
+}
+
+function saveAgeGroupSettings(){
+  const t = getTryout();
+  if(!t) return;
+  const groups = _regHubTempGroups ? JSON.parse(JSON.stringify(_regHubTempGroups)) : JSON.parse(JSON.stringify(getAgeGroups(t)));
+  for(const g of groups){
+    if(!String(g.label||"").trim()) return showActionBanner("All groups must have a label.", "error");
+    const lo = parseInt(g.minYob, 10), hi = parseInt(g.maxYob, 10);
+    if(isNaN(lo)||isNaN(hi)) return showActionBanner("All groups must have valid YOB values.", "error");
+    if(lo > hi) return showActionBanner(`${g.label}: Min YOB must be ≤ Max YOB.`, "error");
+  }
+  t.ageGroups = groups;
+  _regHubTempGroups = null;
+  touchTryout(t);
+  saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  showActionBanner("Age groups saved ✓", "success");
+  regHubTab = "groups";
+  renderRegistrationHub();
+}
+
+// ── Create tryout from age group ──────────────────────────────────────────
+
+function createTryoutFromAgeGroup(groupKey){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const g = groups.find(gr=>gr.key===groupKey);
+  if(!g) return;
+  const regs = pendingRegistrations().filter(r=>assignAgeGroup(r,groups)===groupKey);
+  if(!regs.length) return showActionBanner(`No registrations in ${g.label} to build a tryout from.`, "error");
+
+  const overlay = document.createElement("div");
+  overlay.className = "regEditOverlay";
+  overlay.id = "regHubCreateTryoutOverlay";
+  overlay.innerHTML = `
+    <div class="regEditCard">
+      <h3 style="margin-bottom:4px;">Create ${escapeHTML(g.label)} Tryout / Assessment</h3>
+      <div class="muted" style="margin-bottom:14px;">${regs.length} athlete${regs.length!==1?"s":""} from this group will be added to the new event.</div>
+      <label class="muted" style="font-size:12px;">Event Name</label>
+      <input id="regHubNewName" value="${escapeAttr(t.name+" – "+g.label)}" style="margin-bottom:10px;">
+      <label class="muted" style="font-size:12px;">Event Type</label>
+      <select id="regHubNewType" style="margin-bottom:10px;">
+        <option value="tryout">Tryout</option>
+        <option value="assessment">Assessment</option>
+        <option value="sortout">Sort Out</option>
+      </select>
+      <label class="muted" style="font-size:12px;">Event Date (optional)</label>
+      <input id="regHubNewDate" type="date" value="${escapeAttr(t.tryoutDate||"")}">
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+        <button class="secondary small" onclick="document.getElementById('regHubCreateTryoutOverlay')?.remove()">Cancel</button>
+        <button class="ok small" onclick="confirmCreateTryoutFromGroup('${escapeJS(groupKey)}')">Create Event →</button>
+      </div>
+    </div>`;
+  overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function confirmCreateTryoutFromGroup(groupKey){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const g = groups.find(gr=>gr.key===groupKey);
+  if(!g) return;
+  const regs = pendingRegistrations().filter(r=>assignAgeGroup(r,groups)===groupKey);
+  const name = String(document.getElementById("regHubNewName")?.value||"").trim() || (t.name+" – "+g.label);
+  const date = String(document.getElementById("regHubNewDate")?.value||"").trim();
+  const eventType = String(document.getElementById("regHubNewType")?.value||"tryout").trim();
+
+  const newId = uid();
+  const sport = getSportFromTryout(t);
+  const newT = {
+    id: newId,
+    name: name,
+    tryoutDate: date,
+    sport: sport,
+    eventType: eventType,
+    seasonId: t.seasonId || "",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    ageGroup: g.label,
+    ageGroupMinYob: g.minYob,
+    ageGroupMaxYob: g.maxYob,
+    ageGroups: [g],
+    roster: [],
+    evals: [],
+    rubrics: t.rubrics ? JSON.parse(JSON.stringify(t.rubrics)) : [],
+    evaluators: t.evaluators ? JSON.parse(JSON.stringify(t.evaluators)) : [],
+    leadAssessor: t.leadAssessor || "",
+  };
+
+  let added = 0;
+  for(const r of regs){
+    if(!checkLimit("rosterLimit", newT.roster.length)) break;
+    newT.roster.push(buildRosterPlayerFromRegistration(r, newT));
+    added++;
+  }
+
+  if(!DB.tryouts) DB.tryouts = {};
+  DB.tryouts[newId] = newT;
+  touchTryout(newT);
+  saveDB();
+  if(authState.user) dbSaveTryout(newId);
+
+  document.getElementById("regHubCreateTryoutOverlay")?.remove();
+  showActionBanner(`"${name}" created with ${added} athlete${added!==1?"s":""}`, "success");
+  setTimeout(()=>{ currentTryoutId = newId; go("home"); }, 1400);
+}
+
+// ── Export helpers ─────────────────────────────────────────────────────────
+
+function exportRegHubCsvWithGroups(){
+  const t = getTryout();
+  if(!t) return;
+  const regs = pendingRegistrations();
+  if(!regs.length) return showActionBanner("No registrations to export.", "error");
+  const groups = getAgeGroups(t);
+  const headers = ["Age Group","First Name","Last Name","Year of Birth","Position","Current Team","Current Level","Sort Out","About Player","Guardian Name","Guardian Email","Guardian Phone","Medical Info","Waiver Accepted","Registered At","Status"];
+  const rows = regs.map(r=>{
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    return [
+      grp ? grp.label : "Unassigned",
+      r.firstName||"", r.lastName||"", r.yearOfBirth||"",
+      r.positionTryingOutFor||"", r.currentTeam||"", r.currentLevel||"",
+      r.sortOut?"Yes":"No",
+      (r.aboutPlayer||"").replace(/[\r\n]+/g," "),
+      r.guardianName||"", r.guardianEmail||"", r.guardianPhone||"",
+      (r.medicalInfo||"").replace(/[\r\n]+/g," "),
+      r.waiverAcceptedAt ? new Date(r.waiverAcceptedAt).toLocaleDateString() : "",
+      r.registeredAt ? new Date(r.registeredAt).toLocaleString() : "",
+      r.status||"registered"
+    ];
+  }).sort((a,b)=> a[0]<b[0]?-1 : a[0]>b[0]?1 : a[2]<b[2]?-1 : a[2]>b[2]?1 : 0);
+  const csv = [headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const base = (t.name||"Event").replace(/[^a-zA-Z0-9_\- ]/g,"_");
+  downloadBlob(`${base}_by_age_group.csv`, new Blob([csv],{type:"text/csv;charset=utf-8;"}), "text/csv");
+  showActionBanner("CSV exported ✓", "success");
+}
+
+function exportRegGroupCsv(groupKey){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const g = groups.find(gr=>gr.key===groupKey);
+  const regs = pendingRegistrations().filter(r=>assignAgeGroup(r,groups)===groupKey);
+  if(!regs.length) return showActionBanner("No registrations in this group.", "error");
+  const label = g ? g.label : "Unassigned";
+  const headers = ["First Name","Last Name","Year of Birth","Position","Current Team","Current Level","Guardian Name","Guardian Email","Guardian Phone","Sort Out","Medical Info","Registered At"];
+  const rows = regs.map(r=>[
+    r.firstName||"", r.lastName||"", r.yearOfBirth||"",
+    r.positionTryingOutFor||"", r.currentTeam||"", r.currentLevel||"",
+    r.guardianName||"", r.guardianEmail||"", r.guardianPhone||"",
+    r.sortOut?"Yes":"No", (r.medicalInfo||"").replace(/[\r\n]+/g," "),
+    r.registeredAt ? new Date(r.registeredAt).toLocaleString() : ""
+  ]);
+  const csv = [headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const base = (t.name||"Event").replace(/[^a-zA-Z0-9_\- ]/g,"_");
+  downloadBlob(`${base}_${label.replace(/\s+/g,"_")}.csv`, new Blob([csv],{type:"text/csv;charset=utf-8;"}), "text/csv");
+  showActionBanner(`${label} exported ✓`, "success");
+}
+
+function exportRegContactsCsv(){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const regs = pendingRegistrations().filter(r=>r.guardianEmail||r.guardianPhone);
+  if(!regs.length) return showActionBanner("No guardian contacts to export.", "error");
+  const headers = ["Age Group","Athlete First","Athlete Last","YOB","Position","Guardian Name","Guardian Email","Guardian Phone"];
+  const rows = regs.map(r=>{
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    return [grp?grp.label:"Unassigned", r.firstName||"", r.lastName||"", r.yearOfBirth||"", r.positionTryingOutFor||"", r.guardianName||"", r.guardianEmail||"", r.guardianPhone||""];
+  }).sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:a[2]<b[2]?-1:1);
+  const csv = [headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const base = (t.name||"Event").replace(/[^a-zA-Z0-9_\- ]/g,"_");
+  downloadBlob(`${base}_guardian_contacts.csv`, new Blob([csv],{type:"text/csv;charset=utf-8;"}), "text/csv");
+  showActionBanner("Guardian contacts exported ✓", "success");
+}
+
+function exportRegMedicalCsv(){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const regs = pendingRegistrations().filter(r=>String(r.medicalInfo||"").trim());
+  if(!regs.length) return showActionBanner("No medical flags to export.", "error");
+  const headers = ["Age Group","First Name","Last Name","YOB","Guardian Name","Guardian Email","Guardian Phone","Medical Info"];
+  const rows = regs.map(r=>{
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    return [grp?grp.label:"Unassigned", r.firstName||"", r.lastName||"", r.yearOfBirth||"", r.guardianName||"", r.guardianEmail||"", r.guardianPhone||"", r.medicalInfo||""];
+  });
+  const csv = [headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const base = (t.name||"Event").replace(/[^a-zA-Z0-9_\- ]/g,"_");
+  downloadBlob(`${base}_medical_flags.csv`, new Blob([csv],{type:"text/csv;charset=utf-8;"}), "text/csv");
+  showActionBanner("Medical flags exported ✓", "success");
+}
+
+function exportRegSortOutsCsv(){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const regs = pendingRegistrations().filter(r=>r.sortOut===true);
+  if(!regs.length) return showActionBanner("No sort-outs to export.", "error");
+  const headers = ["Age Group","First Name","Last Name","YOB","Position","Current Team","Guardian Name","Guardian Email","Guardian Phone"];
+  const rows = regs.map(r=>{
+    const grp = groups.find(g=>g.key===assignAgeGroup(r,groups));
+    return [grp?grp.label:"Unassigned", r.firstName||"", r.lastName||"", r.yearOfBirth||"", r.positionTryingOutFor||"", r.currentTeam||"", r.guardianName||"", r.guardianEmail||"", r.guardianPhone||""];
+  });
+  const csv = [headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const base = (t.name||"Event").replace(/[^a-zA-Z0-9_\- ]/g,"_");
+  downloadBlob(`${base}_sort_outs.csv`, new Blob([csv],{type:"text/csv;charset=utf-8;"}), "text/csv");
+  showActionBanner("Sort outs exported ✓", "success");
+}
+
+/* ── End of Registration Hub ── */
 
 function importFromSeasonRosterForAssessment(tryoutId, seasonId){
   return importFromSeasonRoster({ tryoutId, seasonId });
@@ -22072,6 +22927,207 @@ button.pdfBtn{
   .oura-cat-ring { min-width: 64px; padding: 6px 2px; }
   .oura-cat-ring-svg { width: 64px; height: 64px; }
   .oura-cat-ring-svg svg { width: 64px; height: 64px; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   REGISTRATION HUB  ─  Age groups, reports & exports
+   ══════════════════════════════════════════════════════════════ */
+.regHub-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding: 10px 0 2px;
+  margin-top: 4px;
+}
+.regHub-tab {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.regHub-tab.active {
+  background: linear-gradient(135deg, #ff6b2b, #ff9a5c);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 3px 12px rgba(255,107,43,0.28);
+}
+.regHub-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+}
+.regHub-stat {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 10px;
+  text-align: center;
+}
+[data-theme="dark"] .regHub-stat { background: rgba(255,255,255,0.04); }
+.regHub-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  line-height: 1.3;
+}
+.regHub-stat-value {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+.regHub-group-bar { margin-bottom: 2px; }
+.regHub-group-bar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 13px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.regHub-bar-track {
+  height: 8px;
+  background: rgba(128,128,128,0.12);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.regHub-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+  min-width: 2px;
+}
+.regHub-timeline {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 80px;
+  padding: 4px 0;
+}
+.regHub-timeline-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 100%;
+}
+.regHub-timeline-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #ff6b2b, rgba(255,107,43,0.3));
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+}
+.regHub-timeline-label {
+  font-size: 9px;
+  color: #64748b;
+  white-space: nowrap;
+}
+.regHub-player-list {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.regHub-player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.regHub-player-row:last-child { border-bottom: none; }
+.regHub-ag-row {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+[data-theme="dark"] .regHub-ag-row { background: rgba(255,255,255,0.03); }
+/* Report styles */
+.regHub-report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+}
+.regHub-report-section {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.regHub-report-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 900;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+.regHub-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.regHub-report-table th {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 2px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 700;
+}
+.regHub-report-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  font-size: 13px;
+}
+.regHub-report-table tr:last-child td { border-bottom: none; }
+.regHub-report-table tfoot td {
+  font-style: italic;
+  color: #64748b;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+/* Print / PDF export */
+@media print {
+  .regHub-report-actions,
+  .regHub-tabs,
+  #topTabsWrap,
+  .oura-profile-hero { display: none !important; }
+  .regHub-report { box-shadow: none !important; border: none !important; padding: 0 !important; }
+  .regHub-report-table { font-size: 11px; }
+  .regHub-report-section { break-inside: avoid; border: 1px solid #ccc !important; }
+  .regHub-report-table th { background: #f0f0f0 !important; color: #333 !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+}
+@media (max-width: 480px) {
+  .regHub-stat-grid { grid-template-columns: repeat(3, 1fr); }
+  .regHub-group-bar-head { font-size: 12px; }
+  .regHub-report-table { font-size: 11px; }
+  .regHub-report-table th, .regHub-report-table td { padding: 5px 4px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
