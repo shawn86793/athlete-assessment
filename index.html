@@ -5433,6 +5433,316 @@ function deleteTeam(teamId){
   showActionBanner("Team deleted", "success");
 }
 
+// ── Organization helpers ──────────────────────────────────────────────────
+
+function getOrgs(){
+  if(!Array.isArray(DB.orgs)) DB.orgs = [];
+  return DB.orgs;
+}
+
+function getOrgById(id){
+  return getOrgs().find(o => o.id === id) || null;
+}
+
+/** Return the primary (first) org, or null if none exists. */
+function getPrimaryOrg(){
+  const orgs = getOrgs();
+  return orgs.length ? orgs[0] : null;
+}
+
+function createOrg(fields = {}){
+  if(!Array.isArray(DB.orgs)) DB.orgs = [];
+  const name = String(fields.name || "").trim();
+  if(!name) return null;
+  const org = {
+    id:        "org_" + uid(),
+    name,
+    sport:     String(fields.sport || "Multi-Sport").trim(),
+    city:      String(fields.city  || "").trim(),
+    createdAt: Date.now(),
+  };
+  DB.orgs.push(org);
+  saveDB();
+  return org;
+}
+
+function updateOrg(orgId, changes){
+  const org = getOrgById(orgId);
+  if(!org) return;
+  Object.assign(org, changes);
+  saveDB();
+}
+
+function deleteOrg(orgId){
+  DB.orgs = getOrgs().filter(o => o.id !== orgId);
+  saveDB();
+}
+
+function openCreateOrgModal(prefill = {}){
+  document.getElementById("createOrgOverlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "createOrgOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  overlay.innerHTML = `
+    <div style="background:var(--card);border-radius:14px;padding:28px 24px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--ink);">🏢 Create Organization</h3>
+        <button onclick="document.getElementById('createOrgOverlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;">An organization groups all your teams under a single brand — club, association, or league.</p>
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Organization Name <span style="color:#dc2626;">*</span></label>
+      <input id="orgCreateName" value="${escapeAttr(prefill.name||"")}" placeholder="e.g., City Hockey Club, Metro Soccer Association"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Primary Sport</label>
+      <select id="orgCreateSport" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+        <option value="Multi-Sport"${(prefill.sport||"Multi-Sport")==="Multi-Sport"?" selected":""}>Multi-Sport</option>
+        ${(typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS : ["Hockey","Soccer","Football","Baseball","Basketball","Ringette"]).map(s=>`<option value="${escapeAttr(s)}"${prefill.sport===s?" selected":""}>${escapeHTML(s)}</option>`).join("")}
+      </select>
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">City / Region <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+      <input id="orgCreateCity" value="${escapeAttr(prefill.city||"")}" placeholder="e.g., Toronto, Vancouver"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:22px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="document.getElementById('createOrgOverlay').remove()" style="padding:10px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;cursor:pointer;font-weight:700;color:var(--muted);">Cancel</button>
+        <button onclick="submitCreateOrg()" style="padding:10px 22px;border:none;border-radius:8px;background:#0a1e3d;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">Create Organization</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+  setTimeout(() => document.getElementById("orgCreateName")?.focus(), 40);
+}
+
+function submitCreateOrg(){
+  const name  = String(document.getElementById("orgCreateName")?.value || "").trim();
+  const sport = String(document.getElementById("orgCreateSport")?.value || "Multi-Sport").trim();
+  const city  = String(document.getElementById("orgCreateCity")?.value || "").trim();
+  if(!name){
+    showActionBanner("Please enter an organization name.", "error");
+    document.getElementById("orgCreateName")?.focus();
+    return;
+  }
+  const org = createOrg({ name, sport, city });
+  if(!org) return;
+  document.getElementById("createOrgOverlay")?.remove();
+  renderHomeContent();
+  showActionBanner(`✅ "${name}" created`, "success");
+}
+
+function openEditOrgModal(orgId){
+  const org = getOrgById(orgId);
+  if(!org) return;
+  document.getElementById("editOrgOverlay")?.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "editOrgOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  overlay.innerHTML = `
+    <div style="background:var(--card);border-radius:14px;padding:28px 24px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--ink);">Edit Organization</h3>
+        <button onclick="document.getElementById('editOrgOverlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>
+      </div>
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Organization Name</label>
+      <input id="orgEditName" value="${escapeAttr(org.name)}"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Primary Sport</label>
+      <select id="orgEditSport" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+        <option value="Multi-Sport"${org.sport==="Multi-Sport"?" selected":""}>Multi-Sport</option>
+        ${(typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS : ["Hockey","Soccer","Football","Baseball","Basketball","Ringette"]).map(s=>`<option value="${escapeAttr(s)}"${org.sport===s?" selected":""}>${escapeHTML(s)}</option>`).join("")}
+      </select>
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">City / Region</label>
+      <input id="orgEditCity" value="${escapeAttr(org.city||"")}"
+        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:22px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+      <div style="display:flex;gap:10px;justify-content:space-between;">
+        <button onclick="confirmDeleteOrg('${escapeJS(orgId)}')" style="padding:10px 14px;border:1.5px solid #dc2626;border-radius:8px;background:var(--card);font-size:12px;cursor:pointer;font-weight:700;color:#dc2626;">Delete Org</button>
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('editOrgOverlay').remove()" style="padding:10px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;cursor:pointer;font-weight:700;color:var(--muted);">Cancel</button>
+          <button onclick="submitEditOrg('${escapeJS(orgId)}')" style="padding:10px 22px;border:none;border-radius:8px;background:#0a1e3d;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+}
+
+function submitEditOrg(orgId){
+  const name  = String(document.getElementById("orgEditName")?.value || "").trim();
+  const sport = String(document.getElementById("orgEditSport")?.value || "Multi-Sport").trim();
+  const city  = String(document.getElementById("orgEditCity")?.value || "").trim();
+  if(!name){ showActionBanner("Organization name is required.", "error"); return; }
+  updateOrg(orgId, { name, sport, city });
+  document.getElementById("editOrgOverlay")?.remove();
+  renderHomeContent();
+  showActionBanner("Organization updated", "success");
+}
+
+function confirmDeleteOrg(orgId){
+  const org = getOrgById(orgId);
+  if(!org) return;
+  if(!confirm(`Delete "${org.name}"? Your teams and assessments are not affected.`)) return;
+  deleteOrg(orgId);
+  document.getElementById("editOrgOverlay")?.remove();
+  renderHomeContent();
+  showActionBanner("Organization deleted", "success");
+}
+
+// ── Organization Demo Generator ───────────────────────────────────────────
+
+function openOrgDemoGenerator(){
+  document.getElementById("orgDemoOverlay")?.remove();
+  const org = getPrimaryOrg();
+  const overlay = document.createElement("div");
+  overlay.id = "orgDemoOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  overlay.innerHTML = `
+    <div style="background:var(--card);border-radius:14px;padding:28px 24px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);max-height:92vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--ink);">🎭 Generate Demo Data</h3>
+        <button onclick="document.getElementById('orgDemoOverlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;">Instantly populate${org ? ` ${escapeHTML(org.name)} ` : " "}with realistic test data to explore all features.</p>
+
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Assessments section -->
+        <div style="border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:900;color:var(--ink);margin-bottom:10px;">📋 Assessment Events</div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;">
+            <input type="checkbox" id="demoGenAssessments" checked> Generate assessment events with scored players
+          </label>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;">
+              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Events</label>
+              <input id="demoGenEventCount" type="number" min="1" max="6" value="2"
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Players / Event</label>
+              <input id="demoGenPlayerCount" type="number" min="5" max="40" value="20"
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Assessments</label>
+              <input id="demoGenEvalCount" type="number" min="1" max="5" value="3"
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+            </div>
+          </div>
+        </div>
+
+        <!-- Registrations section -->
+        <div style="border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:900;color:var(--ink);margin-bottom:10px;">📝 Registrations</div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;">
+            <input type="checkbox" id="demoGenRegs" checked> Generate registration records with payment data
+          </label>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;">
+              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Count</label>
+              <input id="demoGenRegCount" type="number" min="5" max="150" value="30"
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Birth Years</label>
+              <input id="demoGenRegYears" value="2008–2016" placeholder="2008–2016"
+                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
+        <button onclick="document.getElementById('orgDemoOverlay').remove()" style="padding:10px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;cursor:pointer;font-weight:700;color:var(--muted);">Cancel</button>
+        <button onclick="runOrgDemoGenerator()" style="padding:10px 22px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-size:14px;font-weight:900;cursor:pointer;">🎭 Generate</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+}
+
+function runOrgDemoGenerator(){
+  const doAssessments = document.getElementById("demoGenAssessments")?.checked;
+  const doRegs        = document.getElementById("demoGenRegs")?.checked;
+  const eventCount    = Math.max(1, Math.min(6,   parseInt(document.getElementById("demoGenEventCount")?.value   || "2",  10)));
+  const playerCount   = Math.max(5, Math.min(40,  parseInt(document.getElementById("demoGenPlayerCount")?.value  || "20", 10)));
+  const evalCount     = Math.max(1, Math.min(5,   parseInt(document.getElementById("demoGenEvalCount")?.value    || "3",  10)));
+  const regCount      = Math.max(1, Math.min(150, parseInt(document.getElementById("demoGenRegCount")?.value     || "30", 10)));
+  const regYearsRaw   = (document.getElementById("demoGenRegYears")?.value || "2008-2016").replace(/[–—]/g, "-");
+  const [minYearStr, maxYearStr] = regYearsRaw.split("-");
+  const minYear = parseInt(minYearStr, 10) || 2008;
+  const maxYear = parseInt(maxYearStr, 10) || 2016;
+
+  document.getElementById("orgDemoOverlay")?.remove();
+
+  const orgName = getPrimaryOrg()?.name || "Demo";
+  const sport   = getPrimaryOrg()?.sport === "Multi-Sport"
+    ? (typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS[0] : "Hockey")
+    : (getPrimaryOrg()?.sport || "Hockey");
+
+  let totalGenerated = [];
+  let bannermsg = [];
+
+  // ── Generate assessment events ────────────────────────────────────────
+  if(doAssessments){
+    const ageLabels  = ["U9","U11","U13","U15","U18"];
+    const eventSuffixes = ["Tryout #1","Tryout #2","Skills Camp","Development Camp","Final Cuts","Spring Evaluation"];
+    for(let i = 0; i < eventCount; i++){
+      const label   = eventSuffixes[i % eventSuffixes.length];
+      const agLabel = ageLabels[i % ageLabels.length];
+      const tryout  = {
+        id:          uid(),
+        name:        `${orgName} ${agLabel} ${label}`,
+        sport,
+        createdAt:   Date.now() - (eventCount - i) * 7 * 86400000,
+        updatedAt:   Date.now(),
+        roster:      [],
+        evals:       [],
+        assessors:   [],
+        settings:    { skaterWeights:{}, goalieWeights:{}, customRubrics:[] },
+        defaultPosition: "",
+        demoGenerated: true,
+      };
+      if(!tryout.settings.skaterWeights && typeof DEFAULT_SK_WEIGHTS !== "undefined")
+        tryout.settings.skaterWeights = {...DEFAULT_SK_WEIGHTS};
+      if(!tryout.settings.goalieWeights && typeof DEFAULT_GO_WEIGHTS !== "undefined")
+        tryout.settings.goalieWeights = {...DEFAULT_GO_WEIGHTS};
+      if(typeof ensureRubricSettings === "function") ensureRubricSettings(tryout);
+      DB.tryouts[tryout.id] = tryout;
+      // Use existing generator to fill players + assessments
+      if(typeof generateRandomAssessments === "function"){
+        generateRandomAssessments({
+          tryout,
+          skaterCount: playerCount,
+          goalieCount: Math.max(1, Math.round(playerCount * 0.1)),
+          assessmentsPerPlayer: evalCount,
+          requireManage: false,
+          silent: true,
+        });
+      }
+      totalGenerated.push(tryout.name);
+    }
+    saveDB();
+    bannermsg.push(`${eventCount} assessment event${eventCount===1?"":"s"}`);
+  }
+
+  // ── Generate registrations ────────────────────────────────────────────
+  if(doRegs){
+    generateDemoRegistrations(regCount, { minYear, maxYear, payMode: "realistic", withSortOut: true });
+    bannermsg.push(`${regCount} registration${regCount===1?"":"s"}`);
+  }
+
+  if(bannermsg.length){
+    showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")}`, "success");
+  }
+
+  renderHomeContent();
+}
+
 function deleteSeasonFromHome(seasonId){
   const season = DB.seasons[seasonId];
   if(!season) return;
@@ -8189,12 +8499,13 @@ function ensureSeasonBuilderAccess(){
 function loadDB(){
   try{
     const raw = safeStorageGet(STORAGE_KEY);
-    const db = raw ? JSON.parse(raw) : { version:6, tryouts:{}, seasons:{}, teams:[] };
+    const db = raw ? JSON.parse(raw) : { version:6, tryouts:{}, seasons:{}, teams:[], orgs:[] };
     const dbVersion = Number(db.version) || 0;
     let didUpgrade = false;
     if(!db.tryouts) db.tryouts = {};
     if(!db.seasons || typeof db.seasons !== "object" || Array.isArray(db.seasons)) db.seasons = {};
     if(!Array.isArray(db.teams)) db.teams = [];
+    if(!Array.isArray(db.orgs)) db.orgs = [];
     // Normalize tryouts map
     if(Array.isArray(db.tryouts)){
       const map = {};
@@ -8265,7 +8576,7 @@ function loadDB(){
     return db;
   }catch{
     console.warn('[DB_LOAD] Failed to parse DB, returning empty. Storage key:', STORAGE_KEY);
-    return { version:7, tryouts:{}, seasons:{}, teams:[] };
+    return { version:7, tryouts:{}, seasons:{}, teams:[], orgs:[] };
   }
 }
 let _saveDbTimer = null;
@@ -12501,8 +12812,78 @@ function renderHomeContent(){
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   const summaryRingHTML = buildSessionSummaryRing(activeForRing);
 
+  // ── Build org banner ────────────────────────────────────────────────────
+  const primaryOrg = getPrimaryOrg();
+  const allTeamCount   = allSeasons.length + orphanedTeams.length;
+  const allPlayerCount = allSeasons.reduce((sum, s) => sum + (s.roster||[]).length, 0);
+  const allEventCount  = Object.keys(DB.tryouts||{}).filter(id => !isArchivedTryout(DB.tryouts[id])).length;
+
+  const orgBannerHTML = primaryOrg ? `
+    <div style="
+      background: linear-gradient(135deg, #0a1e3d 0%, #1e3a5f 60%, #7c3aed 100%);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      color: #fff;
+    ">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:46px;height:46px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;flex-shrink:0;">
+            ${escapeHTML((primaryOrg.name||"O")[0].toUpperCase())}
+          </div>
+          <div>
+            <div style="font-size:18px;font-weight:900;letter-spacing:-0.01em;line-height:1.1;">${escapeHTML(primaryOrg.name)}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;">
+              ${escapeHTML(primaryOrg.sport||"Multi-Sport")}${primaryOrg.city ? " &bull; " + escapeHTML(primaryOrg.city) : ""}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button onclick="openOrgDemoGenerator()" style="padding:8px 14px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-size:12px;font-weight:900;cursor:pointer;">🎭 Generate Demo Data</button>
+          <button onclick="openEditOrgModal('${escapeJS(primaryOrg.id)}')" style="padding:8px 14px;border:1.5px solid rgba(255,255,255,0.3);border-radius:8px;background:transparent;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">⚙️ Edit</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap;">
+        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:7px 14px;text-align:center;">
+          <div style="font-size:18px;font-weight:900;">${allTeamCount}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Team${allTeamCount!==1?"s":""}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:7px 14px;text-align:center;">
+          <div style="font-size:18px;font-weight:900;">${allPlayerCount}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Player${allPlayerCount!==1?"s":""}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:8px;padding:7px 14px;text-align:center;">
+          <div style="font-size:18px;font-weight:900;">${allEventCount}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Assessment${allEventCount!==1?"s":""}</div>
+        </div>
+      </div>
+    </div>
+  ` : `
+    <div style="
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      padding: 20px 18px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    ">
+      <div>
+        <div style="font-size:15px;font-weight:900;color:var(--ink);margin-bottom:3px;">🏢 No Organization Yet</div>
+        <div style="font-size:13px;color:var(--muted);">Create an organization to brand your dashboard and generate demo data.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="openOrgDemoGenerator()" style="padding:9px 14px;border:1.5px solid #7c3aed;border-radius:8px;background:var(--card);color:#7c3aed;font-size:12px;font-weight:900;cursor:pointer;">🎭 Demo Data</button>
+        <button onclick="openCreateOrgModal()" style="padding:9px 16px;border:none;border-radius:8px;background:#0a1e3d;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">🏢 Create Organization</button>
+      </div>
+    </div>
+  `;
+
   container.innerHTML = `
     ${summaryRingHTML}
+    ${orgBannerHTML}
     <div style="margin-bottom:16px;">
       <div style="position:relative;">
         <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;">🔍</span>
