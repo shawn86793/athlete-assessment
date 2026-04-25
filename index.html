@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -18890,112 +18890,112 @@ function renderPlayerHub(){
     ${topTabsHTML()}
 
     <!-- ── OURA-style hero profile card ── -->
-    <div class=”card oura-profile-hero”>
-      <div style=”display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:4px;” id=”playerNavRow”>
-        ${nav.prev ? `<button class=”secondary small” style=”width:auto;” onclick=”openPlayerHub('${nav.prev}')”>← Prev</button>` : `<span></span>`}
-        <span style=”font-size:12px;color:#94a3b8;”>${nav.idx+1} of ${nav.total}</span>
-        ${nav.next ? `<button class=”secondary small” style=”width:auto;” onclick=”openPlayerHub('${nav.next}')”>Next →</button>` : `<span></span>`}
+    <div class="card oura-profile-hero">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:4px;" id="playerNavRow">
+        ${nav.prev ? `<button class="secondary small" style="width:auto;" onclick="openPlayerHub('${nav.prev}')">← Prev</button>` : `<span></span>`}
+        <span style="font-size:12px;color:#94a3b8;">${nav.idx+1} of ${nav.total}</span>
+        ${nav.next ? `<button class="secondary small" style="width:auto;" onclick="openPlayerHub('${nav.next}')">Next →</button>` : `<span></span>`}
       </div>
-      <button class=”secondary small” style=”width:auto;align-self:flex-start;” onclick=”go('roster')”>⬅ Back</button>
+      <button class="secondary small" style="width:auto;align-self:flex-start;" onclick="go('roster')">⬅ Back</button>
 
       <!-- Hero ring -->
-      <div class=”oura-hero-ring-wrap” style=”margin-top:16px;”>
-        <svg width=”180” height=”180” viewBox=”0 0 180 180” role=”img” aria-label=”Overall score ${overall > 0 ? fmt2(overall) : 0} out of 5”>
-          <circle cx=”90” cy=”90” r=”68” fill=”none” stroke=”rgba(128,128,128,0.10)” stroke-width=”10”/>
-          <circle id=”ouraHeroArc” cx=”90” cy=”90” r=”68” fill=”none” stroke=”${heroColor}”
-            stroke-width=”10” stroke-dasharray=”${HERO_CIRC}” stroke-dashoffset=”${HERO_CIRC}”
-            data-target=”${heroOffset}” stroke-linecap=”round” transform=”rotate(-90 90 90)”
-            style=”transition:stroke-dashoffset 1.0s cubic-bezier(0.34,1.56,0.64,1);”/>
+      <div class="oura-hero-ring-wrap" style="margin-top:16px;">
+        <svg width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Overall score ${overall > 0 ? fmt2(overall) : 0} out of 5">
+          <circle cx="90" cy="90" r="68" fill="none" stroke="rgba(128,128,128,0.10)" stroke-width="10"/>
+          <circle id="ouraHeroArc" cx="90" cy="90" r="68" fill="none" stroke="${heroColor}"
+            stroke-width="10" stroke-dasharray="${HERO_CIRC}" stroke-dashoffset="${HERO_CIRC}"
+            data-target="${heroOffset}" stroke-linecap="round" transform="rotate(-90 90 90)"
+            style="transition:stroke-dashoffset 1.0s cubic-bezier(0.34,1.56,0.64,1);"/>
         </svg>
-        <div class=”oura-hero-center”>
-          <div class=”oura-hero-score” style=”color:${heroColor};”>${overall > 0 ? fmt2(overall) : “—“}</div>
-          <div class=”oura-hero-label”>overall</div>
-          <div class=”oura-hero-rank”>#${rOverall} of ${totalGroup}</div>
-          ${deltaStr ? `<div class=”oura-delta-badge” style=”color:${deltaColor};margin-top:3px;”>${deltaStr}</div>` : “”}
+        <div class="oura-hero-center">
+          <div class="oura-hero-score" style="color:${heroColor};">${overall > 0 ? fmt2(overall) : "—"}</div>
+          <div class="oura-hero-label">overall</div>
+          <div class="oura-hero-rank">#${rOverall} of ${totalGroup}</div>
+          ${deltaStr ? `<div class="oura-delta-badge" style="color:${deltaColor};margin-top:3px;">${deltaStr}</div>` : ""}
         </div>
       </div>
 
       <!-- Name + badges -->
-      <div class=”oura-hero-name”>${escapeHTML(playerDisplayName(p))}</div>
-      <div class=”oura-hero-meta”>
-        ${p.pos ? `<span class=”badge”>${escapeHTML(p.pos)}</span>` : “”}
-        ${p.shoots ? `<span class=”badge”>${escapeHTML(p.shoots)}</span>` : “”}
-        ${p.jersey ? `<span class=”badge”>#${escapeHTML(p.jersey)}</span>` : “”}
-        ${p.anonymous ? `<span class=”badge anon”>Anonymous</span>` : “”}
-        ${p.athleteId ? `<span class=”badge” style=”background:#0a1e3d;font-family:monospace;font-size:11px;” title=”Athlete ID”>🪪 ${escapeHTML(p.athleteId)}</span>` : “”}
-        <span class=”badge”>${evs.length} assessment${evs.length!==1?”s”:””}</span>
-        <span class=”badge”>Assigned: ${escapeHTML(p.assignedAssessor||”Unassigned”)}</span>
+      <div class="oura-hero-name">${escapeHTML(playerDisplayName(p))}</div>
+      <div class="oura-hero-meta">
+        ${p.pos ? `<span class="badge">${escapeHTML(p.pos)}</span>` : ""}
+        ${p.shoots ? `<span class="badge">${escapeHTML(p.shoots)}</span>` : ""}
+        ${p.jersey ? `<span class="badge">#${escapeHTML(p.jersey)}</span>` : ""}
+        ${p.anonymous ? `<span class="badge anon">Anonymous</span>` : ""}
+        ${p.athleteId ? `<span class="badge" style="background:#0a1e3d;font-family:monospace;font-size:11px;" title="Athlete ID">🪪 ${escapeHTML(p.athleteId)}</span>` : ""}
+        <span class="badge">${evs.length} assessment${evs.length!==1?"s":""}</span>
+        <span class="badge">Assigned: ${escapeHTML(p.assignedAssessor||"Unassigned")}</span>
       </div>
 
       <!-- Sparkline (Feature #5) -->
       ${_sparkScores.length >= 2 ? `
-      <div class=”oura-sparkline-row”>
-        <span class=”oura-spark-label”>${_sparkScores.length} sessions</span>
+      <div class="oura-sparkline-row">
+        <span class="oura-spark-label">${_sparkScores.length} sessions</span>
         ${sparklineHTML}
-        ${deltaStr ? `<span class=”oura-delta-badge” style=”color:${deltaColor};”>${deltaStr}</span>` : “”}
-      </div>` : “”}
+        ${deltaStr ? `<span class="oura-delta-badge" style="color:${deltaColor};">${deltaStr}</span>` : ""}
+      </div>` : ""}
     </div>
 
     <!-- ── Category arc rings ── -->
-    <div class=”card” style=”padding-bottom:12px;”>
-      <h3 style=”margin-bottom:0;”>Categories</h3>
-      <div class=”oura-cat-rings”>
+    <div class="card" style="padding-bottom:12px;">
+      <h3 style="margin-bottom:0;">Categories</h3>
+      <div class="oura-cat-rings">
         ${catRingsHTML}
       </div>
     </div>
 
     <!-- ── Rankings ── -->
-    <div class=”card”>
-      <h3>Rankings <span class=”muted” style=”font-size:12px;font-weight:400;”>vs ${isGoalie ? escapeHTML(specialPositionLabel(sport).toLowerCase())+”s” : escapeHTML(playerLabel(sport).toLowerCase())+”s”}</span></h3>
-      <div class=”oura-ranks-strip”>
+    <div class="card">
+      <h3>Rankings <span class="muted" style="font-size:12px;font-weight:400;">vs ${isGoalie ? escapeHTML(specialPositionLabel(sport).toLowerCase())+"s" : escapeHTML(playerLabel(sport).toLowerCase())+"s"}</span></h3>
+      <div class="oura-ranks-strip">
         ${catOrder.map(key => {
-          const rank = rankCats[key]?.ranks[p.id] || “—“;
-          return `<div class=”oura-rank-pill”>
-            <div class=”oura-rank-num”>${rank !== “—“ ? rank+”/”+totalGroup : “—“}</div>
-            <div class=”oura-rank-lbl”>${escapeHTML(catLabels[key]||key)}</div>
+          const rank = rankCats[key]?.ranks[p.id] || "—";
+          return `<div class="oura-rank-pill">
+            <div class="oura-rank-num">${rank !== "—" ? rank+"/"+totalGroup : "—"}</div>
+            <div class="oura-rank-lbl">${escapeHTML(catLabels[key]||key)}</div>
           </div>`;
-        }).join(“”)}
-        ${hasCustomRank ? `<div class=”oura-rank-pill”>
-          <div class=”oura-rank-num”>${rTxt(rankCustom.ranks[p.id]||”—“)}</div>
-          <div class=”oura-rank-lbl”>Custom</div>
-        </div>` : “”}
-        <div class=”oura-rank-pill” style=”border-color:rgba(255,107,43,0.40);”>
-          <div class=”oura-rank-num” style=”color:#ff6b2b;”>${rTxt(rOverall)}</div>
-          <div class=”oura-rank-lbl”>Overall</div>
+        }).join("")}
+        ${hasCustomRank ? `<div class="oura-rank-pill">
+          <div class="oura-rank-num">${rTxt(rankCustom.ranks[p.id]||"—")}</div>
+          <div class="oura-rank-lbl">Custom</div>
+        </div>` : ""}
+        <div class="oura-rank-pill" style="border-color:rgba(255,107,43,0.40);">
+          <div class="oura-rank-num" style="color:#ff6b2b;">${rTxt(rOverall)}</div>
+          <div class="oura-rank-lbl">Overall</div>
         </div>
       </div>
     </div>
 
     <!-- ── Contact ── -->
-    <div class=”card”>
+    <div class="card">
       <h3>Player Contact</h3>
-      ${contactItems ? `<div class=”pillRow”>${contactItems}</div>` : `<div class=”muted”>No contact info on file.</div>`}
+      ${contactItems ? `<div class="pillRow">${contactItems}</div>` : `<div class="muted">No contact info on file.</div>`}
     </div>
 
     <!-- ── Actions ── -->
-    <div class=”card”>
-      <div class=”row”>
-        <div class=”col”><button class=”ok” onclick=”startNewEval('${p.id}')”>+ New Assessment</button></div>
-        ${canManage ? `<div class=”col”><button class=”secondary” onclick=”openEditPlayer('${p.id}')”>Edit Player</button></div>` : ``}
-        ${inviteMode ? “” : `<div class=”col”><button class=”secondary” onclick=”go('results')”>View Results Board</button></div>`}
-        ${canManage ? `<div class=”col”><button class=”danger” onclick=”deletePlayer('${p.id}')”>Delete Player</button></div>` : “”}
+    <div class="card">
+      <div class="row">
+        <div class="col"><button class="ok" onclick="startNewEval('${p.id}')">+ New Assessment</button></div>
+        ${canManage ? `<div class="col"><button class="secondary" onclick="openEditPlayer('${p.id}')">Edit Player</button></div>` : ``}
+        ${inviteMode ? "" : `<div class="col"><button class="secondary" onclick="go('results')">View Results Board</button></div>`}
+        ${canManage ? `<div class="col"><button class="danger" onclick="deletePlayer('${p.id}')">Delete Player</button></div>` : ""}
       </div>
     </div>
 
     <!-- ── Assessment History ── -->
-    <div class=”card”>
+    <div class="card">
       <h3>Assessment History</h3>
-      ${evs.length ? “” : `<div class=”muted”>No assessments yet. Tap “New Assessment”.</div>`}
-      ${evs.map(e=>renderEvalRow(e, p)).join(“”)}
+      ${evs.length ? "" : `<div class="muted">No assessments yet. Tap "New Assessment".</div>`}
+      ${evs.map(e=>renderEvalRow(e, p)).join("")}
     </div>
   `;
   initTopbarCollapse();
 
   // Animate hero ring + category arcs
   requestAnimationFrame(() => {
-    const heroArc = document.getElementById(“ouraHeroArc”);
+    const heroArc = document.getElementById("ouraHeroArc");
     if(heroArc) heroArc.style.strokeDashoffset = heroArc.dataset.target;
-    document.querySelectorAll(“.catArc”).forEach(el => {
+    document.querySelectorAll(".catArc").forEach(el => {
       el.style.strokeDashoffset = el.dataset.target;
     });
   });
@@ -21219,7 +21219,7 @@ function renderSettings(){
 
     <div class="card dangerZone">
       <h3>Danger Zone</h3>
-      <div class="muted">This resets ONLY this assessment’s player list and assessments.</div>
+      <div class="muted">This resets ONLY this assessment's player list and assessments.</div>
       <button class="danger" onclick="resetTryout()" ${disAttr}>Reset This Assessment</button>
     </div>
   `;
