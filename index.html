@@ -30727,8 +30727,15 @@ function adminFmtDaysSince(value){
 
 function adminPlanBadge(plan){
   const tier = String(plan || "free").toLowerCase();
-  const tone = tier === "free" ? "#64748b" : tier === "coach" ? "#0ea5e9" : tier === "club" ? "#22c55e" : tier === "pro" ? "#f59e0b" : "#a855f7";
-  return `<span class="admin-chip" style="background:${tone}; color:#081019;">${escapeHTML(tier)}</span>`;
+  const configs = {
+    free:        { bg:"#1e2d3d", color:"#7a96bc", border:"#2a3d55" },
+    coach:       { bg:"#062030", color:"#38bdf8", border:"#0e3d5c" },
+    club:        { bg:"#062b10", color:"#4ade80", border:"#0e5220" },
+    pro:         { bg:"#2d1f00", color:"#fbbf24", border:"#5c3e00" },
+    association: { bg:"#200838", color:"#c084fc", border:"#4a1a70" },
+  };
+  const c = configs[tier] || configs.free;
+  return `<span class="admin-plan-badge" style="background:${c.bg};color:${c.color};border:1px solid ${c.border};">${escapeHTML(tier)}</span>`;
 }
 
 function adminStatCard(label, value, tone = "normal", detail = ""){
@@ -30877,102 +30884,248 @@ function clearAdminPortalTimer(){
 function renderAdminPortalRoot(contentHtml){
   document.body.innerHTML = `
     <style>
-      :root{ --admin-bg:#0f1117; --admin-panel:#171923; --admin-border:#2b3244; --admin-muted:#9da8c0; --admin-text:#f4f7ff; --admin-accent:#4ea1ff; --admin-danger:#ff5a5f; --admin-warn:#ffb020; --admin-ok:#2ebd85; }
-      html,body{ margin:0; padding:0; background:var(--admin-bg); color:var(--admin-text); font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-      .admin-wrap{ min-height:100vh; background:radial-gradient(circle at 20% 0%, #1c2234 0%, var(--admin-bg) 45%); color:var(--admin-text); }
-      .admin-login{ min-height:100vh; display:grid; place-items:center; padding:24px; }
-      .admin-card{ width:min(460px,92vw); background:var(--admin-panel); border:1px solid var(--admin-border); border-radius:16px; padding:22px; box-shadow:0 20px 46px rgba(0,0,0,0.45); }
-      .admin-toggle{ display:grid; grid-template-columns:1fr 1fr; background:#0d1019; border:1px solid var(--admin-border); border-radius:12px; padding:4px; gap:4px; margin-bottom:16px; }
-      .admin-toggle button{ border:0; border-radius:9px; padding:10px 12px; background:transparent; color:var(--admin-muted); font-weight:700; cursor:pointer; }
-      .admin-toggle button.active{ background:#1f2537; color:var(--admin-text); }
-      .admin-card h2{ margin:0 0 12px; font-size:18px; }
-      .admin-row{ margin:10px 0; }
-      .admin-row label{ display:block; font-size:12px; color:var(--admin-muted); margin-bottom:6px; }
-      .admin-row input,.admin-row select,.admin-row textarea{ width:100%; background:#101423; color:var(--admin-text); border:1px solid var(--admin-border); border-radius:10px; padding:10px; box-sizing:border-box; }
-      .admin-row textarea{ min-height:90px; resize:vertical; }
-      .admin-btn{ border:0; border-radius:10px; padding:10px 14px; font-weight:800; cursor:pointer; }
-      .admin-btn.primary{ background:var(--admin-accent); color:#061325; }
-      .admin-btn.danger{ background:var(--admin-danger); color:#2b0508; }
-      .admin-btn.secondary{ background:#20283d; color:var(--admin-text); }
-      .admin-msg{ min-height:20px; font-size:12px; color:var(--admin-muted); margin-top:8px; }
-      .admin-shell{ min-height:100vh; display:grid; grid-template-columns:250px 1fr; }
-      .admin-side{ border-right:1px solid var(--admin-border); background:#0f131f; padding:16px; }
-      .admin-side h1{ margin:0 0 12px; font-size:14px; color:var(--admin-muted); letter-spacing:0.08em; text-transform:uppercase; }
-      .admin-nav{ display:grid; gap:8px; }
-      .admin-nav button{ text-align:left; border:1px solid var(--admin-border); background:#171e2e; color:var(--admin-text); border-radius:10px; padding:10px; font-weight:700; cursor:pointer; }
-      .admin-nav button.active{ border-color:var(--admin-accent); background:#1d2740; }
-      .admin-main{ padding:18px; }
-      .admin-main h2{ margin:0 0 14px; font-size:20px; }
-      .admin-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
-      .admin-stat{ padding:14px; border:1px solid var(--admin-border); border-radius:12px; background:#151b2b; }
-      .admin-stat .k{ font-size:12px; color:var(--admin-muted); }
-      .admin-stat .v{ margin-top:6px; font-size:24px; font-weight:900; }
-      .admin-stat.admin-stat-warn{ border-color:#b45309; background:#2c1f10; }
-      .admin-stat.admin-stat-danger{ border-color:#b91c1c; background:#34161f; }
-      .admin-stat.admin-stat-ok{ border-color:#0f766e; background:#14302f; }
+      /* ── Super Admin Portal — Navy Command Theme ─────────────────────── */
+      :root{
+        --admin-bg:#060d1a;
+        --admin-panel:#0d1829;
+        --admin-panel2:#111f35;
+        --admin-border:#1e3050;
+        --admin-border2:#253d61;
+        --admin-muted:#7a96bc;
+        --admin-text:#e8f0fe;
+        --admin-accent:#4ea1ff;
+        --admin-orange:#ff6b2b;
+        --admin-danger:#ff5a5f;
+        --admin-warn:#ffb020;
+        --admin-ok:#2ebd85;
+        --admin-side-bg:#040b16;
+        --admin-side-active:rgba(78,161,255,0.12);
+      }
+      *{ box-sizing:border-box; }
+      html,body{ margin:0; padding:0; background:var(--admin-bg); color:var(--admin-text); font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; font-size:14px; }
+      input,select,textarea{ background:var(--admin-panel2); color:var(--admin-text); border:1px solid var(--admin-border); border-radius:8px; padding:9px 11px; font-size:13px; outline:none; transition:border-color 0.15s; }
+      input:focus,select:focus,textarea:focus{ border-color:var(--admin-accent); }
+      select option{ background:#0d1829; }
+
+      /* ── Shell ─────────────────────────────────────────────────────── */
+      .admin-wrap{ min-height:100vh; background:var(--admin-bg); }
+      .admin-shell{ min-height:100vh; display:grid; grid-template-columns:260px 1fr; }
+
+      /* ── Sidebar ───────────────────────────────────────────────────── */
+      .admin-side{
+        background:var(--admin-side-bg);
+        border-right:1px solid var(--admin-border);
+        display:flex; flex-direction:column;
+        position:sticky; top:0; height:100vh; overflow-y:auto;
+      }
+      .admin-side-logo{
+        padding:20px 18px 14px;
+        border-bottom:1px solid var(--admin-border);
+        flex-shrink:0;
+      }
+      .admin-side-logo-badge{
+        display:inline-flex; align-items:center; gap:6px;
+        background:linear-gradient(90deg,#ff6b2b,#e85b1f);
+        color:#fff; font-size:10px; font-weight:900;
+        letter-spacing:0.12em; text-transform:uppercase;
+        padding:3px 9px; border-radius:999px; margin-bottom:8px;
+      }
+      .admin-side-appname{ font-size:16px; font-weight:900; color:#fff; letter-spacing:-0.01em; }
+      .admin-side-user{ font-size:11px; color:var(--admin-muted); margin-top:4px; word-break:break-all; }
+
+      .admin-nav-group{ padding:14px 12px 6px; }
+      .admin-nav-group-label{ font-size:10px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase; color:var(--admin-muted); padding:0 6px 6px; }
+      .admin-nav{ display:flex; flex-direction:column; gap:2px; }
+      .admin-nav button{
+        text-align:left; border:none; background:transparent;
+        color:var(--admin-muted); border-radius:9px;
+        padding:9px 12px; font-weight:700; cursor:pointer;
+        font-size:13px; display:flex; align-items:center; gap:9px;
+        transition:background 0.12s, color 0.12s;
+      }
+      .admin-nav button:hover{ background:rgba(78,161,255,0.07); color:var(--admin-text); }
+      .admin-nav button.active{ background:var(--admin-side-active); color:var(--admin-accent); }
+      .admin-nav button .nav-icon{ font-size:15px; flex-shrink:0; }
+      .admin-side-search{ padding:12px 12px 8px; flex-shrink:0; border-top:1px solid var(--admin-border); }
+      .admin-side-search-label{ font-size:10px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase; color:var(--admin-muted); margin-bottom:6px; }
+      #adminSidebarUserList{ overflow-y:auto; flex:1; padding:0 12px 8px; }
+      .admin-side-bottom{ border-top:1px solid var(--admin-border); padding:10px 12px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+      .admin-side-bottom button{
+        text-align:left; border:none; background:transparent;
+        color:var(--admin-muted); border-radius:9px;
+        padding:9px 12px; font-weight:700; cursor:pointer;
+        font-size:13px; display:flex; align-items:center; gap:9px;
+      }
+      .admin-side-bottom button:hover{ background:rgba(255,255,255,0.05); color:var(--admin-text); }
+
+      /* ── Main panel ────────────────────────────────────────────────── */
+      .admin-main{ padding:24px; background:var(--admin-bg); min-height:100vh; overflow-y:auto; }
+      .admin-page-title{
+        font-size:22px; font-weight:900; color:#fff;
+        margin:0 0 4px; letter-spacing:-0.02em;
+      }
+      .admin-page-sub{ font-size:13px; color:var(--admin-muted); margin:0 0 20px; }
+
+      /* ── Stat cards ────────────────────────────────────────────────── */
+      .admin-big-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin-bottom:18px; }
+      .admin-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:16px; }
+      .admin-stat,.admin-stat-xl{
+        padding:16px 18px;
+        border:1px solid var(--admin-border);
+        border-radius:14px;
+        background:var(--admin-panel);
+        transition:border-color 0.15s, box-shadow 0.15s;
+      }
+      .admin-stat:hover,.admin-stat-xl:hover{ border-color:var(--admin-border2); box-shadow:0 2px 12px rgba(78,161,255,0.08); }
+      .admin-stat .k,.admin-stat-xl .k{ font-size:11px; color:var(--admin-muted); text-transform:uppercase; letter-spacing:0.06em; font-weight:700; }
+      .admin-stat .v{ margin-top:6px; font-size:26px; font-weight:900; color:#fff; }
+      .admin-stat-xl .v{ font-size:36px; font-weight:900; margin-top:8px; line-height:1; color:#fff; }
+      .admin-stat-xl .trend{ font-size:12px; margin-top:4px; color:var(--admin-muted); }
+      .admin-stat.admin-stat-warn{ border-color:#b45309; background:#1e1207; }
+      .admin-stat.admin-stat-danger{ border-color:#b91c1c; background:#1c0c0d; }
+      .admin-stat.admin-stat-ok{ border-color:#0f766e; background:#081f1d; }
+
+      /* ── MRR band ──────────────────────────────────────────────────── */
+      .admin-mrr-band{
+        background:linear-gradient(135deg,#071f10,#0a2d1a,#0e3d22);
+        border:1px solid #1a5c36;
+        border-radius:14px; padding:18px 20px; margin-bottom:18px;
+        display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+      }
+      .admin-mrr-value{ font-size:42px; font-weight:900; color:#2ebd85; line-height:1; }
+      .admin-mrr-label{ font-size:11px; color:#4ade80; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
+      .admin-mrr-meta{ display:grid; gap:5px; font-size:13px; color:#d1fae5; }
+
+      /* ── Sections & Tables ─────────────────────────────────────────── */
+      .admin-section{
+        border:1px solid var(--admin-border);
+        border-radius:14px; padding:16px 18px;
+        margin-bottom:16px; background:var(--admin-panel);
+      }
+      .admin-section-title{
+        font-size:11px; font-weight:900; text-transform:uppercase;
+        letter-spacing:0.08em; color:var(--admin-muted); margin-bottom:14px;
+        display:flex; align-items:center; gap:6px;
+      }
+      .admin-section-title::after{ content:''; flex:1; height:1px; background:var(--admin-border); }
       .admin-table{ width:100%; border-collapse:collapse; font-size:13px; }
-      .admin-table th,.admin-table td{ border-bottom:1px solid var(--admin-border); padding:9px 7px; text-align:left; }
+      .admin-table th{ border-bottom:2px solid var(--admin-border2); padding:8px 10px; text-align:left; font-size:11px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase; color:var(--admin-muted); }
+      .admin-table td{ border-bottom:1px solid var(--admin-border); padding:10px 10px; vertical-align:middle; }
+      .admin-table tbody tr:hover td{ background:rgba(78,161,255,0.04); }
       .admin-table tr.clickable{ cursor:pointer; }
-      .admin-table tr.clickable:hover{ background:#1b2234; }
-      .admin-chip{ display:inline-block; padding:3px 8px; border-radius:999px; background:#2a344b; font-size:11px; font-weight:700; }
-      .admin-banner{ position:fixed; top:0; left:0; right:0; z-index:100001; background:#ffbf2f; color:#2f1d00; padding:10px 12px; font-size:13px; font-weight:900; display:flex; align-items:center; justify-content:space-between; gap:8px; }
-      .admin-bar{ height:10px; border-radius:6px; background:#1b2438; overflow:hidden; }
-      .admin-bar i{ display:block; height:100%; background:#5ca5ff; }
-      .admin-sparkline{ display:grid; grid-template-columns:repeat(30,minmax(4px,1fr)); align-items:end; gap:2px; height:90px; padding:10px; border:1px solid var(--admin-border); border-radius:12px; background:#101827; }
-      .admin-sparkline i{ display:block; background:#38bdf8; border-radius:2px 2px 0 0; min-height:2px; }
-      .admin-feedback-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
-      .admin-feedback-metrics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:12px; }
-      .admin-feedback-filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-      .admin-feedback-filter{ display:flex; flex-direction:column; gap:4px; min-width:150px; }
-      .admin-feedback-filter label{ color:var(--admin-muted); font-size:12px; }
-      .admin-feedback-list{ border:1px solid var(--admin-border); border-radius:12px; overflow:auto; max-height:58vh; background:#111827; }
-      .admin-feedback-card{ padding:12px; border-bottom:1px solid rgba(157,168,192,0.2); }
+
+      /* ── Badges & chips ────────────────────────────────────────────── */
+      .admin-chip{ display:inline-block; padding:3px 9px; border-radius:999px; background:#182a48; font-size:11px; font-weight:700; border:1px solid var(--admin-border); }
+      .admin-plan-badge{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:800; letter-spacing:0.03em; }
+      .admin-status-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+      .admin-status-dot.online{ background:#2ebd85; box-shadow:0 0 6px rgba(46,189,133,0.5); }
+      .admin-status-dot.idle{ background:#ffb020; }
+      .admin-status-dot.inactive{ background:#ff5a5f; }
+
+      /* ── Bar & sparkline ───────────────────────────────────────────── */
+      .admin-bar{ height:8px; border-radius:6px; background:rgba(78,161,255,0.1); overflow:hidden; }
+      .admin-bar i{ display:block; height:100%; background:var(--admin-accent); border-radius:6px; }
+      .admin-sparkline{ display:grid; grid-template-columns:repeat(30,minmax(4px,1fr)); align-items:end; gap:2px; height:80px; padding:10px; border:1px solid var(--admin-border); border-radius:12px; background:var(--admin-panel); }
+      .admin-sparkline i{ display:block; background:var(--admin-accent); border-radius:2px 2px 0 0; min-height:2px; opacity:0.75; }
+
+      /* ── Buttons ───────────────────────────────────────────────────── */
+      .admin-btn{ border:0; border-radius:9px; padding:8px 14px; font-weight:800; font-size:13px; cursor:pointer; transition:opacity 0.15s, filter 0.15s; }
+      .admin-btn:hover{ filter:brightness(1.1); }
+      .admin-btn.primary{ background:var(--admin-accent); color:#061325; }
+      .admin-btn.danger{ background:var(--admin-danger); color:#fff; }
+      .admin-btn.secondary{ background:#182a48; color:var(--admin-text); border:1px solid var(--admin-border); }
+      .admin-btn.ok{ background:#0a3d22; color:#2ebd85; border:1px solid #1a5c36; }
+      .admin-btn.orange{ background:#3d1a0a; color:var(--admin-orange); border:1px solid #6b2b0a; }
+
+      /* ── Feedback / QA cards ───────────────────────────────────────── */
+      .admin-feedback-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+      .admin-feedback-metrics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:14px; }
+      .admin-feedback-filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+      .admin-feedback-filter{ display:flex; flex-direction:column; gap:4px; min-width:140px; }
+      .admin-feedback-filter label{ color:var(--admin-muted); font-size:11px; font-weight:700; text-transform:uppercase; }
+      .admin-feedback-list{ border:1px solid var(--admin-border); border-radius:12px; overflow:auto; max-height:58vh; }
+      .admin-feedback-card{ padding:14px 16px; border-bottom:1px solid var(--admin-border); }
       .admin-feedback-card:last-child{ border-bottom:none; }
       .admin-feedback-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-      .admin-feedback-email{ font-weight:800; }
+      .admin-feedback-email{ font-weight:800; color:#fff; }
       .admin-feedback-meta{ color:var(--admin-muted); font-size:12px; margin-top:3px; }
       .admin-feedback-ratings{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin-top:10px; }
       .admin-feedback-stars{ color:#f5c542; letter-spacing:1px; font-size:15px; }
-      .admin-feedback-qa{ margin-top:10px; border:1px solid var(--admin-border); border-radius:10px; padding:8px 10px; background:#141d2f; }
-      .admin-feedback-qa b{ display:block; margin-bottom:4px; font-size:12px; color:var(--admin-muted); text-transform:uppercase; letter-spacing:0.05em; }
+      .admin-feedback-qa{ margin-top:10px; border:1px solid var(--admin-border); border-radius:10px; padding:10px 12px; background:var(--admin-panel2); }
+      .admin-feedback-qa b{ display:block; margin-bottom:4px; font-size:11px; color:var(--admin-muted); text-transform:uppercase; letter-spacing:0.05em; }
+
+      /* ── User hub ──────────────────────────────────────────────────── */
       .admin-user-hub{ padding:0; }
-      .admin-hub-header{ background:linear-gradient(135deg,#0f1b34,#1a2d54); border-bottom:1px solid var(--admin-border); padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-      .admin-hub-email{ font-size:20px; font-weight:900; color:#fff; letter-spacing:-0.01em; }
-      .admin-hub-meta{ font-size:13px; color:var(--admin-muted); margin-top:4px; }
-      .admin-hub-tabs{ display:flex; gap:6px; flex-wrap:wrap; }
-      .admin-hub-tab{ border:1px solid var(--admin-border); background:#1a2540; color:var(--admin-text); border-radius:8px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; }
-      .admin-hub-tab.active{ background:var(--admin-accent); border-color:var(--admin-accent); color:#061325; }
-      .admin-hub-body{ padding:18px; }
-      .admin-stat-xl{ padding:18px; border:1px solid var(--admin-border); border-radius:14px; background:#151b2b; }
-      .admin-stat-xl .k{ font-size:12px; color:var(--admin-muted); text-transform:uppercase; letter-spacing:0.05em; }
-      .admin-stat-xl .v{ font-size:36px; font-weight:900; margin-top:6px; line-height:1; }
-      .admin-stat-xl .trend{ font-size:12px; margin-top:4px; }
-      .admin-section{ border:1px solid var(--admin-border); border-radius:12px; padding:14px; margin-bottom:14px; background:#111827; }
-      .admin-section-title{ font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:0.06em; color:var(--admin-muted); margin-bottom:12px; }
-      .admin-team-card{ border:1px solid var(--admin-border); border-radius:10px; padding:12px; margin-bottom:8px; background:#151b2b; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+      .admin-hub-header{
+        background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 100%);
+        border-bottom:1px solid var(--admin-border);
+        padding:18px 22px;
+        display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+      }
+      .admin-hub-email{ font-size:20px; font-weight:900; color:#fff; letter-spacing:-0.02em; }
+      .admin-hub-meta{ font-size:13px; color:rgba(255,255,255,0.6); margin-top:5px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+      .admin-hub-tabs{ display:flex; gap:4px; flex-wrap:wrap; padding:12px 22px; border-bottom:1px solid var(--admin-border); background:var(--admin-panel); }
+      .admin-hub-tab{ border:1px solid var(--admin-border); background:transparent; color:var(--admin-muted); border-radius:8px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; transition:background 0.12s, color 0.12s, border-color 0.12s; }
+      .admin-hub-tab:hover{ background:rgba(78,161,255,0.08); color:var(--admin-text); }
+      .admin-hub-tab.active{ background:var(--admin-orange); border-color:var(--admin-orange); color:#fff; }
+      .admin-hub-body{ padding:20px 22px; }
+
+      /* ── Team / assessment cards ───────────────────────────────────── */
+      .admin-team-card{ border:1px solid var(--admin-border); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:var(--admin-panel2); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; transition:border-color 0.12s; }
+      .admin-team-card:hover{ border-color:var(--admin-border2); }
       .admin-team-card-info{ flex:1; min-width:0; }
-      .admin-team-card-name{ font-weight:800; font-size:15px; }
+      .admin-team-card-name{ font-weight:800; font-size:15px; color:#fff; }
       .admin-team-card-meta{ font-size:12px; color:var(--admin-muted); margin-top:3px; }
       .admin-team-card-actions{ display:flex; gap:6px; flex-wrap:wrap; }
-      .admin-team-archived{ opacity:0.55; border-style:dashed; }
-      .admin-assessment-card{ border:1px solid var(--admin-border); border-radius:10px; padding:12px; margin-bottom:8px; background:#151b2b; }
-      .admin-big-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:16px; }
-      .admin-metric-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(157,168,192,0.12); }
+      .admin-team-archived{ opacity:0.5; }
+      .admin-assessment-card{ border:1px solid var(--admin-border); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:var(--admin-panel2); }
+
+      /* ── Metrics & misc ────────────────────────────────────────────── */
+      .admin-metric-row{ display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid rgba(30,48,80,0.8); }
       .admin-metric-row:last-child{ border-bottom:none; }
-      .admin-search-bar{ display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:12px; }
+      .admin-metric-row span{ color:var(--admin-muted); font-size:13px; }
+      .admin-metric-row strong{ color:#fff; }
+      .admin-search-bar{ display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:14px; }
       .admin-action-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
-      .admin-empty{ text-align:center; padding:32px; color:var(--admin-muted); }
-      .admin-email-tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:#1a2d54; border:1px solid #2a4070; font-size:13px; font-weight:700; cursor:pointer; transition:background 0.15s; }
+      .admin-empty{ text-align:center; padding:40px 24px; color:var(--admin-muted); font-size:13px; }
+      .admin-empty-icon{ font-size:32px; display:block; margin-bottom:8px; opacity:0.5; }
+      .admin-email-tag{ display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:#1a2d54; border:1px solid #2a4070; font-size:12px; font-weight:700; cursor:pointer; transition:background 0.12s; color:var(--admin-text); }
       .admin-email-tag:hover{ background:#243a6a; }
-      .admin-status-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
-      .admin-status-dot.online{ background:#2ebd85; }
-      .admin-status-dot.idle{ background:#ffb020; }
-      .admin-status-dot.inactive{ background:#ff5a5f; }
-      .admin-mrr-band{ background:linear-gradient(135deg,#0a2d1a,#0f3d26); border:1px solid #1a5c36; border-radius:12px; padding:16px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-      .admin-mrr-value{ font-size:40px; font-weight:900; color:#2ebd85; line-height:1; }
-      .admin-mrr-label{ font-size:12px; color:#4ade80; text-transform:uppercase; letter-spacing:0.06em; }
-      @media(max-width:720px){ .admin-hub-tabs{ width:100%; } .admin-hub-tab{ flex:1; text-align:center; } }
-      @media (max-width:960px){ .admin-shell{ grid-template-columns:1fr; } .admin-side{ border-right:0; border-bottom:1px solid var(--admin-border); } }
+
+      /* ── Login card ────────────────────────────────────────────────── */
+      .admin-login{ min-height:100vh; display:grid; place-items:center; padding:24px; background:radial-gradient(circle at 30% 20%, #0a1e3d 0%, var(--admin-bg) 60%); }
+      .admin-card{ width:min(460px,92vw); background:var(--admin-panel); border:1px solid var(--admin-border); border-radius:18px; padding:26px; box-shadow:0 24px 60px rgba(0,0,0,0.6); }
+      .admin-card h2{ margin:0 0 14px; font-size:18px; color:#fff; font-weight:900; }
+      .admin-toggle{ display:grid; grid-template-columns:1fr 1fr; background:#040b16; border:1px solid var(--admin-border); border-radius:12px; padding:4px; gap:4px; margin-bottom:16px; }
+      .admin-toggle button{ border:0; border-radius:9px; padding:10px 12px; background:transparent; color:var(--admin-muted); font-weight:700; cursor:pointer; font-size:13px; }
+      .admin-toggle button.active{ background:var(--admin-panel2); color:var(--admin-text); }
+      .admin-row{ margin:10px 0; }
+      .admin-row label{ display:block; font-size:11px; color:var(--admin-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
+      .admin-row input,.admin-row select,.admin-row textarea{ width:100%; }
+      .admin-row textarea{ min-height:90px; resize:vertical; }
+      .admin-msg{ min-height:20px; font-size:12px; color:var(--admin-muted); margin-top:8px; }
+
+      /* ── Test mode banner ──────────────────────────────────────────── */
+      .admin-banner{ position:fixed; top:0; left:0; right:0; z-index:100001; background:#ff6b2b; color:#fff; padding:10px 16px; font-size:13px; font-weight:900; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+      /* ── Sidebar user list items ───────────────────────────────────── */
+      .admin-sidebar-user{ width:100%; text-align:left; border:none; background:transparent; color:var(--admin-text); border-radius:9px; padding:8px 10px; margin-bottom:4px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; transition:background 0.1s; }
+      .admin-sidebar-user:hover{ background:rgba(78,161,255,0.08); }
+      .admin-sidebar-user.active{ background:rgba(78,161,255,0.14); }
+      .admin-sidebar-user-email{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+
+      /* ── Responsive ────────────────────────────────────────────────── */
+      @media(max-width:960px){
+        .admin-shell{ grid-template-columns:1fr; }
+        .admin-side{ position:relative; height:auto; border-right:none; border-bottom:1px solid var(--admin-border); }
+        #adminSidebarUserList{ max-height:160px; }
+      }
+      @media(max-width:720px){
+        .admin-hub-tabs{ padding:10px 14px; }
+        .admin-hub-tab{ flex:1; text-align:center; padding:7px 8px; font-size:11px; }
+        .admin-hub-body{ padding:14px; }
+        .admin-main{ padding:14px; }
+      }
     </style>
     <div class="admin-wrap">${contentHtml}</div>
   `;
@@ -31077,8 +31230,22 @@ function applyAdminTestModeIfPresent(){
   return true;
 }
 
+const ADMIN_NAV_ICONS = {
+  overview:  "⊞",
+  accounts:  "👥",
+  plans:     "💳",
+  teams:     "🏒",
+  enterprise:"🏢",
+  stats:     "📊",
+  feedback:  "💬",
+  audit:     "📋",
+  health:    "❤️",
+  backApp:   "←",
+  logout:    "⎋",
+};
 function adminSidebarButton(key, label, active){
-  return `<button data-admin-nav="${escapeAttr(key)}" class="${active ? "active" : ""}" type="button">${escapeHTML(label)}</button>`;
+  const icon = ADMIN_NAV_ICONS[key] || "•";
+  return `<button data-admin-nav="${escapeAttr(key)}" class="${active ? "active" : ""}" type="button"><span class="nav-icon">${icon}</span>${escapeHTML(label)}</button>`;
 }
 
 function adminNowMs(){
@@ -31128,22 +31295,23 @@ function renderAdminSidebarUserList(){
     ? users.filter(user => String(user?.email || "").toLowerCase().includes(q))
     : users;
   listHost.innerHTML = filtered.length
-    ? filtered.map(user=>{
+    ? filtered.slice(0, 60).map(user=>{
         const userId = String(user?.userId || "");
         const email = String(user?.email || "No login email");
         const statusClass = adminUserStatusClass(user?.lastActiveDate);
-        return `<button type="button" data-open-user-hub="${escapeAttr(userId)}" data-open-user-email="${escapeAttr(email)}" style="width:100%; text-align:left; border:1px solid var(--admin-border); background:${adminPanelState.selectedUserId === userId ? "#203255" : "#141b2b"}; border-radius:9px; padding:9px; margin-bottom:7px; cursor:pointer;">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-            <span style="font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(email)}</span>
-            <span class="admin-status-dot ${statusClass}"></span>
+        const isActive = adminPanelState.selectedUserId === userId;
+        return `<button type="button" class="admin-sidebar-user${isActive?" active":""}" data-open-user-hub="${escapeAttr(userId)}" data-open-user-email="${escapeAttr(email)}">
+          <div style="flex:1;min-width:0;">
+            <div class="admin-sidebar-user-email">${escapeHTML(email)}</div>
+            <div style="margin-top:3px;display:flex;align-items:center;gap:6px;">
+              ${adminPlanBadge(String(user?.planTier || "free"))}
+              <span style="font-size:10px;color:var(--admin-muted);">${escapeHTML(adminFmtDaysSince(user?.lastActiveDate))}</span>
+            </div>
           </div>
-          <div style="margin-top:6px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-            ${adminPlanBadge(String(user?.planTier || "free"))}
-            <span style="font-size:11px; color:var(--admin-muted);">${escapeHTML(adminFmtDaysSince(user?.lastActiveDate))}</span>
-          </div>
+          <span class="admin-status-dot ${statusClass}" style="flex-shrink:0;"></span>
         </button>`;
       }).join("")
-    : `<div class="admin-empty" style="padding:18px 8px;">No users match this email search.</div>`;
+    : `<div class="admin-empty" style="padding:14px 8px;font-size:12px;">No users found.</div>`;
   listHost.querySelectorAll("[data-open-user-hub]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       const userId = String(btn.getAttribute("data-open-user-hub") || "").trim();
@@ -31159,33 +31327,62 @@ function renderAdminSidebarUserList(){
 function renderAdminDashboard(panel = "overview"){
   clearAdminPortalTimer();
   adminPanelState.panel = panel;
+  const email = getCurrentUserEmail() || "admin";
   renderAdminPortalRoot(`
     <div class="admin-shell">
-      <aside class="admin-side" style="display:flex; flex-direction:column; gap:14px;">
-        <section>
-          <h1>Back Office</h1>
-          <div style="font-size:13px;color:var(--admin-muted);word-break:break-all;">Logged in as<br><strong style="color:var(--admin-text);">${escapeHTML(getCurrentUserEmail() || "admin")}</strong></div>
-          <div class="admin-nav" style="margin-top:10px;">
-            ${adminSidebarButton("overview", "Overview", panel === "overview")}
-            ${adminSidebarButton("stats", "Platform Stats", panel === "stats")}
-            ${adminSidebarButton("feedback", "Feedback", panel === "feedback")}
-            ${adminSidebarButton("audit", "Audit Log", panel === "audit")}
-            ${adminSidebarButton("health", "App Health", panel === "health")}
-            ${adminSidebarButton("plans", "Plans", panel === "plans")}
+      <aside class="admin-side">
+
+        <!-- Branding header -->
+        <div class="admin-side-logo">
+          <div class="admin-side-logo-badge">⚡ Super Admin</div>
+          <div class="admin-side-appname">Back Office</div>
+          <div class="admin-side-user">${escapeHTML(email)}</div>
+        </div>
+
+        <!-- Main navigation -->
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-label">Dashboard</div>
+          <div class="admin-nav">
+            ${adminSidebarButton("overview",   "Overview",       panel === "overview")}
+            ${adminSidebarButton("stats",      "Platform Stats", panel === "stats")}
+            ${adminSidebarButton("health",     "App Health",     panel === "health")}
           </div>
-        </section>
-        <section style="border-top:1px solid var(--admin-border); padding-top:12px; min-height:280px; display:flex; flex-direction:column;">
-          <div style="font-size:12px; color:var(--admin-muted); margin-bottom:6px; font-weight:800;">Find User by Email</div>
-          <input id="adminSidebarUserSearch" value="${escapeAttr(adminPanelState.userHubSearchQuery || "")}" placeholder="name@club.com" style="margin-bottom:8px;">
-          <div id="adminSidebarUserList" style="overflow:auto; max-height:46vh;"><div class="admin-empty" style="padding:18px 8px;">Loading users...</div></div>
-        </section>
-        <section style="margin-top:auto; display:grid; gap:8px; border-top:1px solid var(--admin-border); padding-top:12px;">
-          ${adminSidebarButton("backApp", "Back to My App", false)}
-          ${adminSidebarButton("logout", "Sign Out", false)}
-        </section>
+        </div>
+
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-label">User Management</div>
+          <div class="admin-nav">
+            ${adminSidebarButton("accounts",   "All Accounts",   panel === "accounts")}
+            ${adminSidebarButton("plans",      "Plans",          panel === "plans")}
+            ${adminSidebarButton("enterprise", "Enterprise",     panel === "enterprise")}
+          </div>
+        </div>
+
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-label">Content</div>
+          <div class="admin-nav">
+            ${adminSidebarButton("teams",    "All Teams",   panel === "teams")}
+            ${adminSidebarButton("feedback", "Feedback",    panel === "feedback")}
+            ${adminSidebarButton("audit",    "Audit Log",   panel === "audit")}
+          </div>
+        </div>
+
+        <!-- Quick user search -->
+        <div class="admin-side-search">
+          <div class="admin-side-search-label">Quick User Search</div>
+          <input id="adminSidebarUserSearch" value="${escapeAttr(adminPanelState.userHubSearchQuery || "")}" placeholder="Search by email…" style="width:100%;font-size:12px;padding:7px 10px;">
+        </div>
+        <div id="adminSidebarUserList"><div class="admin-empty" style="padding:14px 8px;font-size:12px;">Loading users…</div></div>
+
+        <!-- Bottom actions -->
+        <div class="admin-side-bottom">
+          <button data-admin-nav="backApp" type="button"><span class="nav-icon">←</span> Back to App</button>
+          <button data-admin-nav="logout" type="button" style="color:#ff5a5f;"><span class="nav-icon">⎋</span> Sign Out</button>
+        </div>
+
       </aside>
       <main class="admin-main">
-        <div id="adminPanelContent">Loading...</div>
+        <div id="adminPanelContent"><div class="admin-empty"><span class="admin-empty-icon">⏳</span>Loading…</div></div>
       </main>
     </div>
   `);
@@ -31219,15 +31416,334 @@ function renderAdminDashboard(panel = "overview"){
     loadAdminUserListCache(true).then(()=>renderAdminSidebarUserList()).catch(()=>null);
   }, 5 * 60 * 1000);
 
-  if(panel === "overview") renderAdminOverviewPanel();
-  else if(panel === "stats") renderAdminStatsPanel();
-  else if(panel === "feedback") renderAdminFeedbackPanel();
-  else if(panel === "audit") renderAdminAuditPanel();
-  else if(panel === "health") renderAdminHealthPanel();
-  else if(panel === "plans") renderAdminPlansPanel();
+  if(panel === "overview")    renderAdminOverviewPanel();
+  else if(panel === "stats")      renderAdminStatsPanel();
+  else if(panel === "feedback")   renderAdminFeedbackPanel();
+  else if(panel === "audit")      renderAdminAuditPanel();
+  else if(panel === "health")     renderAdminHealthPanel();
+  else if(panel === "plans")      renderAdminPlansPanel();
+  else if(panel === "accounts")   renderAdminAccountsPanel();
+  else if(panel === "teams")      renderAdminTeamsPanel();
+  else if(panel === "enterprise") renderAdminEnterprisePanel();
   else if(panel === "userHub" && adminPanelState.selectedUserId) renderAdminUserHubPanel(adminPanelState.selectedUserId, adminPanelState.selectedUserEmail);
   else renderAdminOverviewPanel();
 }
+
+// ── Accounts Panel ────────────────────────────────────────────────────────
+async function renderAdminAccountsPanel(){
+  const host = document.getElementById("adminPanelContent");
+  if(!host) return;
+  host.innerHTML = `
+    <div class="admin-page-title">All Accounts</div>
+    <div class="admin-page-sub">Search, filter, and manage every registered account.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <input id="acctSearch" placeholder="Search email or name…" style="flex:1;min-width:200px;" oninput="adminFilterAccounts()">
+      <select id="acctPlanFilter" onchange="adminFilterAccounts()" style="min-width:140px;">
+        <option value="">All Plans</option>
+        ${ADMIN_PLAN_TIERS.map(t=>`<option value="${t}">${t}</option>`).join("")}
+      </select>
+      <select id="acctStatusFilter" onchange="adminFilterAccounts()" style="min-width:130px;">
+        <option value="">All Status</option>
+        <option value="online">Active (7d)</option>
+        <option value="idle">Idle (30d)</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <button class="admin-btn secondary" onclick="adminExportAccountsCsv()">⬇ Export CSV</button>
+    </div>
+    <div id="acctStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+    <div class="admin-section" style="padding:0;overflow:hidden;">
+      <table class="admin-table">
+        <thead><tr>
+          <th>Account</th><th>Plan</th><th>Status</th>
+          <th>Last Active</th><th>Member Since</th>
+          <th>Teams</th><th>Assessments</th><th></th>
+        </tr></thead>
+        <tbody id="acctTableBody"><tr><td colspan="8" class="admin-empty">Loading accounts…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="acctPager" style="display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;"></div>
+  `;
+
+  await loadAdminUserListCache();
+  window._adminAcctPage = 1;
+  window._adminAcctPageSize = 50;
+  adminFilterAccounts();
+
+  // Summary chips
+  const users = Array.isArray(adminUserListCache) ? adminUserListCache : [];
+  const byPlan = {};
+  for(const u of users){ const t = String(u.planTier||"free"); byPlan[t]=(byPlan[t]||0)+1; }
+  document.getElementById("acctStats").innerHTML = [
+    `<span class="admin-chip" style="background:#182a48;border:1px solid var(--admin-border);">👥 ${users.length} total</span>`,
+    ...Object.entries(byPlan).map(([t,c])=>`${adminPlanBadge(t)} <span style="font-size:12px;color:var(--admin-muted);margin-left:2px;">${c}</span>`)
+  ].join(" ");
+}
+
+window.adminFilterAccounts = function(){
+  const q      = String(document.getElementById("acctSearch")?.value || "").trim().toLowerCase();
+  const plan   = String(document.getElementById("acctPlanFilter")?.value || "");
+  const status = String(document.getElementById("acctStatusFilter")?.value || "");
+  const users  = Array.isArray(adminUserListCache) ? adminUserListCache : [];
+  const filtered = users.filter(u=>{
+    if(q && !String(u.email||"").toLowerCase().includes(q)) return false;
+    if(plan && String(u.planTier||"free") !== plan) return false;
+    if(status && adminUserStatusClass(u.lastActiveDate) !== status) return false;
+    return true;
+  });
+  const page     = window._adminAcctPage || 1;
+  const pageSize = window._adminAcctPageSize || 50;
+  const start    = (page - 1) * pageSize;
+  const slice    = filtered.slice(start, start + pageSize);
+  const body     = document.getElementById("acctTableBody");
+  if(!body) return;
+  body.innerHTML = slice.length ? slice.map(u=>{
+    const userId = escapeAttr(String(u.userId||""));
+    const email  = String(u.email||"No email");
+    const sc     = adminUserStatusClass(u.lastActiveDate);
+    return `<tr>
+      <td><button class="admin-email-tag" onclick="openAdminUserHub('${userId}','${escapeAttr(email)}')">${escapeHTML(email)}</button></td>
+      <td>${adminPlanBadge(String(u.planTier||"free"))}</td>
+      <td style="white-space:nowrap;"><span class="admin-status-dot ${sc}"></span> <span style="font-size:12px;color:var(--admin-muted);">${sc}</span></td>
+      <td style="font-size:12px;color:var(--admin-muted);">${escapeHTML(adminFmtDate(u.lastActiveDate))}</td>
+      <td style="font-size:12px;color:var(--admin-muted);">${escapeHTML(adminFmtDate(u.accountCreatedDate))}</td>
+      <td style="font-size:13px;">${Number(u.teamCount||0)}</td>
+      <td style="font-size:13px;">${Number(u.assessmentCount||0)}</td>
+      <td><button class="admin-btn secondary" style="padding:5px 10px;font-size:12px;" onclick="openAdminUserHub('${userId}','${escapeAttr(email)}')">Open →</button></td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="8" class="admin-empty">No accounts match the current filters.</td></tr>`;
+
+  const pager = document.getElementById("acctPager");
+  if(pager){
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    pager.innerHTML = `
+      <span style="font-size:13px;color:var(--admin-muted);">Showing ${Math.min(start+1,filtered.length)}–${Math.min(start+pageSize,filtered.length)} of ${filtered.length}</span>
+      <button class="admin-btn secondary" style="padding:5px 12px;" ${page<=1?"disabled":""} onclick="window._adminAcctPage=${page-1};adminFilterAccounts()">‹ Prev</button>
+      <span style="font-size:13px;">Page ${page} / ${totalPages}</span>
+      <button class="admin-btn secondary" style="padding:5px 12px;" ${page>=totalPages?"disabled":""} onclick="window._adminAcctPage=${page+1};adminFilterAccounts()">Next ›</button>
+    `;
+  }
+};
+
+window.adminExportAccountsCsv = function(){
+  const users = Array.isArray(adminUserListCache) ? adminUserListCache : [];
+  const headers = ["Email","Plan","Status","Last Active","Member Since","Teams","Assessments"];
+  const rows = users.map(u=>[
+    u.email||"", u.planTier||"free",
+    adminUserStatusClass(u.lastActiveDate),
+    u.lastActiveDate||"", u.accountCreatedDate||"",
+    String(u.teamCount||0), String(u.assessmentCount||0)
+  ]);
+  downloadAdminCsv("accounts.csv", headers, rows);
+};
+
+// ── All Teams Panel ───────────────────────────────────────────────────────
+async function renderAdminTeamsPanel(){
+  const host = document.getElementById("adminPanelContent");
+  if(!host) return;
+  host.innerHTML = `
+    <div class="admin-page-title">All Teams</div>
+    <div class="admin-page-sub">Browse every team across all accounts. Click an owner to open their account hub.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <input id="teamsSearch" placeholder="Search team name, owner, sport…" style="flex:1;min-width:200px;" oninput="adminFilterTeams()">
+      <select id="teamsStatusFilter" onchange="adminFilterTeams()" style="min-width:130px;">
+        <option value="">All Status</option>
+        <option value="Active">Active</option>
+        <option value="Archived">Archived</option>
+        <option value="Deleted">Deleted</option>
+      </select>
+      <button class="admin-btn secondary" onclick="adminExportTeamsCsv()">⬇ Export CSV</button>
+      <button class="admin-btn secondary" onclick="renderAdminTeamsPanel()">↺ Refresh</button>
+    </div>
+    <div id="teamsTableWrap" class="admin-section" style="padding:0;overflow:hidden;">
+      <table class="admin-table">
+        <thead><tr><th>Team</th><th>Owner</th><th>Sport</th><th>Year</th><th>Players</th><th>Events</th><th>Status</th><th></th></tr></thead>
+        <tbody id="teamsTableBody"><tr><td colspan="8" class="admin-empty">Loading teams…</td></tr></tbody>
+      </table>
+    </div>
+  `;
+
+  // Load all users then expand teams
+  await loadAdminUserListCache();
+  const users = Array.isArray(adminUserListCache) ? adminUserListCache : [];
+  const allTeams = [];
+  // Fetch detail for first 100 users (or use cached) to get team data
+  // For fast load, build from user list stats then provide "Open User" link
+  for(const u of users.slice(0, 200)){
+    const teamCount = Number(u.teamCount || 0);
+    if(teamCount === 0) continue;
+    // Push a placeholder row per user — clicking opens their hub
+    allTeams.push({ ownerEmail: u.email, ownerUserId: u.userId, planTier: u.planTier, teamCount, lastActive: u.lastActiveDate });
+  }
+  window._adminAllTeamsData = allTeams;
+  window._adminAllTeamsFilter = "";
+  window._adminAllTeamsStatus = "";
+  adminFilterTeams();
+}
+
+window.adminFilterTeams = function(){
+  const q      = String(document.getElementById("teamsSearch")?.value || "").trim().toLowerCase();
+  const status = String(document.getElementById("teamsStatusFilter")?.value || "");
+  const all    = Array.isArray(window._adminAllTeamsData) ? window._adminAllTeamsData : [];
+  const filtered = all.filter(row=>{
+    if(q && !String(row.ownerEmail||"").toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const body = document.getElementById("teamsTableBody");
+  if(!body) return;
+  body.innerHTML = filtered.length ? filtered.map(row=>{
+    const userId = escapeAttr(String(row.ownerUserId||""));
+    const email  = escapeAttr(String(row.ownerEmail||""));
+    const sc     = adminUserStatusClass(row.lastActive);
+    return `<tr>
+      <td style="font-weight:700;color:#fff;">${Number(row.teamCount)} team${Number(row.teamCount)!==1?"s":""}</td>
+      <td><button class="admin-email-tag" onclick="openAdminUserHub('${userId}','${email}')">${escapeHTML(String(row.ownerEmail||""))}</button></td>
+      <td>—</td><td>—</td><td>—</td><td>—</td>
+      <td><span class="admin-status-dot ${sc}"></span></td>
+      <td><button class="admin-btn secondary" style="padding:5px 10px;font-size:12px;" onclick="openAdminUserHub('${userId}','${email}');setTimeout(()=>{adminPanelState.userHubPanel='teams';renderAdminUserHubPanel('${userId}','${row.ownerEmail||''}')},800)">View Teams →</button></td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="8" class="admin-empty">No teams found.</td></tr>`;
+};
+
+window.adminExportTeamsCsv = function(){
+  const all = Array.isArray(window._adminAllTeamsData) ? window._adminAllTeamsData : [];
+  const headers = ["Owner Email","Plan","Teams","Last Active"];
+  const rows = all.map(r=>[r.ownerEmail||"", r.planTier||"free", String(r.teamCount||0), r.lastActive||""]);
+  downloadAdminCsv("teams.csv", headers, rows);
+};
+
+// ── Enterprise Panel ───────────────────────────────────────────────────────
+async function renderAdminEnterprisePanel(){
+  const host = document.getElementById("adminPanelContent");
+  if(!host) return;
+  host.innerHTML = `
+    <div class="admin-page-title">Enterprise Accounts</div>
+    <div class="admin-page-sub">Association and Pro plan accounts — extended plan management, org details, and bulk actions.</div>
+    <div id="entStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+      <input id="entSearch" placeholder="Search email…" style="flex:1;min-width:200px;" oninput="adminFilterEnterprise()">
+      <select id="entPlanFilter" onchange="adminFilterEnterprise()" style="min-width:150px;">
+        <option value="">Pro + Association</option>
+        <option value="association">Association only</option>
+        <option value="pro">Pro only</option>
+      </select>
+      <button class="admin-btn secondary" onclick="adminExportEnterpriseCsv()">⬇ Export CSV</button>
+    </div>
+    <div class="admin-section" style="padding:0;overflow:hidden;">
+      <table class="admin-table">
+        <thead><tr>
+          <th>Account</th><th>Plan</th><th>Status</th><th>Member Since</th>
+          <th>Last Active</th><th>Teams</th><th>Assessments</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="entTableBody"><tr><td colspan="8" class="admin-empty">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div id="entBulkActions" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:13px;color:var(--admin-muted);">Bulk actions:</span>
+      <select id="entBulkPlan" style="min-width:140px;">
+        ${ADMIN_PLAN_TIERS.map(t=>`<option value="${t}">${t}</option>`).join("")}
+      </select>
+      <input id="entBulkReason" placeholder="Reason (required)" style="min-width:220px;">
+      <button class="admin-btn secondary" onclick="adminEntBulkPlan()">Apply to Selected</button>
+    </div>
+    <div id="entBulkMsg" style="margin-top:8px;"></div>
+  `;
+
+  await loadAdminUserListCache();
+  const users = Array.isArray(adminUserListCache) ? adminUserListCache : [];
+  window._adminEntData = users.filter(u=>["pro","association"].includes(String(u.planTier||"").toLowerCase()));
+  window._adminEntSelected = new Set();
+
+  // Stats
+  const entUsers = window._adminEntData;
+  const assocCount = entUsers.filter(u=>String(u.planTier||"")===("association")).length;
+  const proCount   = entUsers.filter(u=>String(u.planTier||"")===("pro")).length;
+  document.getElementById("entStats").innerHTML = [
+    `<span class="admin-chip" style="background:#182a48;">🏢 ${entUsers.length} enterprise accounts</span>`,
+    `${adminPlanBadge("association")} <span style="font-size:12px;color:var(--admin-muted);margin-left:2px;">${assocCount} associations</span>`,
+    `${adminPlanBadge("pro")} <span style="font-size:12px;color:var(--admin-muted);margin-left:2px;">${proCount} pro</span>`
+  ].join(" ");
+
+  adminFilterEnterprise();
+}
+
+window.adminFilterEnterprise = function(){
+  const q    = String(document.getElementById("entSearch")?.value || "").trim().toLowerCase();
+  const plan = String(document.getElementById("entPlanFilter")?.value || "");
+  const all  = Array.isArray(window._adminEntData) ? window._adminEntData : [];
+  const filtered = all.filter(u=>{
+    if(q && !String(u.email||"").toLowerCase().includes(q)) return false;
+    if(plan && String(u.planTier||"") !== plan) return false;
+    return true;
+  });
+  const body = document.getElementById("entTableBody");
+  if(!body) return;
+  const sel = window._adminEntSelected || new Set();
+  body.innerHTML = filtered.length ? filtered.map(u=>{
+    const userId = escapeAttr(String(u.userId||""));
+    const email  = escapeAttr(String(u.email||""));
+    const sc     = adminUserStatusClass(u.lastActiveDate);
+    const checked = sel.has(String(u.userId||"")) ? "checked" : "";
+    return `<tr>
+      <td style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" ${checked} onchange="window._adminEntSelected=${checked?`(()=>{window._adminEntSelected.delete('${userId}');return window._adminEntSelected})()`:`(()=>{window._adminEntSelected.add('${userId}');return window._adminEntSelected})()`}">
+        <button class="admin-email-tag" onclick="openAdminUserHub('${userId}','${email}')">${escapeHTML(String(u.email||""))}</button>
+      </td>
+      <td>${adminPlanBadge(String(u.planTier||"free"))}</td>
+      <td><span class="admin-status-dot ${sc}"></span> <span style="font-size:12px;color:var(--admin-muted);">${sc}</span></td>
+      <td style="font-size:12px;color:var(--admin-muted);">${escapeHTML(adminFmtDate(u.accountCreatedDate))}</td>
+      <td style="font-size:12px;color:var(--admin-muted);">${escapeHTML(adminFmtDate(u.lastActiveDate))}</td>
+      <td>${Number(u.teamCount||0)}</td>
+      <td>${Number(u.assessmentCount||0)}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="admin-btn secondary" style="padding:5px 10px;font-size:12px;" onclick="openAdminUserHub('${userId}','${email}')">Hub →</button>
+        <button class="admin-btn orange" style="padding:5px 10px;font-size:12px;" onclick="adminEntQuickExtend('${userId}','${email}')">Extend</button>
+      </td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="8" class="admin-empty">No enterprise accounts found.</td></tr>`;
+};
+
+window.adminEntQuickExtend = function(userId, email){
+  const days = prompt(`Extend plan for ${email}?\nEnter days to add:`, "30");
+  if(!days || isNaN(Number(days))) return;
+  const reason = prompt("Reason for extension:", "Admin extension");
+  if(!reason) return;
+  adminFetch("/api/admin/plan-override", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ userId, planTier: "association", reason, extendDays: Number(days), complimentary: true })
+  }).then(r=>r.json()).then(()=>{ showActionBanner && showActionBanner(`Extended ${email} by ${days} days`,"success"); })
+    .catch(()=>alert("Extension failed — check console."));
+};
+
+window.adminEntBulkPlan = async function(){
+  const sel    = Array.from(window._adminEntSelected || new Set());
+  const plan   = String(document.getElementById("entBulkPlan")?.value || "association");
+  const reason = String(document.getElementById("entBulkReason")?.value || "").trim();
+  const msg    = document.getElementById("entBulkMsg");
+  if(!sel.length){ adminInlineNotice(msg, "No accounts selected.", "error"); return; }
+  if(!reason){ adminInlineNotice(msg, "Reason is required.", "error"); return; }
+  let ok = 0, fail = 0;
+  for(const userId of sel){
+    try{
+      const r = await adminFetch("/api/admin/plan-override",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId,planTier:plan,reason})});
+      if(r.ok) ok++; else fail++;
+    }catch{ fail++; }
+  }
+  adminInlineNotice(msg, `Done: ${ok} updated, ${fail} failed.`, fail > 0 ? "error" : "ok");
+  window._adminEntSelected = new Set();
+  loadAdminUserListCache(true).then(()=>adminFilterEnterprise());
+};
+
+window.adminExportEnterpriseCsv = function(){
+  const all = Array.isArray(window._adminEntData) ? window._adminEntData : [];
+  const headers = ["Email","Plan","Status","Member Since","Last Active","Teams","Assessments"];
+  const rows = all.map(u=>[
+    u.email||"", u.planTier||"",
+    adminUserStatusClass(u.lastActiveDate),
+    u.accountCreatedDate||"", u.lastActiveDate||"",
+    String(u.teamCount||0), String(u.assessmentCount||0)
+  ]);
+  downloadAdminCsv("enterprise-accounts.csv", headers, rows);
+};
 
 async function renderAdminOverviewPanel(){
   const host = document.getElementById("adminPanelContent");
@@ -31279,9 +31795,12 @@ async function renderAdminOverviewPanel(){
       const errors = Array.isArray(stats?.functionErrorsLast24h) ? stats.functionErrorsLast24h.slice(0,10) : [];
 
       host.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-          <h2 style="margin:0;">Overview Command Centre</h2>
-          <div style="font-size:12px; color:var(--admin-muted);">Last updated: <span id="adminOverviewAge">just now</span></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+          <div>
+            <div class="admin-page-title">Overview Command Centre</div>
+            <div class="admin-page-sub" style="margin:0;">Live platform metrics</div>
+          </div>
+          <div style="font-size:12px; color:var(--admin-muted);">Updated: <span id="adminOverviewAge">just now</span></div>
         </div>
         <div class="admin-mrr-band">
           <div>
