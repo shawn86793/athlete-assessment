@@ -14352,6 +14352,9 @@ async function loadAndRenderRegistrations(eventCode){
     const ts = r.registeredAt ? new Date(r.registeredAt).toLocaleString() : "";
     const meta = [yob ? `Born ${yob}` : "", pos, team, level].filter(Boolean).join(" &bull; ");
     const contactMeta = [parent, email, phone].filter(Boolean).join(" &bull; ");
+    const fr1 = escapeHTML(r.friendRequest1 || "");
+    const fr2 = escapeHTML(r.friendRequest2 || "");
+    const friendMeta = [fr1, fr2].filter(Boolean).join(", ");
     const rid = registrationRecordId(r, idx);
     const selected = registrationsSelection.has(rid);
     const isNewRegistration = String(r.status || "registered").trim().toLowerCase() === "registered" && r.movedToRoster !== true;
@@ -14367,6 +14370,7 @@ async function loadAndRenderRegistrations(eventCode){
             <div class="regCardName">${name}${sortOutBadge}${demoBadge}</div>
             ${meta ? `<div class="regCardMeta">${meta}</div>` : ""}
             ${contactMeta ? `<div class="regCardMeta">${contactMeta}</div>` : ""}
+            ${friendMeta ? `<div class="regCardMeta" style="color:#7c3aed;font-weight:600;">🤝 With: ${friendMeta}</div>` : ""}
             ${ts ? `<div class="regCardMeta">Registered: ${escapeHTML(ts)}</div>` : ""}
             <div class="regCardMeta regAuth">&#10003; Authorized</div>
           </div>
@@ -14583,8 +14587,8 @@ function generateDemoRegistrations(count, opts = {}){
     const aboutRaw   = randPick(aboutTemplates).replace("{sport}", sport).replace("{surface}", surface);
     const aboutChild = aboutRaw;
 
-    const friend1Name = Math.random() < 0.4 ? randPick(firstNames) + " " + randPick(lastNames) : "";
-    const friend2Name = friend1Name && Math.random() < 0.3 ? randPick(firstNames) + " " + randPick(lastNames) : "";
+    const friendRequest1 = Math.random() < 0.4 ? randPick(firstNames) + " " + randPick(lastNames) : "";
+    const friendRequest2 = friendRequest1 && Math.random() < 0.3 ? randPick(firstNames) + " " + randPick(lastNames) : "";
 
     const medicalInfo = randPick(medicalInfoOptions);
     const sortOut     = withSortOut && Math.random() < 0.12;
@@ -14615,8 +14619,8 @@ function generateDemoRegistrations(count, opts = {}){
       guardianPhone,
       aboutChild,
       medicalInfo,
-      friend1Name,
-      friend2Name,
+      friendRequest1,
+      friendRequest2,
       registeredAt,
       status:              "registered",
       movedToRoster:       false,
@@ -14671,6 +14675,9 @@ function renderDemoRegistrationsView(){
       const ts   = r.registeredAt ? new Date(r.registeredAt).toLocaleString() : "";
       const meta        = [yob ? `Born ${yob}` : "", pos, team, lvl].filter(Boolean).join(" &bull; ");
       const contactMeta = [par, em, ph].filter(Boolean).join(" &bull; ");
+      const fr1demo = escapeHTML(r.friendRequest1 || "");
+      const fr2demo = escapeHTML(r.friendRequest2 || "");
+      const friendMetaDemo = [fr1demo, fr2demo].filter(Boolean).join(", ");
       const rid  = registrationRecordId(r, idx);
       const ridJS = escapeJS(rid);
       const selected = registrationsSelection.has(rid);
@@ -14684,6 +14691,7 @@ function renderDemoRegistrationsView(){
               <div class="regCardName">${name}${sortOutBadge}${demoBadge}</div>
               ${meta ? `<div class="regCardMeta">${meta}</div>` : ""}
               ${contactMeta ? `<div class="regCardMeta">${contactMeta}</div>` : ""}
+              ${friendMetaDemo ? `<div class="regCardMeta" style="color:#7c3aed;font-weight:600;">🤝 With: ${friendMetaDemo}</div>` : ""}
               ${ts ? `<div class="regCardMeta">Registered: ${escapeHTML(ts)}</div>` : ""}
               <div class="regCardMeta regAuth">&#10003; Authorized</div>
             </div>
@@ -14830,13 +14838,14 @@ function openRegistrationPlayerCard(registrationId){
           <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;font-size:13px;color:#374151;">${escapeHTML(reg.medicalInfo)}</div>
         </div>` : ""}
 
-        <!-- Friend Requests -->
-        ${reg.friend1Name || reg.friend2Name ? `
+        <!-- Teammate Requests -->
+        ${reg.friendRequest1 || reg.friendRequest2 || reg.friend1Name || reg.friend2Name ? `
         <div>
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:8px;">🤝 Friend Requests</div>
-          <div style="background:#f8fafc;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:4px;">
-            ${reg.friend1Name ? `<div style="font-size:13px;">1. ${escapeHTML(reg.friend1Name)}</div>` : ""}
-            ${reg.friend2Name ? `<div style="font-size:13px;">2. ${escapeHTML(reg.friend2Name)}</div>` : ""}
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#7c3aed;margin-bottom:8px;">🤝 Teammate Requests</div>
+          <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;">
+            ${reg.friendRequest1||reg.friend1Name ? `<div style="font-size:13px;font-weight:600;color:#4c1d95;">1. ${escapeHTML(reg.friendRequest1||reg.friend1Name||"")}</div>` : ""}
+            ${reg.friendRequest2||reg.friend2Name ? `<div style="font-size:13px;font-weight:600;color:#4c1d95;">2. ${escapeHTML(reg.friendRequest2||reg.friend2Name||"")}</div>` : ""}
+            <div style="font-size:11px;color:#8b5cf6;margin-top:2px;">Requests are considered but not guaranteed.</div>
           </div>
         </div>` : ""}
 
@@ -14920,8 +14929,8 @@ function buildRosterPlayerFromRegistration(registration, t){
     positionTryingOutFor: pos,
     aboutChild: registration.aboutPlayer || registration.aboutChild || "",
     medicalInfo: registration.medicalInfo || "",
-    friend1Name: registration.friend1Name || "",
-    friend2Name: registration.friend2Name || "",
+    friend1Name: registration.friendRequest1 || registration.friend1Name || "",
+    friend2Name: registration.friendRequest2 || registration.friend2Name || "",
     waiverAcceptedAt: Date.now(),
     sortOut: registration.sortOut === true,
     registrationSource: "qr",
@@ -15184,8 +15193,8 @@ function exportRegistrationsCsv(){
       r.positionTryingOutFor || "",
       (r.aboutPlayer || r.aboutChild || "").replace(/[\r\n]+/g, " "),
       (r.medicalInfo || "").replace(/[\r\n]+/g, " "),
-      r.friend1Name || "",
-      r.friend2Name || "",
+      r.friendRequest1 || r.friend1Name || "",
+      r.friendRequest2 || r.friend2Name || "",
       r.guardianName || "",
       r.guardianEmail || "",
       r.guardianPhone || "",
@@ -15440,10 +15449,14 @@ function _regHubGroupsHTML(t, pending, groups, grouped){
       const meta = [yob, pos, team].filter(Boolean).join(" · ");
       const sortBadge = r.sortOut ? `<span style="background:#f97316;color:#fff;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;">SORT OUT</span>` : "";
       const medBadge = String(r.medicalInfo||"").trim() ? `<span style="background:#f87171;color:#fff;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;">MEDICAL</span>` : "";
+      const fr1g = String(r.friendRequest1||r.friend1Name||"").trim();
+      const fr2g = String(r.friendRequest2||r.friend2Name||"").trim();
+      const friendGrpMeta = [fr1g, fr2g].filter(Boolean).join(", ");
       return `<div class="regHub-player-row">
         <div style="flex:1;">
           <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">${name} ${sortBadge} ${medBadge}</div>
           ${meta ? `<div class="muted" style="font-size:11px;margin-top:2px;">${meta}</div>` : ""}
+          ${friendGrpMeta ? `<div style="font-size:11px;color:#7c3aed;font-weight:600;margin-top:1px;">🤝 With: ${escapeHTML(friendGrpMeta)}</div>` : ""}
         </div>
       </div>`;
     }).join("");
@@ -15532,6 +15545,9 @@ function _regHubAllHTML(t, pending, groups){
     const medBadge = String(r.medicalInfo||"").trim() ? `<span style="background:#f87171;color:#fff;font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;">MEDICAL</span>` : "";
     const guardian = [r.guardianName,r.guardianEmail,r.guardianPhone].filter(Boolean).join(" · ");
     const ts = r.registeredAt ? new Date(r.registeredAt).toLocaleDateString() : "";
+    const fr1hub = String(r.friendRequest1||r.friend1Name||"").trim();
+    const fr2hub = String(r.friendRequest2||r.friend2Name||"").trim();
+    const friendHubMeta = [fr1hub, fr2hub].filter(Boolean).join(", ");
     return `<div class="regHub-player-row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:10px 14px;">
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <span style="font-weight:800;font-size:14px;">${name}</span>
@@ -15539,6 +15555,7 @@ function _regHubAllHTML(t, pending, groups){
       </div>
       <div class="muted" style="font-size:12px;">YOB ${yob} &bull; ${escapeHTML(pos)} &bull; ${escapeHTML(team)}${ts ? " &bull; "+ts : ""}</div>
       ${guardian ? `<div class="muted" style="font-size:11px;">${escapeHTML(guardian)}</div>` : ""}
+      ${friendHubMeta ? `<div style="font-size:11px;color:#7c3aed;font-weight:600;margin-top:1px;">🤝 With: ${escapeHTML(friendHubMeta)}</div>` : ""}
     </div>`;
   }).join("");
 

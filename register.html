@@ -140,7 +140,23 @@
             <textarea id="aboutPlayer" name="aboutPlayer" placeholder="Other sports, hobbies, strengths, anything else we should know..."></textarea>
           </div>
 
-          <!-- Section 3: Parent / Guardian Info -->
+          <!-- Section 3: Teammate Requests -->
+          <div class="section">
+            <div class="section-label">Teammate Requests</div>
+            <p class="muted" style="margin-bottom:12px;">Optional — if there is a specific player you would like to be grouped or placed with, enter their name below. Requests are considered but not guaranteed.</p>
+            <div class="grid">
+              <div>
+                <label for="friendRequest1">Teammate Request 1</label>
+                <input id="friendRequest1" name="friendRequest1" placeholder="Player's full name" autocomplete="off" />
+              </div>
+              <div>
+                <label for="friendRequest2">Teammate Request 2</label>
+                <input id="friendRequest2" name="friendRequest2" placeholder="Player's full name" autocomplete="off" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 4: Parent / Guardian Info -->
           <div class="section">
             <div class="section-label">Parent / Guardian Info</div>
             <div class="grid">
@@ -157,7 +173,7 @@
             <input id="guardianPhone" name="guardianPhone" type="tel" autocomplete="tel" />
           </div>
 
-          <!-- Section 4: Authorization -->
+          <!-- Section 5: Authorization -->
           <div class="section">
             <div class="section-label">Authorization</div>
             <label class="check">
@@ -213,6 +229,8 @@
         currentLevel: ['currentLevel', 'level', 'division'],
         positionTryingOutFor: ['positionTryingOutFor', 'position', 'pos'],
         aboutPlayer: ['aboutPlayer', 'about', 'notes'],
+        friendRequest1: ['friendRequest1', 'friendRequest', 'friend1', 'teammate1'],
+        friendRequest2: ['friendRequest2', 'friend2', 'teammate2'],
         guardianName: ['guardianName', 'parentName'],
         guardianEmail: ['guardianEmail', 'parentEmail', 'email'],
         guardianPhone: ['guardianPhone', 'parentPhone', 'phone']
@@ -233,6 +251,8 @@
         'currentLevel',
         'positionTryingOutFor',
         'aboutPlayer',
+        'friendRequest1',
+        'friendRequest2',
         'guardianName',
         'guardianEmail',
         'guardianPhone',
@@ -502,6 +522,8 @@
         var currentLevel = document.getElementById('currentLevel').value.trim();
         var positionTryingOutFor = document.getElementById('positionTryingOutFor').value;
         var aboutPlayer = document.getElementById('aboutPlayer').value.trim();
+        var friendRequest1 = document.getElementById('friendRequest1').value.trim();
+        var friendRequest2 = document.getElementById('friendRequest2').value.trim();
         var guardianName = document.getElementById('guardianName').value.trim();
         var guardianEmail = document.getElementById('guardianEmail').value.trim();
         var guardianPhone = document.getElementById('guardianPhone').value.trim();
@@ -524,6 +546,8 @@
               currentLevel: currentLevel,
               positionTryingOutFor: positionTryingOutFor,
               aboutPlayer: aboutPlayer,
+              friendRequest1: friendRequest1,
+              friendRequest2: friendRequest2,
               guardianName: guardianName,
               guardianEmail: guardianEmail,
               guardianPhone: guardianPhone
