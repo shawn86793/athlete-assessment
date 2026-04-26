@@ -30699,7 +30699,8 @@ let adminPanelState = {
   feedbackPlan: "",
   auditFrom: "",
   auditTo: "",
-  auditTarget: ""
+  auditTarget: "",
+  auditAction: "",
 };
 
 const ADMIN_PLAN_TIERS = ["free", "coach", "club", "pro", "association"];
@@ -31233,6 +31234,8 @@ const ADMIN_NAV_ICONS = {
   feedback:      "💬",
   audit:         "📋",
   health:        "❤️",
+  comms:         "📨",
+  system:        "⚙️",
   backApp:       "←",
   logout:        "⎋",
 };
@@ -31361,6 +31364,14 @@ function renderAdminDashboard(panel = "overview"){
           </div>
         </div>
 
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-label">Operations</div>
+          <div class="admin-nav">
+            ${adminSidebarButton("comms",  "Communications", panel === "comms")}
+            ${adminSidebarButton("system", "System Config",  panel === "system")}
+          </div>
+        </div>
+
         <!-- Quick user search -->
         <div class="admin-side-search">
           <div class="admin-side-search-label">Quick User Search</div>
@@ -31396,6 +31407,10 @@ function renderAdminDashboard(panel = "overview"){
       adminPanelState.selectedUserId = "";
       adminPanelState.selectedUserEmail = "";
       adminPanelState.selectedUserDetail = null;
+      // Reset teams panel expansion state on new navigation (fresh start)
+      if(target !== "teams"){
+        window._adminTeamsExpanded = {};
+      }
       renderAdminDashboard(target);
     });
   });
@@ -31420,6 +31435,8 @@ function renderAdminDashboard(panel = "overview"){
   else if(panel === "teams")         renderAdminTeamsPanel();
   else if(panel === "enterprise")    renderAdminEnterprisePanel();
   else if(panel === "registrations") renderAdminRegistrationsPanel();
+  else if(panel === "comms")         renderAdminCommsPanel();
+  else if(panel === "system")        renderAdminSystemPanel();
   else if(panel === "userHub" && adminPanelState.selectedUserId) renderAdminUserHubPanel(adminPanelState.selectedUserId, adminPanelState.selectedUserEmail);
   else renderAdminOverviewPanel();
 }
@@ -31690,72 +31707,247 @@ async function renderAdminTeamsPanel(){
   if(!host) return;
   host.innerHTML = `
     <div class="admin-page-title">All Teams</div>
-    <div class="admin-page-sub">Browse every team across all accounts. Click an owner to open their account hub.</div>
+    <div class="admin-page-sub">Browse every team across all accounts. Expand an owner row to see their individual teams with full detail.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-      <input id="teamsSearch" placeholder="Search team name, owner, sport…" style="flex:1;min-width:200px;" oninput="adminFilterTeams()">
+      <input id="teamsSearch" placeholder="Search owner email or team name…" style="flex:1;min-width:200px;" oninput="adminFilterTeams()">
       <select id="teamsStatusFilter" onchange="adminFilterTeams()" style="min-width:130px;">
         <option value="">All Status</option>
         <option value="Active">Active</option>
         <option value="Archived">Archived</option>
         <option value="Deleted">Deleted</option>
       </select>
+      <button class="admin-btn secondary" onclick="adminLoadAllTeamDetails()">⬇ Load All Team Details</button>
       <button class="admin-btn secondary" onclick="adminExportTeamsCsv()">⬇ Export CSV</button>
       <button class="admin-btn secondary" onclick="renderAdminTeamsPanel()">↺ Refresh</button>
     </div>
+    <div id="teamsStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;"></div>
     <div id="teamsTableWrap" class="admin-section" style="padding:0;overflow:hidden;">
       <table class="admin-table">
-        <thead><tr><th>Team</th><th>Owner</th><th>Sport</th><th>Year</th><th>Players</th><th>Events</th><th>Status</th><th></th></tr></thead>
-        <tbody id="teamsTableBody"><tr><td colspan="8" class="admin-empty">Loading teams…</td></tr></tbody>
+        <thead><tr>
+          <th style="width:28px;"></th>
+          <th>Owner / Team Name</th><th>Plan</th><th>Sport</th>
+          <th>Year</th><th>Players</th><th>Events</th><th>Status</th><th>Actions</th>
+        </tr></thead>
+        <tbody id="teamsTableBody"><tr><td colspan="9" class="admin-empty">Loading teams…</td></tr></tbody>
       </table>
     </div>
   `;
 
-  // Load all users then expand teams
   await loadAdminUserListCache();
   const users = Array.isArray(adminUserListCache) ? adminUserListCache : [];
-  const allTeams = [];
-  // Fetch detail for first 100 users (or use cached) to get team data
-  // For fast load, build from user list stats then provide "Open User" link
-  for(const u of users.slice(0, 200)){
-    const teamCount = Number(u.teamCount || 0);
-    if(teamCount === 0) continue;
-    // Push a placeholder row per user — clicking opens their hub
-    allTeams.push({ ownerEmail: u.email, ownerUserId: u.userId, planTier: u.planTier, teamCount, lastActive: u.lastActiveDate });
-  }
-  window._adminAllTeamsData = allTeams;
-  window._adminAllTeamsFilter = "";
-  window._adminAllTeamsStatus = "";
+  const owners = users.filter(u => Number(u.teamCount || 0) > 0)
+    .sort((a,b) => Number(b.teamCount||0) - Number(a.teamCount||0));
+
+  window._adminTeamsOwners = owners;
+  window._adminTeamsExpanded = window._adminTeamsExpanded || {};
+  window._adminTeamsDetailCache = window._adminTeamsDetailCache || {};
+
+  // Stats strip
+  const totalOwners = owners.length;
+  const totalTeamCount = owners.reduce((s,u)=>s+Number(u.teamCount||0),0);
+  const statsEl = document.getElementById("teamsStats");
+  if(statsEl) statsEl.innerHTML = [
+    `<span class="admin-chip">👥 ${totalOwners} accounts with teams</span>`,
+    `<span class="admin-chip">🏒 ${totalTeamCount} total teams</span>`,
+    `<span class="admin-chip" style="background:#182a48;">Click ▶ to expand individual teams</span>`
+  ].join("");
+
   adminFilterTeams();
 }
 
 window.adminFilterTeams = function(){
   const q      = String(document.getElementById("teamsSearch")?.value || "").trim().toLowerCase();
   const status = String(document.getElementById("teamsStatusFilter")?.value || "");
-  const all    = Array.isArray(window._adminAllTeamsData) ? window._adminAllTeamsData : [];
-  const filtered = all.filter(row=>{
-    if(q && !String(row.ownerEmail||"").toLowerCase().includes(q)) return false;
-    return true;
+  const owners = Array.isArray(window._adminTeamsOwners) ? window._adminTeamsOwners : [];
+  const exp    = window._adminTeamsExpanded || {};
+  const cache  = window._adminTeamsDetailCache || {};
+
+  const filtered = owners.filter(row=>{
+    if(!q) return true;
+    if(String(row.email||"").toLowerCase().includes(q)) return true;
+    // also search within loaded team names
+    const detail = cache[String(row.userId||"")];
+    if(detail){
+      const teams = Object.entries(detail.seasons && typeof detail.seasons === "object" ? detail.seasons : {})
+        .map(([sid,s])=>adminTeamFromSeasonEntry({id:sid,...(s&&typeof s==="object"?s:{})}));
+      if(teams.some(t=>String(t.name||"").toLowerCase().includes(q)||String(t.sport||"").toLowerCase().includes(q))) return true;
+    }
+    return false;
   });
+
   const body = document.getElementById("teamsTableBody");
   if(!body) return;
-  body.innerHTML = filtered.length ? filtered.map(row=>{
-    const userId = escapeAttr(String(row.ownerUserId||""));
-    const email  = escapeAttr(String(row.ownerEmail||""));
-    const sc     = adminUserStatusClass(row.lastActive);
-    return `<tr>
-      <td style="font-weight:700;color:#fff;">${Number(row.teamCount)} team${Number(row.teamCount)!==1?"s":""}</td>
-      <td><button class="admin-email-tag" onclick="openAdminUserHub('${userId}','${email}')">${escapeHTML(String(row.ownerEmail||""))}</button></td>
-      <td>—</td><td>—</td><td>—</td><td>—</td>
+
+  if(!filtered.length){
+    body.innerHTML = `<tr><td colspan="9" class="admin-empty">No teams found.</td></tr>`;
+    return;
+  }
+
+  let rows = "";
+  for(const row of filtered){
+    const userId  = escapeAttr(String(row.userId||""));
+    const email   = escapeAttr(String(row.email||""));
+    const sc      = adminUserStatusClass(row.lastActiveDate);
+    const isExp   = !!exp[String(row.userId||"")];
+    const detail  = cache[String(row.userId||"")];
+
+    // Owner summary row
+    rows += `<tr style="background:#0d1829;">
+      <td><button class="admin-btn secondary" style="padding:3px 8px;font-size:11px;border-radius:4px;" onclick="adminToggleTeamsRow('${userId}','${email}')">${isExp?"▼":"▶"}</button></td>
+      <td style="font-weight:700;color:#c7d9f5;">${escapeHTML(String(row.email||""))}
+        <span style="font-size:11px;color:var(--admin-muted);margin-left:6px;">(${Number(row.teamCount||0)} team${Number(row.teamCount||0)!==1?"s":""})</span>
+      </td>
+      <td>${adminPlanBadge(String(row.planTier||"free"))}</td>
+      <td style="color:var(--admin-muted);">—</td>
+      <td style="color:var(--admin-muted);">—</td>
+      <td style="color:var(--admin-muted);">—</td>
+      <td style="color:var(--admin-muted);">—</td>
       <td><span class="admin-status-dot ${sc}"></span></td>
-      <td><button class="admin-btn secondary" style="padding:5px 10px;font-size:12px;" onclick="openAdminUserHub('${userId}','${email}');setTimeout(()=>{adminPanelState.userHubPanel='teams';renderAdminUserHubPanel('${userId}','${row.ownerEmail||''}')},800)">View Teams →</button></td>
+      <td><button class="admin-btn secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdminUserHub('${userId}','${email}')">Hub →</button></td>
     </tr>`;
-  }).join("") : `<tr><td colspan="8" class="admin-empty">No teams found.</td></tr>`;
+
+    if(isExp){
+      if(!detail){
+        rows += `<tr><td></td><td colspan="8" style="padding:8px 14px;color:var(--admin-muted);font-size:12px;" id="teamsLoading_${userId}">Loading teams for ${escapeHTML(String(row.email||""))}…</td></tr>`;
+        // Trigger async load
+        adminLoadTeamDetail(String(row.userId||""), String(row.email||""));
+      } else {
+        const teams = Object.entries(detail.seasons && typeof detail.seasons === "object" ? detail.seasons : {})
+          .map(([sid,s])=>adminTeamFromSeasonEntry({id:sid,...(s&&typeof s==="object"?s:{})}))
+          .filter(t => !status || t.status === status);
+        if(!teams.length){
+          rows += `<tr><td></td><td colspan="8" style="padding:8px 14px;color:var(--admin-muted);font-size:12px;">No teams found for this account.</td></tr>`;
+        } else {
+          for(const t of teams){
+            const statusColor = t.status==="Active"?"#2ebd85":t.status==="Archived"?"#ffb020":"#ff5a5f";
+            const sId = escapeAttr(String(t.seasonId||""));
+            rows += `<tr style="background:#060d1a;">
+              <td></td>
+              <td style="padding-left:24px;font-weight:600;color:#e0eaf8;">🏒 ${escapeHTML(String(t.name||"Team"))}</td>
+              <td></td>
+              <td style="font-size:12px;">${escapeHTML(String(t.sport||"—"))}</td>
+              <td style="font-size:12px;">${escapeHTML(String(t.year||"—"))}</td>
+              <td style="font-size:12px;">${t.players}</td>
+              <td style="font-size:12px;">${t.events}</td>
+              <td><span style="font-size:11px;color:${statusColor};font-weight:700;">${escapeHTML(t.status)}</span></td>
+              <td style="display:flex;gap:4px;flex-wrap:wrap;">
+                <button class="admin-btn secondary" style="padding:3px 8px;font-size:11px;" onclick="openAdminUserHub('${escapeAttr(String(row.userId||""))}','${email}');setTimeout(()=>{adminPanelState.userHubPanel='teams';renderAdminUserHubPanel('${escapeAttr(String(row.userId||""))}','${email}')},800)">View</button>
+                ${!t.deleted&&!t.archived?`<button class="admin-btn secondary" style="padding:3px 8px;font-size:11px;color:#ffb020;" onclick="adminArchiveTeam('${escapeAttr(String(row.userId||""))}','${email}','${sId}')">Archive</button>`:""}
+                <button class="admin-btn danger" style="padding:3px 8px;font-size:11px;" onclick="adminDeleteTeam('${escapeAttr(String(row.userId||""))}','${email}','${sId}','${escapeAttr(t.name)}')">Delete</button>
+              </td>
+            </tr>`;
+          }
+        }
+      }
+    }
+  }
+  body.innerHTML = rows;
+};
+
+window.adminToggleTeamsRow = function(userId, email){
+  window._adminTeamsExpanded = window._adminTeamsExpanded || {};
+  const id = String(userId||"");
+  if(window._adminTeamsExpanded[id]){
+    delete window._adminTeamsExpanded[id];
+  } else {
+    window._adminTeamsExpanded[id] = true;
+  }
+  adminFilterTeams();
+};
+
+async function adminLoadTeamDetail(userId, email){
+  try {
+    const res = await adminFetch("/api/admin/user/" + encodeURIComponent(userId));
+    const detail = await res.json().catch(()=>null);
+    if(detail){
+      window._adminTeamsDetailCache = window._adminTeamsDetailCache || {};
+      window._adminTeamsDetailCache[userId] = detail;
+      adminFilterTeams();
+    } else {
+      const el = document.getElementById("teamsLoading_" + userId);
+      if(el) el.textContent = "Could not load team detail.";
+    }
+  } catch {
+    const el = document.getElementById("teamsLoading_" + userId);
+    if(el) el.textContent = "Error loading team detail.";
+  }
+}
+
+window.adminLoadAllTeamDetails = async function(){
+  const owners = Array.isArray(window._adminTeamsOwners) ? window._adminTeamsOwners : [];
+  if(!owners.length) return;
+  const btn = document.querySelector("[onclick='adminLoadAllTeamDetails()']");
+  if(btn){ btn.disabled = true; btn.textContent = "Loading…"; }
+  // Expand all owner rows
+  window._adminTeamsExpanded = window._adminTeamsExpanded || {};
+  owners.forEach(u=>{ window._adminTeamsExpanded[String(u.userId||"")] = true; });
+  adminFilterTeams();
+  // Batch load first 50 owners
+  const batch = owners.slice(0,50);
+  for(const u of batch){
+    const id = String(u.userId||"");
+    if(!window._adminTeamsDetailCache?.[id]){
+      await adminLoadTeamDetail(id, String(u.email||""));
+    }
+  }
+  if(btn){ btn.disabled = false; btn.textContent = "⬇ Load All Team Details"; }
+};
+
+window.adminArchiveTeam = async function(userId, email, seasonId){
+  if(!confirm(`Archive this team? The team will be hidden but data preserved.`)) return;
+  try {
+    const res = await adminFetch("/api/admin/delete-team", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ userId, seasonId, action:"archive", note:"Archived from Super Admin" })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(String(data?.error||"Archive failed."));
+    // Invalidate cache and re-render
+    if(window._adminTeamsDetailCache?.[userId]) delete window._adminTeamsDetailCache[userId];
+    showActionBanner && showActionBanner("Team archived.","success");
+    renderAdminTeamsPanel();
+  } catch(err){
+    alert("Archive failed: " + String(err?.message||err));
+  }
+};
+
+window.adminDeleteTeam = async function(userId, email, seasonId, teamName){
+  const confirm1 = confirm(`Delete team "${teamName}" for ${email}?\n\nThis permanently removes the team and all its data. This cannot be undone.`);
+  if(!confirm1) return;
+  const typed = prompt(`Type the team name to confirm:\n${teamName}`);
+  if(!typed || typed.trim() !== teamName.trim()){ alert("Name did not match — delete cancelled."); return; }
+  try {
+    const res = await adminFetch("/api/admin/delete-team", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ userId, seasonId, action:"delete", note:"Deleted from Super Admin" })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(String(data?.error||"Delete failed."));
+    if(window._adminTeamsDetailCache?.[userId]) delete window._adminTeamsDetailCache[userId];
+    showActionBanner && showActionBanner("Team deleted.","success");
+    renderAdminTeamsPanel();
+  } catch(err){
+    alert("Delete failed: " + String(err?.message||err));
+  }
 };
 
 window.adminExportTeamsCsv = function(){
-  const all = Array.isArray(window._adminAllTeamsData) ? window._adminAllTeamsData : [];
-  const headers = ["Owner Email","Plan","Teams","Last Active"];
-  const rows = all.map(r=>[r.ownerEmail||"", r.planTier||"free", String(r.teamCount||0), r.lastActive||""]);
+  const cache  = window._adminTeamsDetailCache || {};
+  const owners = Array.isArray(window._adminTeamsOwners) ? window._adminTeamsOwners : [];
+  const headers = ["Owner Email","Plan","Team Name","Sport","Year","Players","Events","Status"];
+  const rows = [];
+  for(const u of owners){
+    const detail = cache[String(u.userId||"")];
+    if(detail){
+      const teams = Object.entries(detail.seasons && typeof detail.seasons === "object" ? detail.seasons : {})
+        .map(([sid,s])=>adminTeamFromSeasonEntry({id:sid,...(s&&typeof s==="object"?s:{})}));
+      teams.forEach(t=>rows.push([u.email||"", u.planTier||"free", t.name, t.sport, t.year, t.players, t.events, t.status]));
+    } else {
+      rows.push([u.email||"", u.planTier||"free", `(${Number(u.teamCount||0)} teams — not loaded)`, "","","","",""]);
+    }
+  }
   downloadAdminCsv("teams.csv", headers, rows);
 };
 
@@ -31779,19 +31971,33 @@ async function renderAdminEnterprisePanel(){
     <div class="admin-section" style="padding:0;overflow:hidden;">
       <table class="admin-table">
         <thead><tr>
+          <th><input type="checkbox" id="entSelectAll" onchange="adminEntSelectAll(this.checked)" title="Select all"></th>
           <th>Account</th><th>Plan</th><th>Status</th><th>Member Since</th>
-          <th>Last Active</th><th>Teams</th><th>Assessments</th><th>Actions</th>
+          <th>Last Active</th><th>Teams</th><th>Players</th><th>Plan Since</th><th>Actions</th>
         </tr></thead>
-        <tbody id="entTableBody"><tr><td colspan="8" class="admin-empty">Loading…</td></tr></tbody>
+        <tbody id="entTableBody"><tr><td colspan="10" class="admin-empty">Loading…</td></tr></tbody>
       </table>
     </div>
     <div id="entBulkActions" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-      <span style="font-size:13px;color:var(--admin-muted);">Bulk actions:</span>
+      <span style="font-size:13px;color:var(--admin-muted);">Bulk plan override:</span>
       <select id="entBulkPlan" style="min-width:140px;">
         ${ADMIN_PLAN_TIERS.map(t=>`<option value="${t}">${t}</option>`).join("")}
       </select>
       <input id="entBulkReason" placeholder="Reason (required)" style="min-width:220px;">
       <button class="admin-btn secondary" onclick="adminEntBulkPlan()">Apply to Selected</button>
+      <button class="admin-btn secondary" onclick="adminEntBulkEmail()">📨 Email Selected</button>
+    </div>
+    <div id="entBulkEmailForm" style="display:none;margin-top:10px;" class="admin-section">
+      <div class="admin-section-title">Bulk Email — Enterprise Accounts</div>
+      <div style="display:grid;gap:8px;">
+        <input id="entBulkEmailSubject" placeholder="Subject">
+        <textarea id="entBulkEmailBody" placeholder="Message body…" rows="4"></textarea>
+        <div style="display:flex;gap:8px;">
+          <button class="admin-btn secondary" onclick="adminEntSendBulkEmail()">Send Email</button>
+          <button class="admin-btn secondary" onclick="document.getElementById('entBulkEmailForm').style.display='none'">Cancel</button>
+        </div>
+        <div id="entBulkEmailMsg"></div>
+      </div>
     </div>
     <div id="entBulkMsg" style="margin-top:8px;"></div>
   `;
@@ -31827,27 +32033,74 @@ window.adminFilterEnterprise = function(){
   if(!body) return;
   const sel = window._adminEntSelected || new Set();
   body.innerHTML = filtered.length ? filtered.map(u=>{
-    const userId = escapeAttr(String(u.userId||""));
-    const email  = escapeAttr(String(u.email||""));
-    const sc     = adminUserStatusClass(u.lastActiveDate);
-    const checked = sel.has(String(u.userId||"")) ? "checked" : "";
+    const userId   = escapeAttr(String(u.userId||""));
+    const email    = escapeAttr(String(u.email||""));
+    const sc       = adminUserStatusClass(u.lastActiveDate);
+    const isChecked = sel.has(String(u.userId||""));
+    const planSince = u.planUpdatedAt || u.accountCreatedDate || "";
+    const planDays  = planSince ? Math.floor((Date.now() - Date.parse(planSince)) / (24*60*60*1000)) : null;
+    const planDaysStr = planDays !== null ? (planDays < 365 ? `${planDays}d` : `${(planDays/365).toFixed(1)}y`) : "—";
     return `<tr>
-      <td style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" ${checked} onchange="window._adminEntSelected=${checked?`(()=>{window._adminEntSelected.delete('${userId}');return window._adminEntSelected})()`:`(()=>{window._adminEntSelected.add('${userId}');return window._adminEntSelected})()`}">
-        <button class="admin-email-tag" onclick="openAdminUserHub('${userId}','${email}')">${escapeHTML(String(u.email||""))}</button>
-      </td>
+      <td><input type="checkbox" ${isChecked?"checked":""} onchange="(function(el){const id='${userId}';window._adminEntSelected=window._adminEntSelected||new Set();el.checked?window._adminEntSelected.add(id):window._adminEntSelected.delete(id);})(this)"></td>
+      <td><button class="admin-email-tag" onclick="openAdminUserHub('${userId}','${email}')">${escapeHTML(String(u.email||""))}</button></td>
       <td>${adminPlanBadge(String(u.planTier||"free"))}</td>
       <td><span class="admin-status-dot ${sc}"></span> <span style="font-size:12px;color:var(--admin-muted);">${sc}</span></td>
       <td style="font-size:12px;color:var(--admin-muted);">${escapeHTML(adminFmtDate(u.accountCreatedDate))}</td>
       <td style="font-size:12px;color:var(--admin-muted);">${escapeHTML(adminFmtDate(u.lastActiveDate))}</td>
       <td>${Number(u.teamCount||0)}</td>
       <td>${Number(u.assessmentCount||0)}</td>
+      <td style="font-size:12px;color:var(--admin-muted);">${escapeHTML(planDaysStr)}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="admin-btn secondary" style="padding:5px 10px;font-size:12px;" onclick="openAdminUserHub('${userId}','${email}')">Hub →</button>
-        <button class="admin-btn orange" style="padding:5px 10px;font-size:12px;" onclick="adminEntQuickExtend('${userId}','${email}')">Extend</button>
+        <button class="admin-btn secondary" style="padding:4px 8px;font-size:11px;" onclick="openAdminUserHub('${userId}','${email}')">Hub →</button>
+        <button class="admin-btn orange" style="padding:4px 8px;font-size:11px;" onclick="adminEntQuickExtend('${userId}','${email}')">Extend</button>
+        <button class="admin-btn secondary" style="padding:4px 8px;font-size:11px;" onclick="adminEntEmailOne('${userId}','${email}')">✉</button>
       </td>
     </tr>`;
-  }).join("") : `<tr><td colspan="8" class="admin-empty">No enterprise accounts found.</td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="admin-empty">No enterprise accounts found.</td></tr>`;
+};
+
+window.adminEntSelectAll = function(checked){
+  const all = Array.isArray(window._adminEntData) ? window._adminEntData : [];
+  window._adminEntSelected = window._adminEntSelected || new Set();
+  all.forEach(u=>checked ? window._adminEntSelected.add(String(u.userId||"")) : window._adminEntSelected.delete(String(u.userId||"")));
+  adminFilterEnterprise();
+};
+
+window.adminEntEmailOne = function(userId, email){
+  window._adminEntSelected = window._adminEntSelected || new Set();
+  window._adminEntSelected.clear();
+  window._adminEntSelected.add(String(userId||""));
+  const form = document.getElementById("entBulkEmailForm");
+  if(form){ form.style.display="block"; document.getElementById("entBulkEmailSubject")?.focus(); }
+};
+
+window.adminEntBulkEmail = function(){
+  const form = document.getElementById("entBulkEmailForm");
+  if(form) form.style.display = form.style.display === "none" ? "block" : "none";
+};
+
+window.adminEntSendBulkEmail = async function(){
+  const sel     = Array.from(window._adminEntSelected || new Set());
+  const subject = String(document.getElementById("entBulkEmailSubject")?.value || "").trim();
+  const body    = String(document.getElementById("entBulkEmailBody")?.value || "").trim();
+  const msg     = document.getElementById("entBulkEmailMsg");
+  if(!sel.length){ adminInlineNotice(msg,"No accounts selected.","error"); return; }
+  if(!subject||!body){ adminInlineNotice(msg,"Subject and body are required.","error"); return; }
+  const all = Array.isArray(window._adminEntData) ? window._adminEntData : [];
+  const emails = all.filter(u=>sel.includes(String(u.userId||""))).map(u=>String(u.email||"")).filter(Boolean);
+  if(!emails.length){ adminInlineNotice(msg,"No valid email addresses found.","error"); return; }
+  try {
+    const res = await adminFetch("/api/notifications/email",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ type:"adminMessage", to: emails, payload:{ subject, body } })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(String(data?.error||"Send failed."));
+    adminInlineNotice(msg,`Email sent to ${emails.length} account${emails.length!==1?"s":""}.`,"ok");
+  } catch(err){
+    adminInlineNotice(msg, String(err?.message||"Send failed."),"error");
+  }
 };
 
 window.adminEntQuickExtend = function(userId, email){
@@ -31950,6 +32203,26 @@ async function renderAdminOverviewPanel(){
           </div>
           <div style="font-size:12px; color:var(--admin-muted);">Updated: <span id="adminOverviewAge">just now</span></div>
         </div>
+
+        <!-- Quick-action shortcuts -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px;">
+          ${[
+            {icon:"👥",label:"All Accounts",panel:"accounts",sub:"Manage users"},
+            {icon:"💳",label:"Plans",panel:"plans",sub:"Override tiers"},
+            {icon:"🏢",label:"Enterprise",panel:"enterprise",sub:"Pro + Association"},
+            {icon:"🏒",label:"All Teams",panel:"teams",sub:"Browse & manage"},
+            {icon:"📝",label:"Registrations",panel:"registrations",sub:"Reg Hub"},
+            {icon:"📨",label:"Communications",panel:"comms",sub:"Bulk email"},
+            {icon:"📋",label:"Audit Log",panel:"audit",sub:"Track actions"},
+            {icon:"❤️",label:"App Health",panel:"health",sub:"System status"},
+            {icon:"⚙️",label:"System Config",panel:"system",sub:"Platform info"},
+          ].map(a=>`<button type="button" onclick="renderAdminDashboard('${a.panel}')" style="background:var(--admin-panel);border:1px solid var(--admin-border);border-radius:10px;padding:14px 12px;text-align:left;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='var(--admin-orange)'" onmouseout="this.style.borderColor='var(--admin-border)'">
+            <div style="font-size:22px;margin-bottom:6px;">${a.icon}</div>
+            <div style="font-weight:700;font-size:13px;color:#e0eaf8;">${a.label}</div>
+            <div style="font-size:11px;color:var(--admin-muted);margin-top:2px;">${a.sub}</div>
+          </button>`).join("")}
+        </div>
+
         <div class="admin-mrr-band">
           <div>
             <div class="admin-mrr-label">Monthly Recurring Revenue</div>
@@ -32619,14 +32892,14 @@ async function renderAdminUserHubPanel(userId, email){
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: "assessmentComplete",
+            type: "adminMessage",
             to: [loginEmail],
-            payload: { assessorName: loginEmail, tryoutName: subject, teamName: "Support", submittedAt: bodyText, orgName: "Tryout" }
+            payload: { subject, body: bodyText }
           })
         });
         const data = await res.json().catch(()=>({}));
         if(!res.ok) throw new Error(String(data?.error || "Email send failed."));
-        adminInlineNotice(msg, "Email queued.", "ok");
+        adminInlineNotice(msg, "Email sent.", "ok");
       } catch (err){
         adminInlineNotice(msg, String(err?.message || "Email send failed."), "error");
       }
@@ -33317,43 +33590,104 @@ async function renderAdminAuditPanel(){
   if(!host) return;
   const from = adminPanelState.auditFrom || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
   const to = adminPanelState.auditTo || new Date().toISOString().slice(0,10);
+  // Common admin action types for quick filter
+  const ACTION_TYPES = [
+    "","plan-override","refund","delete-user","delete-team","email-send",
+    "login","logout","registration","assessment","season-save","cloud-sync"
+  ];
   host.innerHTML = `
-    <h2>Audit Log</h2>
-    <div style="display:grid; grid-template-columns:170px 170px 1fr auto; gap:8px; margin-bottom:10px;">
+    <div class="admin-page-title">Audit Log</div>
+    <div class="admin-page-sub">Full record of admin and system actions. Filter by date range, target, or action type.</div>
+    <div style="display:grid; grid-template-columns:160px 160px 1fr 180px auto; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
       <input id="adminAuditFrom" type="date" value="${escapeAttr(from)}">
       <input id="adminAuditTo" type="date" value="${escapeAttr(to)}">
-      <input id="adminAuditTarget" placeholder="Filter by target login email/user/customer" value="${escapeAttr(adminPanelState.auditTarget || "")}">
-      <button id="adminAuditExportBtn" class="admin-btn secondary" type="button">Export Audit Log CSV</button>
+      <input id="adminAuditTarget" placeholder="Filter by email, user ID, customer ID…" value="${escapeAttr(adminPanelState.auditTarget || "")}">
+      <select id="adminAuditAction" title="Filter by action type">
+        ${ACTION_TYPES.map(a=>`<option value="${escapeAttr(a)}" ${adminPanelState.auditAction===a?"selected":""}>${a||"All Action Types"}</option>`).join("")}
+      </select>
+      <button id="adminAuditExportBtn" class="admin-btn secondary" type="button">⬇ Export CSV</button>
     </div>
-    <div id="adminAuditResults">Loading...</div>
+    <div id="adminAuditStats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;"></div>
+    <div id="adminAuditResults">Loading…</div>
   `;
+
+  let allLogs = [];
+
   const load = async ()=>{
     const fromIso = new Date(String(document.getElementById("adminAuditFrom")?.value || from) + "T00:00:00Z").toISOString();
-    const toIso = new Date(String(document.getElementById("adminAuditTo")?.value || to) + "T23:59:59Z").toISOString();
-    const target = String(document.getElementById("adminAuditTarget")?.value || "").trim();
-    adminPanelState.auditFrom = String(document.getElementById("adminAuditFrom")?.value || "");
-    adminPanelState.auditTo = String(document.getElementById("adminAuditTo")?.value || "");
+    const toIso   = new Date(String(document.getElementById("adminAuditTo")?.value || to) + "T23:59:59Z").toISOString();
+    const target  = String(document.getElementById("adminAuditTarget")?.value || "").trim();
+    const action  = String(document.getElementById("adminAuditAction")?.value || "").trim();
+    adminPanelState.auditFrom   = String(document.getElementById("adminAuditFrom")?.value || "");
+    adminPanelState.auditTo     = String(document.getElementById("adminAuditTo")?.value || "");
     adminPanelState.auditTarget = target;
-    const res = await adminFetch(`/api/admin/audit?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}&target=${encodeURIComponent(target)}`);
+    adminPanelState.auditAction = action;
+
+    const res = await adminFetch(
+      `/api/admin/audit?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}&target=${encodeURIComponent(target)}${action?`&action=${encodeURIComponent(action)}`:"" }`
+    );
     const data = await res.json().catch(()=>({ logs: [] }));
-    const logs = Array.isArray(data.logs) ? data.logs : [];
+    allLogs = Array.isArray(data.logs) ? data.logs : [];
+
+    // Filter by action type client-side too (API may not support it)
+    const filtered = action
+      ? allLogs.filter(row=>String(row.action||"").toLowerCase().includes(action.toLowerCase()))
+      : allLogs;
+
+    // Stats strip
+    const statsEl = document.getElementById("adminAuditStats");
+    if(statsEl){
+      const actionCounts = {};
+      filtered.forEach(row=>{ const a = String(row.action||"other"); actionCounts[a] = (actionCounts[a]||0)+1; });
+      const topActions = Object.entries(actionCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      statsEl.innerHTML = [
+        `<span class="admin-chip">${filtered.length} log entries</span>`,
+        ...topActions.map(([a,c])=>`<span class="admin-chip" style="background:#182a48;">${escapeHTML(a)}: ${c}</span>`)
+      ].join("");
+    }
+
     const results = document.getElementById("adminAuditResults");
     if(results){
       results.innerHTML = `
-        <table class="admin-table"><thead><tr><th>Timestamp</th><th>Action</th><th>Target</th><th>Outcome</th></tr></thead><tbody>
-          ${logs.map(row=>`<tr><td>${escapeHTML(String(row.timestamp || ""))}</td><td>${escapeHTML(String(row.action || ""))}</td><td>${escapeHTML(String(row.loginEmail || row.email || row.adminEmail || row.target || row.customerId || ""))}</td><td>${escapeHTML(String(row.status || ""))}</td></tr>`).join("") || `<tr><td colspan="4">No audit records in range.</td></tr>`}
-        </tbody></table>
+        <div class="admin-section" style="padding:0;overflow:hidden;">
+          <table class="admin-table">
+            <thead><tr><th>Timestamp</th><th>Action</th><th>Target</th><th>Performed By</th><th>Outcome</th><th>Details</th></tr></thead>
+            <tbody>
+              ${filtered.map(row=>{
+                const outcome = String(row.status||row.outcome||"");
+                const outcomeColor = outcome==="success"||outcome==="ok"?"#2ebd85":outcome==="error"||outcome==="failed"?"#ff5a5f":"var(--admin-muted)";
+                const target = String(row.loginEmail||row.email||row.target||row.customerId||"");
+                const adminBy = String(row.adminEmail||row.performedBy||"system");
+                const detail = String(row.error||row.note||row.reason||"");
+                return `<tr>
+                  <td style="font-size:11px;white-space:nowrap;">${escapeHTML(adminFmtDate(row.timestamp))}</td>
+                  <td><span style="font-size:11px;background:#182a48;padding:2px 6px;border-radius:4px;color:#93c5fd;">${escapeHTML(String(row.action||""))}</span></td>
+                  <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${target ? `<button class="admin-email-tag" onclick="adminPanelState.auditTarget='${escapeAttr(target)}';renderAdminAuditPanel()">${escapeHTML(target)}</button>` : "—"}</td>
+                  <td style="font-size:11px;color:var(--admin-muted);">${escapeHTML(adminBy)}</td>
+                  <td style="font-size:12px;color:${outcomeColor};font-weight:700;">${escapeHTML(outcome||"—")}</td>
+                  <td style="font-size:11px;color:var(--admin-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;" title="${escapeAttr(detail)}">${escapeHTML(detail)}</td>
+                </tr>`;
+              }).join("") || `<tr><td colspan="6" class="admin-empty">No audit records in selected range.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
       `;
     }
     document.getElementById("adminAuditExportBtn")?.addEventListener("click", ()=>{
-      const rows = logs.map(row => [row.timestamp, row.action, row.loginEmail || row.email || row.adminEmail || row.target || row.customerId || "", row.status, row.error || ""]);
-      downloadAdminCsv("audit-log.csv", ["timestamp","action","target","outcome","error"], rows);
+      const rows = filtered.map(row => [
+        row.timestamp||"", row.action||"",
+        row.loginEmail||row.email||row.target||row.customerId||"",
+        row.adminEmail||row.performedBy||"system",
+        row.status||row.outcome||"", row.error||row.note||row.reason||""
+      ]);
+      downloadAdminCsv("audit-log.csv", ["timestamp","action","target","performedBy","outcome","detail"], rows);
     }, { once: true });
   };
   await load();
   document.getElementById("adminAuditFrom")?.addEventListener("change", load);
   document.getElementById("adminAuditTo")?.addEventListener("change", load);
   document.getElementById("adminAuditTarget")?.addEventListener("input", load);
+  document.getElementById("adminAuditAction")?.addEventListener("change", load);
 }
 
 async function renderAdminHealthPanel(){
@@ -33410,6 +33744,287 @@ async function renderAdminHealthPanel(){
     await load();
   } catch (err){
     host.innerHTML = `<h2>App Health</h2><div class="admin-chip" style="background:#4a1f28;">Could not load health checks.</div>`;
+  }
+}
+
+// ── Communications Panel ──────────────────────────────────────────────────────
+async function renderAdminCommsPanel(){
+  const host = document.getElementById("adminPanelContent");
+  if(!host) return;
+
+  await loadAdminUserListCache();
+  const users = Array.isArray(adminUserListCache) ? adminUserListCache : [];
+  const planCounts = {};
+  users.forEach(u=>{ const p = String(u.planTier||"free"); planCounts[p]=(planCounts[p]||0)+1; });
+  const activeUsers = users.filter(u=>adminUserStatusClass(u.lastActiveDate)==="online").length;
+  const inactiveUsers = users.filter(u=>adminUserStatusClass(u.lastActiveDate)==="inactive").length;
+
+  host.innerHTML = `
+    <div class="admin-page-title">Communications</div>
+    <div class="admin-page-sub">Send email to targeted segments of your user base. Preview audience count before sending.</div>
+
+    <div class="admin-section">
+      <div class="admin-section-title">Compose Message</div>
+      <div style="display:grid;gap:12px;">
+        <div>
+          <label style="font-size:12px;color:var(--admin-muted);display:block;margin-bottom:4px;">Target Audience</label>
+          <select id="commsSegment" style="width:100%;max-width:380px;" onchange="adminCommsUpdatePreview()">
+            <option value="all">All Users (${users.length})</option>
+            <option value="active">Active Last 7 Days (${activeUsers})</option>
+            <option value="inactive">Inactive 30+ Days (${inactiveUsers})</option>
+            ${Object.entries(planCounts).sort((a,b)=>["free","coach","club","pro","association"].indexOf(a[0])-["free","coach","club","pro","association"].indexOf(b[0])).map(([plan,count])=>`<option value="plan:${plan}">Plan: ${plan} (${count})</option>`).join("")}
+            <option value="custom">Custom Email List</option>
+          </select>
+        </div>
+
+        <div id="commsCustomEmailWrap" style="display:none;">
+          <label style="font-size:12px;color:var(--admin-muted);display:block;margin-bottom:4px;">Custom Email List (comma or newline separated)</label>
+          <textarea id="commsCustomEmails" rows="3" placeholder="user1@example.com, user2@example.com…" oninput="adminCommsUpdatePreview()"></textarea>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:12px;color:var(--admin-muted);">Recipients:</span>
+          <span id="commsRecipientCount" style="font-size:13px;font-weight:700;color:#e0eaf8;">—</span>
+          <span id="commsRecipientPreview" style="font-size:11px;color:var(--admin-muted);"></span>
+        </div>
+
+        <div>
+          <label style="font-size:12px;color:var(--admin-muted);display:block;margin-bottom:4px;">Subject <span style="color:#ff5a5f;">*</span></label>
+          <input id="commsSubject" placeholder="e.g. Important update from Tryout Systems" style="width:100%;max-width:600px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--admin-muted);display:block;margin-bottom:4px;">Message Body <span style="color:#ff5a5f;">*</span></label>
+          <textarea id="commsBody" rows="8" placeholder="Write your message here…" style="width:100%;max-width:700px;font-family:inherit;"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="admin-btn secondary" onclick="adminCommsPreviewEmail()">👁 Preview</button>
+          <button class="admin-btn orange" onclick="adminCommsSend()">📨 Send Email</button>
+          <span id="commsSendMsg"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="commsPreviewBox" style="display:none;" class="admin-section">
+      <div class="admin-section-title">Preview</div>
+      <div style="background:#060d1a;border-radius:8px;padding:16px;font-family:system-ui,sans-serif;">
+        <div style="font-size:11px;color:var(--admin-muted);margin-bottom:4px;">To: <span id="commsPreviewTo">—</span></div>
+        <div style="font-size:11px;color:var(--admin-muted);margin-bottom:10px;">Subject: <strong id="commsPreviewSubject" style="color:#e0eaf8;">—</strong></div>
+        <div id="commsPreviewBody" style="white-space:pre-wrap;font-size:13px;color:#c7d9f5;border-top:1px solid var(--admin-border);padding-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-section-title">Audience Summary</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;">
+        ${Object.entries(planCounts).map(([plan,count])=>`
+          <div style="background:#0d1829;border:1px solid var(--admin-border);border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="document.getElementById('commsSegment').value='plan:${plan}';adminCommsUpdatePreview()">
+            ${adminPlanBadge(plan)}
+            <div style="font-size:20px;font-weight:800;margin-top:6px;color:#e0eaf8;">${count}</div>
+            <div style="font-size:11px;color:var(--admin-muted);">users</div>
+          </div>`).join("")}
+        <div style="background:#0d1829;border:1px solid var(--admin-border);border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="document.getElementById('commsSegment').value='active';adminCommsUpdatePreview()">
+          <span class="admin-status-dot online" style="margin-right:4px;"></span><span style="font-size:11px;color:#93c5fd;">Active 7d</span>
+          <div style="font-size:20px;font-weight:800;margin-top:6px;color:#2ebd85;">${activeUsers}</div>
+          <div style="font-size:11px;color:var(--admin-muted);">users</div>
+        </div>
+        <div style="background:#0d1829;border:1px solid var(--admin-border);border-radius:8px;padding:10px 12px;cursor:pointer;" onclick="document.getElementById('commsSegment').value='inactive';adminCommsUpdatePreview()">
+          <span class="admin-status-dot inactive" style="margin-right:4px;"></span><span style="font-size:11px;color:#93c5fd;">Inactive 30d+</span>
+          <div style="font-size:20px;font-weight:800;margin-top:6px;color:#ff8c8f;">${inactiveUsers}</div>
+          <div style="font-size:11px;color:var(--admin-muted);">users</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire up segment change
+  document.getElementById("commsSegment")?.addEventListener("change", adminCommsUpdatePreview);
+  adminCommsUpdatePreview();
+}
+
+function adminCommsGetRecipients(){
+  const users = Array.isArray(adminUserListCache) ? adminUserListCache : [];
+  const segment = String(document.getElementById("commsSegment")?.value || "all");
+
+  if(segment === "custom"){
+    const raw = String(document.getElementById("commsCustomEmails")?.value || "");
+    return raw.split(/[\n,;]+/).map(e=>e.trim()).filter(e=>e.includes("@"));
+  }
+  let filtered = users;
+  if(segment === "active")   filtered = users.filter(u=>adminUserStatusClass(u.lastActiveDate)==="online");
+  else if(segment === "inactive") filtered = users.filter(u=>adminUserStatusClass(u.lastActiveDate)==="inactive");
+  else if(segment.startsWith("plan:")) {
+    const plan = segment.slice(5);
+    filtered = users.filter(u=>String(u.planTier||"free")===plan);
+  }
+  return filtered.map(u=>String(u.email||"")).filter(Boolean);
+}
+
+window.adminCommsUpdatePreview = function(){
+  const segment = String(document.getElementById("commsSegment")?.value || "all");
+  const customWrap = document.getElementById("commsCustomEmailWrap");
+  if(customWrap) customWrap.style.display = segment === "custom" ? "block" : "none";
+
+  const recipients = adminCommsGetRecipients();
+  const countEl = document.getElementById("commsRecipientCount");
+  const previewEl = document.getElementById("commsRecipientPreview");
+  if(countEl) countEl.textContent = `${recipients.length} recipient${recipients.length!==1?"s":""}`;
+  if(previewEl) previewEl.textContent = recipients.length
+    ? recipients.slice(0,3).join(", ") + (recipients.length > 3 ? ` …+${recipients.length-3} more` : "")
+    : "";
+};
+
+window.adminCommsPreviewEmail = function(){
+  const recipients = adminCommsGetRecipients();
+  const subject    = String(document.getElementById("commsSubject")?.value || "").trim();
+  const body       = String(document.getElementById("commsBody")?.value || "").trim();
+  const box = document.getElementById("commsPreviewBox");
+  if(box){
+    box.style.display = "block";
+    const toEl = document.getElementById("commsPreviewTo");
+    const subEl = document.getElementById("commsPreviewSubject");
+    const bodyEl = document.getElementById("commsPreviewBody");
+    if(toEl) toEl.textContent = recipients.length
+      ? recipients.slice(0,5).join(", ") + (recipients.length > 5 ? ` … (${recipients.length} total)` : "")
+      : "(no recipients)";
+    if(subEl) subEl.textContent = subject || "(no subject)";
+    if(bodyEl) bodyEl.textContent = body || "(no body)";
+    box.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+};
+
+window.adminCommsSend = async function(){
+  const recipients = adminCommsGetRecipients();
+  const subject    = String(document.getElementById("commsSubject")?.value || "").trim();
+  const body       = String(document.getElementById("commsBody")?.value || "").trim();
+  const msg        = document.getElementById("commsSendMsg");
+  if(!recipients.length){ adminInlineNotice(msg,"No recipients in selected segment.","error"); return; }
+  if(!subject)           { adminInlineNotice(msg,"Subject is required.","error"); return; }
+  if(!body)              { adminInlineNotice(msg,"Message body is required.","error"); return; }
+  if(!confirm(`Send email to ${recipients.length} recipient${recipients.length!==1?"s":""}?\nSubject: "${subject}"`)) return;
+
+  try {
+    const res = await adminFetch("/api/notifications/email",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ type:"adminMessage", to: recipients, payload:{ subject, body } })
+    });
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(String(data?.error||"Send failed."));
+    adminInlineNotice(msg,`✅ Email sent to ${recipients.length} recipient${recipients.length!==1?"s":""}.`,"ok");
+    // Clear form
+    const subEl = document.getElementById("commsSubject");
+    const bodyEl = document.getElementById("commsBody");
+    if(subEl) subEl.value = "";
+    if(bodyEl) bodyEl.value = "";
+  } catch(err){
+    adminInlineNotice(msg, String(err?.message||"Send failed."),"error");
+  }
+};
+
+// ── System Config Panel ────────────────────────────────────────────────────────
+async function renderAdminSystemPanel(){
+  const host = document.getElementById("adminPanelContent");
+  if(!host) return;
+  host.innerHTML = `
+    <div class="admin-page-title">System Config</div>
+    <div class="admin-page-sub">Platform configuration, plan limits, feature flags and environment status.</div>
+    <div id="adminSystemContent"><div class="admin-empty"><span class="admin-empty-icon">⏳</span>Loading system info…</div></div>
+  `;
+  try {
+    const [statsRes, healthRes] = await Promise.all([
+      adminFetch("/api/admin/stats"),
+      adminFetch("/api/admin/health")
+    ]);
+    const stats  = await statsRes.json().catch(()=>({}));
+    const health = await healthRes.json().catch(()=>({}));
+
+    const planLimits = stats?.planLimits && typeof stats.planLimits === "object" ? stats.planLimits : {};
+    const featureFlags = stats?.featureFlags && typeof stats.featureFlags === "object" ? stats.featureFlags : {};
+    const env = health?.environment && typeof health.environment === "object" ? health.environment : {};
+    const planDist = stats?.planDistribution && typeof stats.planDistribution === "object" ? stats.planDistribution : {};
+
+    const PLAN_TIERS = ["free","coach","club","pro","association"];
+    const PLAN_PRICING_DISPLAY = { free:"$0", coach:"$99/yr", club:"$199/yr", pro:"$399/yr", association:"$799/yr" };
+
+    document.getElementById("adminSystemContent").innerHTML = `
+      <div class="admin-section">
+        <div class="admin-section-title">Plan Configuration</div>
+        <table class="admin-table">
+          <thead><tr><th>Tier</th><th>Price</th><th>Users</th><th>Teams Limit</th><th>Players Limit</th><th>Assessments</th><th>Cloud Sync</th><th>Portal</th></tr></thead>
+          <tbody>
+            ${PLAN_TIERS.map(tier=>{
+              const limits = planLimits[tier] && typeof planLimits[tier]==="object" ? planLimits[tier] : {};
+              const count  = Number(planDist[tier]||0);
+              return `<tr>
+                <td>${adminPlanBadge(tier)}</td>
+                <td style="font-size:12px;color:var(--admin-muted);">${PLAN_PRICING_DISPLAY[tier]||"—"}</td>
+                <td style="font-size:12px;">${count}</td>
+                <td style="font-size:12px;">${limits.maxTeams !== undefined ? String(limits.maxTeams) : "—"}</td>
+                <td style="font-size:12px;">${limits.maxPlayers !== undefined ? String(limits.maxPlayers) : "—"}</td>
+                <td style="font-size:12px;">${limits.maxAssessments !== undefined ? String(limits.maxAssessments) : "—"}</td>
+                <td style="font-size:12px;">${limits.cloudSync !== undefined ? (limits.cloudSync?"✅":"❌") : "—"}</td>
+                <td style="font-size:12px;">${limits.guardianPortal !== undefined ? (limits.guardianPortal?"✅":"❌") : "—"}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">Environment & Infrastructure</div>
+        ${Object.keys(env).length ? `
+          <table class="admin-table"><tbody>
+            ${Object.entries(env).map(([key,val])=>`<tr>
+              <td style="width:220px;font-weight:600;">${escapeHTML(String(key||""))}</td>
+              <td style="font-size:12px;">${escapeHTML(typeof val==="object"?JSON.stringify(val):String(val??""))}</td>
+            </tr>`).join("")}
+          </tbody></table>` : `
+          <div style="display:grid;gap:8px;">
+            <div class="admin-metric-row"><span>Netlify Blobs</span><strong style="color:${health?.netlifyBlobs?.ok?"#2ebd85":"#ff5a5f"};">${health?.netlifyBlobs?.ok?"Operational":"Degraded"}</strong></div>
+            <div class="admin-metric-row"><span>Email delivery (SendGrid)</span><strong style="color:${health?.emailDelivery?.configured?"#2ebd85":"#ffb020"};">${health?.emailDelivery?.configured?"Configured":"Not configured"}</strong></div>
+            <div class="admin-metric-row"><span>Cloud sync health (7d)</span><strong>${Number(health?.cloudSyncHealth?.successRate||0).toFixed(1)}% success</strong></div>
+            <div class="admin-metric-row"><span>Registration pipeline</span><strong style="color:${health?.registrationPipeline?.ok?"#2ebd85":"#ff5a5f"};">${health?.registrationPipeline?.ok?"Online":"Issues detected"}</strong></div>
+            <div class="admin-metric-row"><span>Function errors (24h)</span><strong style="color:${(health?.recentFunctionErrors||[]).length>5?"#ff5a5f":"#2ebd85"};">${(health?.recentFunctionErrors||[]).length}</strong></div>
+          </div>`}
+      </div>
+
+      ${Object.keys(featureFlags).length ? `
+      <div class="admin-section">
+        <div class="admin-section-title">Feature Flags</div>
+        <table class="admin-table"><thead><tr><th>Flag</th><th>Status</th><th>Description</th></tr></thead><tbody>
+          ${Object.entries(featureFlags).map(([flag,val])=>`<tr>
+            <td style="font-family:monospace;font-size:12px;">${escapeHTML(String(flag||""))}</td>
+            <td><span style="font-size:12px;font-weight:700;color:${val?"#2ebd85":"#ff5a5f"};">${val?"Enabled":"Disabled"}</span></td>
+            <td style="font-size:12px;color:var(--admin-muted);">—</td>
+          </tr>`).join("")}
+        </tbody></table>
+      </div>` : ""}
+
+      <div class="admin-section">
+        <div class="admin-section-title">Platform Stats Snapshot</div>
+        <div class="admin-metric-row"><span>Total registered users</span><strong>${Number(stats?.totalUsers||0).toLocaleString()}</strong></div>
+        <div class="admin-metric-row"><span>Total teams created</span><strong>${Number(stats?.totalTeamsCreated||0).toLocaleString()}</strong></div>
+        <div class="admin-metric-row"><span>Total assessments</span><strong>${Number(stats?.totalAssessments||0).toLocaleString()}</strong></div>
+        <div class="admin-metric-row"><span>Total players registered</span><strong>${Number(stats?.totalPlayers||0).toLocaleString()}</strong></div>
+        <div class="admin-metric-row"><span>Active users last 7 days</span><strong>${Number(stats?.activeUsers7d||0).toLocaleString()}</strong></div>
+        <div class="admin-metric-row"><span>New signups this week</span><strong>${Number(stats?.newSignupsThisWeek||0).toLocaleString()}</strong></div>
+        <div class="admin-metric-row"><span>Last data snapshot</span><strong>${escapeHTML(adminFmtDate(String(stats?.generatedAt||stats?.timestamp||"")))}</strong></div>
+      </div>
+
+      <div class="admin-section">
+        <div class="admin-section-title">Admin Actions</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="admin-btn secondary" onclick="loadAdminUserListCache(true).then(()=>renderAdminSidebarUserList()).then(()=>showActionBanner&&showActionBanner('User cache refreshed','success'))">↺ Refresh User Cache</button>
+          <button class="admin-btn secondary" onclick="renderAdminDashboard('health')">❤️ Run Health Check</button>
+          <button class="admin-btn secondary" onclick="renderAdminDashboard('audit')">📋 Open Audit Log</button>
+        </div>
+      </div>
+    `;
+  } catch(err){
+    document.getElementById("adminSystemContent").innerHTML = `
+      <div class="admin-chip" style="background:#4a1f28;">Could not load system configuration: ${escapeHTML(String(err?.message||err))}</div>
+      <div style="margin-top:12px;"><button class="admin-btn secondary" onclick="renderAdminSystemPanel()">Retry</button></div>
+    `;
   }
 }
 
