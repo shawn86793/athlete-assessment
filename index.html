@@ -14256,8 +14256,6 @@ function renderRegistrations(){
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="secondary small" onclick="refreshRegistrations()" id="regRefreshBtn">Refresh</button>
           <button class="secondary small" onclick="exportRegistrationsCsv()">Export CSV</button>
-          <button class="ok small" onclick="go('regHub')">📊 Registration Hub</button>
-          <button class="secondary small" onclick="openDemoRegistrationGenerator()" style="background:#7c3aed;color:#fff;border-color:#7c3aed;">🎭 Demo Data</button>
         </div>
       </div>
       <div class="divider"></div>
@@ -14270,15 +14268,10 @@ function renderRegistrations(){
   if(cloudId){
     loadAndRenderRegistrations(cloudId);
   } else {
-    // No cloud sync — but demo data may already be in cache; render it
-    const hasDemoData = (registrationsCache || []).length > 0;
-    if(hasDemoData){
-      renderDemoRegistrationsView();
-    } else {
-      document.getElementById("regCount").textContent = "Cloud sync not enabled — demo mode only.";
-      document.getElementById("registrationsList").innerHTML = '<div class="muted">Enable cloud sync and share the QR code to accept live registrations, or use 🎭 Demo Data to generate test records.</div>';
-      renderRegistrationsBulkActions();
-    }
+    document.getElementById("regCount").textContent = "Cloud sync not enabled.";
+    document.getElementById("registrationsList").innerHTML =
+      '<div class="muted">Enable cloud sync and share the QR code above to start accepting registrations.</div>';
+    renderRegistrationsBulkActions();
   }
 }
 
@@ -14394,7 +14387,6 @@ function refreshRegistrations(){
   if(!t) return;
   const cloudId = String(t?.cloud?.id || "").trim().toUpperCase();
   if(cloudId) loadAndRenderRegistrations(cloudId);
-  else renderDemoRegistrationsView();
 }
 
 // ── Demo Registration Generator ───────────────────────────────────────────
@@ -31231,17 +31223,18 @@ function applyAdminTestModeIfPresent(){
 }
 
 const ADMIN_NAV_ICONS = {
-  overview:  "⊞",
-  accounts:  "👥",
-  plans:     "💳",
-  teams:     "🏒",
-  enterprise:"🏢",
-  stats:     "📊",
-  feedback:  "💬",
-  audit:     "📋",
-  health:    "❤️",
-  backApp:   "←",
-  logout:    "⎋",
+  overview:      "⊞",
+  accounts:      "👥",
+  plans:         "💳",
+  teams:         "🏒",
+  enterprise:    "🏢",
+  registrations: "📝",
+  stats:         "📊",
+  feedback:      "💬",
+  audit:         "📋",
+  health:        "❤️",
+  backApp:       "←",
+  logout:        "⎋",
 };
 function adminSidebarButton(key, label, active){
   const icon = ADMIN_NAV_ICONS[key] || "•";
@@ -31361,9 +31354,10 @@ function renderAdminDashboard(panel = "overview"){
         <div class="admin-nav-group">
           <div class="admin-nav-group-label">Content</div>
           <div class="admin-nav">
-            ${adminSidebarButton("teams",    "All Teams",   panel === "teams")}
-            ${adminSidebarButton("feedback", "Feedback",    panel === "feedback")}
-            ${adminSidebarButton("audit",    "Audit Log",   panel === "audit")}
+            ${adminSidebarButton("registrations", "Registrations", panel === "registrations")}
+            ${adminSidebarButton("teams",         "All Teams",     panel === "teams")}
+            ${adminSidebarButton("feedback",      "Feedback",      panel === "feedback")}
+            ${adminSidebarButton("audit",         "Audit Log",     panel === "audit")}
           </div>
         </div>
 
@@ -31422,12 +31416,166 @@ function renderAdminDashboard(panel = "overview"){
   else if(panel === "audit")      renderAdminAuditPanel();
   else if(panel === "health")     renderAdminHealthPanel();
   else if(panel === "plans")      renderAdminPlansPanel();
-  else if(panel === "accounts")   renderAdminAccountsPanel();
-  else if(panel === "teams")      renderAdminTeamsPanel();
-  else if(panel === "enterprise") renderAdminEnterprisePanel();
+  else if(panel === "accounts")      renderAdminAccountsPanel();
+  else if(panel === "teams")         renderAdminTeamsPanel();
+  else if(panel === "enterprise")    renderAdminEnterprisePanel();
+  else if(panel === "registrations") renderAdminRegistrationsPanel();
   else if(panel === "userHub" && adminPanelState.selectedUserId) renderAdminUserHubPanel(adminPanelState.selectedUserId, adminPanelState.selectedUserEmail);
   else renderAdminOverviewPanel();
 }
+
+// ── Registrations Panel (executive dashboard) ─────────────────────────────
+function renderAdminRegistrationsPanel(){
+  const host = document.getElementById("adminPanelContent");
+  if(!host) return;
+
+  // ── pick up any active tryout so Registration Hub functions work ──────
+  // If there's no active tryout we show a selector; if there is, render the hub.
+  const activeTryout = typeof getTryout === "function" ? getTryout() : null;
+  const allTryouts   = typeof DB !== "undefined"
+    ? Object.values(DB.tryouts || {}).filter(t => !t?.deleted && !t?.tombstone)
+        .sort((a,b) => (b.createdAt||0) - (a.createdAt||0))
+    : [];
+
+  // Header strip shared across all sub-views
+  const headerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px;">
+      <div>
+        <div class="admin-page-title">Registrations</div>
+        <div class="admin-page-sub" style="margin:0;">Full Registration Hub — age groups, reports, demo data, and player cards.</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="admin-btn secondary" onclick="adminRegGenDemo()">🎭 Generate Demo Data</button>
+        ${(registrationsCache||[]).some(r=>r.source==="demo")
+          ? `<button class="admin-btn danger" style="font-size:12px;" onclick="clearDemoRegistrations();renderAdminRegistrationsPanel();">🗑 Clear Demo</button>`
+          : ""}
+      </div>
+    </div>
+  `;
+
+  // If no tryout is selected, show a picker so the hub has something to work with
+  if(!activeTryout && allTryouts.length === 0){
+    host.innerHTML = headerHTML + `
+      <div class="admin-section">
+        <div class="admin-empty">
+          <span class="admin-empty-icon">📝</span>
+          No assessments found. Create an assessment in the main app first, then return here to manage its registrations.
+        </div>
+      </div>`;
+    return;
+  }
+
+  if(!activeTryout && allTryouts.length > 0){
+    host.innerHTML = headerHTML + `
+      <div class="admin-section">
+        <div class="admin-section-title">Select Assessment</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${allTryouts.slice(0,20).map(t=>`
+            <button class="admin-btn secondary" style="text-align:left;padding:12px 16px;" onclick="adminRegSelectTryout('${escapeJS(String(t.id||""))}')">
+              <div style="font-weight:800;font-size:14px;">${escapeHTML(t.name||"Assessment")}</div>
+              <div style="font-size:12px;color:var(--admin-muted);margin-top:2px;">${escapeHTML(t.sport||"")} &bull; ${escapeHTML(t.cloud?.id||"No cloud ID")} &bull; ${(t.roster||[]).length} players</div>
+            </button>
+          `).join("")}
+        </div>
+      </div>`;
+
+    window.adminRegSelectTryout = function(tryoutId){
+      if(typeof currentTryoutId !== "undefined") currentTryoutId = tryoutId;
+      renderAdminRegistrationsPanel();
+    };
+    return;
+  }
+
+  // We have an active tryout — render the hub inline inside the admin shell
+  const t = activeTryout;
+  const cloudId = String(t?.cloud?.id || "").trim().toUpperCase();
+  const allRegs  = registrationsCache || [];
+  const pending  = allRegs.filter(r => r.movedToRoster !== true);
+  const groups   = (regHubTab === "settings" && _regHubTempGroups)
+    ? _regHubTempGroups : getAgeGroups(t);
+  const grouped  = groupRegistrationsByAge(pending, groups);
+
+  const tabs = [
+    { key:"overview", label:"Overview"          },
+    { key:"groups",   label:"By Age Group"      },
+    { key:"all",      label:"All Registrations" },
+    { key:"settings", label:"⚙ Age Groups"      },
+    { key:"report",   label:"📋 Report"         },
+  ];
+
+  const tabNav = `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--admin-border);">
+      ${tabs.map(tab=>`
+        <button class="admin-btn ${regHubTab===tab.key?"primary":"secondary"}" style="font-size:12px;padding:6px 14px;"
+          onclick="if('${tab.key}'!=='settings')_regHubTempGroups=null;regHubTab='${tab.key}';renderAdminRegistrationsPanel();">
+          ${tab.label}
+        </button>`).join("")}
+      <div style="flex:1;min-width:8px;"></div>
+      ${cloudId ? `<button class="admin-btn secondary" style="font-size:12px;padding:6px 12px;" onclick="adminRegRefresh()">↺ Refresh</button>` : ""}
+      <button class="admin-btn secondary" style="font-size:12px;padding:6px 12px;" onclick="exportRegistrationsCsv()">⬇ Export CSV</button>
+      <button class="admin-btn secondary" style="font-size:12px;padding:6px 12px;" onclick="currentTryoutId=null;renderAdminRegistrationsPanel();">⇄ Switch Assessment</button>
+    </div>
+  `;
+
+  const assessmentBanner = `
+    <div style="background:linear-gradient(90deg,var(--admin-panel2),var(--admin-panel));border:1px solid var(--admin-border);border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:900;color:#fff;font-size:15px;">${escapeHTML(t.name||"Assessment")}</div>
+        <div style="font-size:12px;color:var(--admin-muted);margin-top:2px;">${escapeHTML(t.sport||"")} &bull; Event code: <strong style="color:var(--admin-accent);">${escapeHTML(cloudId||"None")}</strong> &bull; ${pending.length} pending &bull; ${allRegs.filter(r=>r.movedToRoster===true).length} moved to roster</div>
+      </div>
+    </div>
+  `;
+
+  let tabContent = "";
+  if(regHubTab === "overview")  tabContent = _regHubOverviewHTML(t, pending, allRegs, groups, grouped, cloudId);
+  else if(regHubTab === "groups")   tabContent = _regHubGroupsHTML(t, pending, groups, grouped);
+  else if(regHubTab === "all")      tabContent = _regHubAllHTML(t, pending, groups);
+  else if(regHubTab === "settings") tabContent = _regHubSettingsHTML(t, groups);
+  else if(regHubTab === "report")   tabContent = _regHubReportHTML(t, pending, allRegs, groups, grouped);
+
+  // Strip the outer card/topTabsHTML wrappers the hub normally uses — we're inside the admin shell
+  // The _regHub*HTML functions return self-contained card divs so they drop in cleanly
+  host.innerHTML = headerHTML + assessmentBanner + tabNav + `<div id="regHubAdminContent">${tabContent}</div>`;
+
+  // Wire any interactive elements the hub content uses
+  host.querySelectorAll("[data-reg-hub-nav]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      regHubTab = String(btn.getAttribute("data-reg-hub-nav")||"overview");
+      renderAdminRegistrationsPanel();
+    });
+  });
+
+  // Load live data if cloud-linked
+  if(cloudId && !registrationsCache.length){
+    fetchRegistrations(cloudId).then(data=>{
+      registrationsCache = data;
+      renderAdminRegistrationsPanel();
+    }).catch(()=>{});
+  }
+}
+
+window.adminRegRefresh = function(){
+  const t = typeof getTryout === "function" ? getTryout() : null;
+  const cloudId = String(t?.cloud?.id || "").trim().toUpperCase();
+  if(!cloudId) return;
+  fetchRegistrations(cloudId).then(data=>{
+    registrationsCache = data;
+    renderAdminRegistrationsPanel();
+  }).catch(()=>{});
+};
+
+window.adminRegGenDemo = function(){
+  openDemoRegistrationGenerator();
+  // After the generator closes it calls renderDemoRegistrationsView() which updates registrationsCache;
+  // patch it to also refresh the admin panel
+  const _orig = window.renderDemoRegistrationsView;
+  window.renderDemoRegistrationsView = function(){
+    typeof _orig === "function" && _orig();
+    // re-render admin panel if we're inside it
+    if(document.getElementById("adminPanelContent")) renderAdminRegistrationsPanel();
+    window.renderDemoRegistrationsView = _orig;
+  };
+};
 
 // ── Accounts Panel ────────────────────────────────────────────────────────
 async function renderAdminAccountsPanel(){
