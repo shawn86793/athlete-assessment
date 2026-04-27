@@ -498,6 +498,49 @@ const apiBanner = (msg, type = 'info') => {
 // ── Netlify Identity ───────────────────────────────────────────────────────
 const SUPER_ADMIN_EMAIL = 'shawngilbert047@gmail.com';
 
+// Read the main app's localStorage DB so org info created on the home screen
+// is visible here. Both pages share the same origin → same localStorage.
+function loadLocalAppDb(email) {
+  try {
+    const suffix = String(email || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+    const key    = `SWG_TRYOUT_SYSTEMS_DB_V6::${suffix}`;
+    const raw    = localStorage.getItem(key);
+    if(!raw) return null;
+    const db = JSON.parse(raw);
+    return (db && typeof db === 'object') ? db : null;
+  } catch(e) { return null; }
+}
+
+function hydrateStateFromLocalDb(email) {
+  const db = loadLocalAppDb(email);
+  if(!db) return;
+  state.localDb = db;
+  const orgs = Array.isArray(db.orgs) ? db.orgs : [];
+  const primaryOrg = orgs[0] || null;
+  if(primaryOrg) {
+    state.localOrg  = primaryOrg;
+    state.orgName   = primaryOrg.name;   // overwrite the "Super Admin" placeholder
+    state.orgConfig = state.orgConfig || {};
+    state.orgConfig.sport = primaryOrg.sport;
+    state.orgConfig.city  = primaryOrg.city;
+  }
+  // Pre-compute summary counts for renderHome fallback
+  const seasons = Object.values(db.seasons || {}).filter(s => !s?.deleted && !s?.tombstone);
+  const tryouts = Object.values(db.tryouts || {});
+  state.localSummary = {
+    teamCount:       seasons.length,
+    playerCount:     seasons.reduce((n, s) => n + (s.roster||[]).length, 0),
+    assessmentCount: tryouts.length,
+    teams: seasons.slice(0, 20).map(s => ({
+      name:        s.teamName || s.name || 'Team',
+      sport:       s.sport    || 'Sport',
+      year:        s.year     || '',
+      playerCount: (s.roster||[]).length,
+      eventCount:  (s.events||[]).length,
+    })),
+  };
+}
+
 function enterAsSuperAdmin(user) {
   state.email        = (user?.email || '').trim().toLowerCase();
   state.identityToken= user?.token?.access_token || '';
@@ -507,6 +550,8 @@ function enterAsSuperAdmin(user) {
   state.orgSlug      = state.orgSlug || 'admin';
   state.orgName      = 'Super Admin';
   state.orgConfig    = {};
+  // Pull org + team data from the main app's localStorage
+  hydrateStateFromLocalDb(state.email);
   // Hide all login steps so nothing blocks the dashboard
   ['loginStep1','loginStep2','loginStep3','loginStepSetup'].forEach(id => {
     const el = $(id); if(el) el.style.display = 'none';
@@ -680,7 +725,7 @@ function enterDashboard() {
   $('topnav').style.display = 'flex';
   $('sidebar').style.display = 'block';
   $('main').style.display = 'block';
-  $('navOrgName').textContent = state.orgName || state.orgSlug;
+  $('navOrgName').textContent = (state.localOrg?.name || state.orgName || state.orgSlug);
   const initials = (state.adminName || state.email || 'A')[0].toUpperCase();
   $('avatarBtn').textContent = initials;
   // Super-admin and owners always see the audit log
@@ -838,22 +883,84 @@ function closeModalDirect() { $('modalOverlay').classList.remove('open'); }
 // ═══════════════════════════════════════════════════════════════════════════
 // VIEW: HOME
 // ═══════════════════════════════════════════════════════════════════════════
+// Build the org banner from local app data (always shown when available)
+function _localOrgBannerHTML() {
+  const org = state.localOrg;
+  const sum = state.localSummary;
+  if(!org && !sum) return '';
+  const name   = org ? esc(org.name)   : esc(state.orgName || '');
+  const sport  = org ? esc(org.sport || 'Multi-Sport') : '';
+  const city   = org ? esc(org.city || '') : '';
+  const teams  = sum ? sum.teamCount       : 0;
+  const players= sum ? sum.playerCount     : 0;
+  const assmnts= sum ? sum.assessmentCount : 0;
+  return `
+    <div style="
+      background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 60%,#7c3aed 100%);
+      border-radius:14px;padding:18px 22px;margin-bottom:20px;color:#fff;">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="width:52px;height:52px;background:rgba(255,255,255,0.15);border-radius:50%;
+          display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;flex-shrink:0;">
+          ${name ? name[0].toUpperCase() : '?'}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:20px;font-weight:900;letter-spacing:-0.01em;">${name || '—'}</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;">
+            ${sport}${city ? ' &bull; ' + city : ''}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;">
+        <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:8px 16px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;">${teams}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Teams</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:8px 16px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;">${players.toLocaleString()}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Players</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:8px 16px;text-align:center;">
+          <div style="font-size:22px;font-weight:900;">${assmnts}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Assessments</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Build team tiles from local app data
+function _localTeamGridHTML() {
+  const sum = state.localSummary;
+  if(!sum || !sum.teams.length) return '';
+  return `
+    <div class="card" style="margin-bottom:20px;">
+      <h3>Teams</h3>
+      <div class="teamHealthGrid">
+        ${sum.teams.map(t => `
+          <div class="teamTile">
+            <div class="ttName">${esc(t.name)}</div>
+            <div class="ttMeta">${esc(t.sport)}${t.year ? ' · ' + esc(t.year) : ''} · ${t.playerCount} player${t.playerCount!==1?'s':''}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">${t.eventCount} event${t.eventCount!==1?'s':''}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
 async function renderHome() {
   const vc = $('viewContainer');
+  // Always show local org banner immediately — no API wait needed
+  const orgBanner   = _localOrgBannerHTML();
+  const teamGrid    = _localTeamGridHTML();
+  const hasLocal    = !!(state.localOrg || state.localSummary);
+
+  // Try the live API; gracefully fall back to local data if it fails
+  let apiHTML = '';
   try {
     const data = await api('/api/enterprise/org?section=home');
     state.dashboardData = data;
     const { pulseCards, teamHealth, recentActivity, totals } = data;
     const cur = state.orgConfig?.currency || 'CAD';
-
-    vc.innerHTML = `
-      <div class="sectionHeader">
-        <div><div class="sectionTitle">Organization Home</div>
-          <div class="sectionSubtitle">${esc(state.orgName)} · ${esc(state.isSuperAdmin ? 'Super Admin' : state.role)} access</div>
-        </div>
-        <button class="btnSecondary" onclick="renderHome()">↻ Refresh</button>
-      </div>
-
+    apiHTML = `
       <!-- Pulse Cards -->
       <div class="pulseGrid">
         <div class="pulseCard">
@@ -882,14 +989,14 @@ async function renderHome() {
       <div class="twoCol" style="grid-template-columns:2fr 1fr;">
         <div class="card">
           <h3>Live Activity Feed</h3>
-          ${recentActivity.length ? recentActivity.slice(0, 15).map(e => `
+          ${recentActivity.length ? recentActivity.slice(0,15).map(e => `
             <div class="feedItem">
-              <div class="feedIcon orange">${actionIcon(String(e.action || ''))}</div>
+              <div class="feedIcon orange">${actionIcon(String(e.action||''))}</div>
               <div class="feedBody">
-                <div class="feedTitle">${formatAction(String(e.action || ''))}</div>
-                <div class="feedMeta">${esc(String(e.email || e.target || ''))}</div>
+                <div class="feedTitle">${formatAction(String(e.action||''))}</div>
+                <div class="feedMeta">${esc(String(e.email||e.target||''))}</div>
               </div>
-              <div class="feedTime">${relTime(String(e.timestamp || ''))}</div>
+              <div class="feedTime">${relTime(String(e.timestamp||''))}</div>
             </div>
           `).join('') : '<div style="color:var(--muted);padding:12px 0;font-size:13px;">No recent activity.</div>'}
         </div>
@@ -906,7 +1013,7 @@ async function renderHome() {
         </div>
       </div>
 
-      <!-- Totals -->
+      <!-- API Totals -->
       <div class="threeCol">
         <div class="card" style="text-align:center;">
           <div style="font-size:32px;font-weight:900;">${totals.players.toLocaleString()}</div>
@@ -922,7 +1029,7 @@ async function renderHome() {
         </div>
       </div>
 
-      <!-- Team Health Grid -->
+      <!-- API Team Health -->
       <div class="card">
         <h3>Team Health</h3>
         ${teamHealth.length ? `<div class="teamHealthGrid">
@@ -937,12 +1044,28 @@ async function renderHome() {
               </div>
             </div>
           `).join('')}
-        </div>` : '<div style="color:var(--muted);font-size:13px;">No teams found. Add coaches to the organization to populate this grid.</div>'}
+        </div>` : (hasLocal ? '' : '<div style="color:var(--muted);font-size:13px;">No teams found.</div>')}
       </div>
     `;
   } catch(e) {
-    vc.innerHTML = `<div class="banner error">Failed to load dashboard: ${esc(e.message)}</div>`;
+    // API unavailable — local data shown above covers the essentials
+    if(!hasLocal){
+      apiHTML = `<div class="banner error" style="margin-bottom:16px;">Live data unavailable: ${esc(e.message)}</div>`;
+    }
   }
+
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div>
+        <div class="sectionTitle">Organization Home</div>
+        <div class="sectionSubtitle">${esc(state.orgName)} · ${esc(state.isSuperAdmin ? 'Super Admin' : state.role)} access</div>
+      </div>
+      <button class="btnSecondary" onclick="renderHome()">↻ Refresh</button>
+    </div>
+    ${orgBanner}
+    ${teamGrid}
+    ${apiHTML}
+  `;
 }
 
 function actionIcon(action) {
