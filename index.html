@@ -6041,9 +6041,10 @@ async function dbFullSync(){
             if(!safeStorageSet(STORAGE_KEY, raw)){
               showStorageWarning();
             }
+            const prevSnap1 = lastDbSnapshot;
             lastDbSnapshot = raw;
             dbSyncState.lastSync = Date.now();
-            withScrollPreserved(()=>render());
+            if(raw !== prevSnap1) withScrollPreserved(()=>render());
           }
         } catch {}
         // Disable DB polling and continue in blob-only mode.
@@ -6137,9 +6138,12 @@ async function dbFullSync(){
       if(!safeStorageSet(STORAGE_KEY, raw)){
         showStorageWarning();
       }
+      const prevSnap2 = lastDbSnapshot;
       lastDbSnapshot = raw;
       dbSyncState.lastSync = Date.now();
-      withScrollPreserved(()=>render());
+      // Only re-render if the merged data is actually different from what was
+      // already on screen — this eliminates the flash-on-every-sync behaviour.
+      if(raw !== prevSnap2) withScrollPreserved(()=>render());
     }
   } catch(err) {
     dbSyncState.lastError = "Network error during sync.";
@@ -9227,21 +9231,12 @@ function autoRefreshTick(){
     if(currentView === "results"){
       withScrollPreserved(()=>renderResults({ soft: true }));
     } else if(currentView === "home"){
-      // Re-render the full home screen including the seasons/teams list
       withScrollPreserved(()=>renderHome());
     } else {
       withScrollPreserved(()=>render());
     }
-    return;
   }
-  // Even when localStorage hasn't changed, re-render home to pick up
-  // any in-memory updates from cloud sync that may not have written yet.
-  if(currentView === "home"){
-    DB = loadDB();
-    purgeDeletedSeasonsFromLocal({ persist: true });
-    lastDbSnapshot = safeStorageGet(STORAGE_KEY, "") || "";
-    withScrollPreserved(()=>renderHome());
-  }
+  // If nothing changed, do nothing — avoids the flash-every-20s loop.
 }
 
 function autoRefreshStatusText(){
@@ -12236,9 +12231,12 @@ function renderHome(){
     return;
   }
   showPersistentLogo(true);
-  // Always trigger a fresh cloud pull when home loads (covers manual F5 refresh).
-  // Re-render fires automatically once sync completes via withScrollPreserved(render).
-  if(authState.user && !dbSyncState.syncing){
+  // Trigger a cloud pull on home load, but throttle to once per 30 s so that
+  // repeated renderHome() calls (from auto-refresh, tab switches, etc.) don't
+  // each kick off a new sync and cause a flash-re-render cycle.
+  const _now = Date.now();
+  if(authState.user && !dbSyncState.syncing &&
+     (_now - (dbSyncState.lastSync || 0)) > 30000){
     dbFullSync();
   }
   // Only show the syncing splash when there is genuinely no local data yet.
