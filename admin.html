@@ -1363,6 +1363,8 @@ function renderRegistrations() {
 
   // ── Age-group config ──────────────────────────────────────────────────────
   const AGE_GROUPS = [
+    { label:'U5',  maxYear: new Date().getFullYear() - 3  },
+    { label:'U7',  maxYear: new Date().getFullYear() - 5  },
     { label:'U9',  maxYear: new Date().getFullYear() - 7  },
     { label:'U11', maxYear: new Date().getFullYear() - 9  },
     { label:'U13', maxYear: new Date().getFullYear() - 11 },
