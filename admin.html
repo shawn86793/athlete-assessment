@@ -380,6 +380,7 @@ tbody tr{cursor:pointer;}
   <div class="sidebarItem" data-view="players" onclick="navigate('players')"><span class="icon">👥</span> Players</div>
   <div class="sidebarItem" data-view="assessments" onclick="navigate('assessments')"><span class="icon">📋</span> Assessments</div>
   <div class="sidebarItem" data-view="teams" onclick="navigate('teams')"><span class="icon">🏒</span> Teams</div>
+  <div class="sidebarItem" data-view="registrations" onclick="navigate('registrations')"><span class="icon">📝</span> Registrations</div>
   <div class="sidebarDivider"></div>
   <div class="sidebarItem" data-view="financials" onclick="navigate('financials')"><span class="icon">💰</span> Financials</div>
   <div class="sidebarItem" data-view="communications" onclick="navigate('communications')"><span class="icon">📢</span> Communications</div>
@@ -527,10 +528,14 @@ function hydrateStateFromLocalDb(email) {
   // Pre-compute summary counts for renderHome fallback
   const seasons = Object.values(db.seasons || {}).filter(s => !s?.deleted && !s?.tombstone);
   const tryouts = Object.values(db.tryouts || {});
+  // Collect all registrations stored on tryout objects (persisted by generateDemoRegistrations)
+  const allRegs = tryouts.flatMap(t => Array.isArray(t.registrations) ? t.registrations : []);
+  state.localRegs = allRegs;
   state.localSummary = {
-    teamCount:       seasons.length,
-    playerCount:     seasons.reduce((n, s) => n + (s.roster||[]).length, 0),
-    assessmentCount: tryouts.length,
+    teamCount:        seasons.length,
+    playerCount:      seasons.reduce((n, s) => n + (s.roster||[]).length, 0),
+    assessmentCount:  tryouts.length,
+    registrationCount: allRegs.length,
     teams: seasons.slice(0, 20).map(s => ({
       name:        s.teamName || s.name || 'Team',
       sport:       s.sport    || 'Sport',
@@ -775,6 +780,7 @@ function renderView(view) {
     players: renderPlayers,
     assessments: renderAssessments,
     teams: renderTeams,
+    registrations: renderRegistrations,
     financials: renderFinancials,
     communications: renderCommunications,
     reports: renderReports,
@@ -891,9 +897,10 @@ function _localOrgBannerHTML() {
   const name   = org ? esc(org.name)   : esc(state.orgName || '');
   const sport  = org ? esc(org.sport || 'Multi-Sport') : '';
   const city   = org ? esc(org.city || '') : '';
-  const teams  = sum ? sum.teamCount       : 0;
-  const players= sum ? sum.playerCount     : 0;
-  const assmnts= sum ? sum.assessmentCount : 0;
+  const teams  = sum ? sum.teamCount        : 0;
+  const players= sum ? sum.playerCount      : 0;
+  const assmnts= sum ? sum.assessmentCount  : 0;
+  const regs   = sum ? sum.registrationCount: 0;
   return `
     <div style="
       background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 60%,#7c3aed 100%);
@@ -923,6 +930,10 @@ function _localOrgBannerHTML() {
           <div style="font-size:22px;font-weight:900;">${assmnts}</div>
           <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Assessments</div>
         </div>
+        ${regs > 0 ? `<div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:8px 16px;text-align:center;cursor:pointer;" onclick="navigate('registrations')">
+          <div style="font-size:22px;font-weight:900;">${regs.toLocaleString()}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Registrations</div>
+        </div>` : ''}
       </div>
     </div>`;
 }
@@ -963,9 +974,9 @@ async function renderHome() {
     apiHTML = `
       <!-- Pulse Cards -->
       <div class="pulseGrid">
-        <div class="pulseCard">
+        <div class="pulseCard" style="cursor:pointer;" onclick="navigate('registrations')">
           <div class="label">Active Registrations</div>
-          <div class="value">${pulseCards.activeRegistrations.toLocaleString()}</div>
+          <div class="value">${(pulseCards.activeRegistrations || state.localRegs?.length || 0).toLocaleString()}</div>
           <div class="trend">Total players across all assessments</div>
         </div>
         <div class="pulseCard">
@@ -1341,6 +1352,240 @@ async function renderTeams() {
   } catch(e) {
     $('teamGrid').innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: REGISTRATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function renderRegistrations() {
+  const vc = $('viewContainer');
+  const allRegs = state.localRegs || [];
+
+  // ── Age-group config ──────────────────────────────────────────────────────
+  const AGE_GROUPS = [
+    { label:'U9',  maxYear: new Date().getFullYear() - 7  },
+    { label:'U11', maxYear: new Date().getFullYear() - 9  },
+    { label:'U13', maxYear: new Date().getFullYear() - 11 },
+    { label:'U15', maxYear: new Date().getFullYear() - 13 },
+    { label:'U18', maxYear: new Date().getFullYear() - 16 },
+    { label:'U21', maxYear: new Date().getFullYear() - 19 },
+  ];
+
+  // Compute age group for a registration
+  function ageGroup(reg) {
+    const yob = parseInt(reg.yearOfBirth || reg.dateOfBirth?.slice(0,4) || '0', 10);
+    if(!yob) return 'Unknown';
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - yob;
+    for(const g of AGE_GROUPS) {
+      if(age <= (currentYear - g.maxYear)) return g.label;
+    }
+    return 'Senior/Open';
+  }
+
+  // Group by age
+  const byGroup = {};
+  for(const reg of allRegs) {
+    const grp = ageGroup(reg);
+    if(!byGroup[grp]) byGroup[grp] = [];
+    byGroup[grp].push(reg);
+  }
+  const groupOrder = [...AGE_GROUPS.map(g => g.label), 'Senior/Open', 'Unknown'];
+  const sortedGroups = Object.keys(byGroup).sort((a,b) => {
+    const ai = groupOrder.indexOf(a), bi = groupOrder.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  // Summary stats
+  const total   = allRegs.length;
+  const paid    = allRegs.filter(r => r.paymentStatus === 'paid').length;
+  const partial = allRegs.filter(r => r.paymentStatus === 'partial').length;
+  const unpaid  = allRegs.filter(r => r.paymentStatus === 'unpaid').length;
+  const moved   = allRegs.filter(r => r.movedToRoster).length;
+  const pending = total - moved;
+  const revenue = allRegs.reduce((s,r) => s + (r.paymentPaid || 0), 0);
+
+  // Search state
+  const searchId = 'regSearch_' + Date.now();
+
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div>
+        <div class="sectionTitle">Registrations</div>
+        <div class="sectionSubtitle">${total.toLocaleString()} total registrations across all assessments</div>
+      </div>
+    </div>
+
+    ${total === 0 ? `
+      <div class="card" style="text-align:center;padding:40px;color:var(--muted);">
+        <div style="font-size:48px;margin-bottom:12px;">📝</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px;">No registrations yet</div>
+        <div style="font-size:13px;">Generate demo registrations in the main app to see them here.</div>
+      </div>
+    ` : `
+
+    <!-- Summary Stats -->
+    <div class="pulseGrid" style="margin-bottom:20px;">
+      <div class="pulseCard">
+        <div class="label">Total</div>
+        <div class="value">${total.toLocaleString()}</div>
+        <div class="trend">All registrations</div>
+      </div>
+      <div class="pulseCard">
+        <div class="label">Pending</div>
+        <div class="value">${pending.toLocaleString()}</div>
+        <div class="trend">Not yet moved to roster</div>
+      </div>
+      <div class="pulseCard">
+        <div class="label">Paid</div>
+        <div class="value" style="color:#059669;">${paid.toLocaleString()}</div>
+        <div class="trend">${partial} partial · ${unpaid} unpaid</div>
+      </div>
+      <div class="pulseCard">
+        <div class="label">Revenue Collected</div>
+        <div class="value">$${revenue.toLocaleString()}</div>
+        <div class="trend">Across all payment records</div>
+      </div>
+    </div>
+
+    <!-- Age Group Breakdown -->
+    <div class="card" style="margin-bottom:20px;">
+      <h3>Age Group Breakdown</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:12px;">
+        ${sortedGroups.map(grp => {
+          const regs = byGroup[grp];
+          const grpPaid = regs.filter(r => r.paymentStatus === 'paid').length;
+          const pct = regs.length ? Math.round(grpPaid / regs.length * 100) : 0;
+          return `
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;cursor:pointer;"
+                 onclick="document.getElementById('regGroupFilter').value='${esc(grp)}';_filterRegs();">
+              <div style="font-size:20px;font-weight:900;color:var(--accent);">${regs.length}</div>
+              <div style="font-size:13px;font-weight:700;margin-top:2px;">${esc(grp)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:4px;">${pct}% paid</div>
+              <div style="height:4px;background:var(--border);border-radius:2px;margin-top:6px;">
+                <div style="height:100%;width:${pct}%;background:#059669;border-radius:2px;"></div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Registration List -->
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+        <h3 style="margin:0;flex:1;">All Registrations</h3>
+        <input id="${searchId}" type="text" placeholder="Search name, email, team…"
+          oninput="_filterRegs()" onkeyup="_filterRegs()"
+          style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:200px;background:var(--card);color:var(--text);">
+        <select id="regGroupFilter" onchange="_filterRegs()"
+          style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text);">
+          <option value="">All Age Groups</option>
+          ${sortedGroups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('')}
+        </select>
+        <select id="regPayFilter" onchange="_filterRegs()"
+          style="padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--text);">
+          <option value="">All Payments</option>
+          <option value="paid">Paid</option>
+          <option value="partial">Partial</option>
+          <option value="unpaid">Unpaid</option>
+        </select>
+      </div>
+      <div id="regListBody" style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border);">
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">Name</th>
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">DOB</th>
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">Age Grp</th>
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">Position</th>
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">Current Team</th>
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">Guardian</th>
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">Payment</th>
+              <th style="text-align:left;padding:8px 10px;color:var(--muted);font-weight:700;">Registered</th>
+            </tr>
+          </thead>
+          <tbody id="regTableBody"></tbody>
+        </table>
+        <div id="regListPager" style="display:flex;align-items:center;justify-content:space-between;padding:10px 4px;color:var(--muted);font-size:12px;"></div>
+      </div>
+    </div>
+
+    `}
+  `;
+
+  if(total === 0) return;
+
+  // Store all regs on window for filter/pager access
+  window._adminAllRegs   = allRegs;
+  window._adminAgeGroup  = ageGroup;
+  window._adminRegPage   = 0;
+  window._adminPageSize  = 50;
+  window._regSearchId    = searchId;
+
+  window._filterRegs = function() {
+    const q        = (document.getElementById(searchId)?.value || '').toLowerCase();
+    const grpF     = (document.getElementById('regGroupFilter')?.value || '');
+    const payF     = (document.getElementById('regPayFilter')?.value || '');
+    window._adminRegFiltered = (window._adminAllRegs || []).filter(r => {
+      const name = ((r.firstName||'') + ' ' + (r.lastName||'')).toLowerCase();
+      const email= (r.guardianEmail||'').toLowerCase();
+      const team = (r.currentTeam||'').toLowerCase();
+      if(q && !name.includes(q) && !email.includes(q) && !team.includes(q)) return false;
+      if(grpF && window._adminAgeGroup(r) !== grpF) return false;
+      if(payF && r.paymentStatus !== payF) return false;
+      return true;
+    });
+    window._adminRegPage = 0;
+    _renderRegPage();
+  };
+
+  window._renderRegPage = function() {
+    const regs  = window._adminRegFiltered || window._adminAllRegs || [];
+    const page  = window._adminRegPage || 0;
+    const size  = window._adminPageSize || 50;
+    const start = page * size;
+    const slice = regs.slice(start, start + size);
+    const total = regs.length;
+    const pages = Math.ceil(total / size);
+
+    const payBadge = (r) => {
+      const s = r.paymentStatus || 'unpaid';
+      const col = s === 'paid' ? '#059669' : s === 'partial' ? '#d97706' : '#dc2626';
+      return `<span style="background:${col}20;color:${col};border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;">${s}</span>`;
+    };
+
+    const tbody = document.getElementById('regTableBody');
+    if(!tbody) return;
+    tbody.innerHTML = slice.length ? slice.map(r => `
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:9px 10px;font-weight:700;">${esc((r.firstName||'')+' '+(r.lastName||''))}</td>
+        <td style="padding:9px 10px;color:var(--muted);">${esc(r.dateOfBirth||'—')}</td>
+        <td style="padding:9px 10px;">
+          <span style="background:var(--accent)20;color:var(--accent);border-radius:5px;padding:2px 7px;font-size:11px;font-weight:700;">
+            ${esc(window._adminAgeGroup(r))}
+          </span>
+        </td>
+        <td style="padding:9px 10px;color:var(--muted);">${esc(r.positionTryingOutFor||'—')}</td>
+        <td style="padding:9px 10px;color:var(--muted);font-size:12px;">${esc(r.currentTeam||'—')}</td>
+        <td style="padding:9px 10px;font-size:12px;">${esc(r.guardianName||'—')}<br><span style="color:var(--muted);">${esc(r.guardianEmail||'')}</span></td>
+        <td style="padding:9px 10px;">${payBadge(r)}</td>
+        <td style="padding:9px 10px;color:var(--muted);font-size:11px;">${r.registeredAt ? new Date(r.registeredAt).toLocaleDateString() : '—'}</td>
+      </tr>`).join('') :
+      `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--muted);">No registrations match your filters.</td></tr>`;
+
+    const pager = document.getElementById('regListPager');
+    if(pager) {
+      pager.innerHTML = `
+        <span>Showing ${start+1}–${Math.min(start+size,total)} of ${total.toLocaleString()} registration${total!==1?'s':''}</span>
+        <div style="display:flex;gap:8px;">
+          ${page > 0 ? `<button onclick="window._adminRegPage--;_renderRegPage()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card);color:var(--text);font-size:12px;">← Prev</button>` : ''}
+          ${(page+1) < pages ? `<button onclick="window._adminRegPage++;_renderRegPage()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card);color:var(--text);font-size:12px;">Next →</button>` : ''}
+        </div>`;
+    }
+  };
+
+  window._adminRegFiltered = allRegs;
+  _renderRegPage();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

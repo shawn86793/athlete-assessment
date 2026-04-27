@@ -5642,7 +5642,7 @@ function openOrgDemoGenerator(){
           <div style="display:flex;gap:10px;">
             <div style="flex:1;">
               <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Count</label>
-              <input id="demoGenRegCount" type="number" min="5" max="150" value="30"
+              <input id="demoGenRegCount" type="number" min="5" max="1000" value="30"
                 style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
             </div>
             <div style="flex:1;">
@@ -5671,7 +5671,7 @@ function runOrgDemoGenerator(){
   const eventCount    = Math.max(1, Math.min(6,   parseInt(document.getElementById("demoGenEventCount")?.value   || "2",  10)));
   const playerCount   = Math.max(5, Math.min(40,  parseInt(document.getElementById("demoGenPlayerCount")?.value  || "20", 10)));
   const evalCount     = Math.max(1, Math.min(5,   parseInt(document.getElementById("demoGenEvalCount")?.value    || "3",  10)));
-  const regCount      = Math.max(1, Math.min(150, parseInt(document.getElementById("demoGenRegCount")?.value     || "30", 10)));
+  const regCount      = Math.max(1, Math.min(1000, parseInt(document.getElementById("demoGenRegCount")?.value     || "30", 10)));
   const regYearsRaw   = (document.getElementById("demoGenRegYears")?.value || "2008-2016").replace(/[–—]/g, "-");
   const [minYearStr, maxYearStr] = regYearsRaw.split("-");
   const minYear = parseInt(minYearStr, 10) || 2008;
@@ -15006,6 +15006,11 @@ function generateDemoRegistrations(count, opts = {}){
 
   // Inject into cache and re-render
   registrationsCache = [...(registrationsCache || []), ...newRegs];
+
+  // ── Persist to DB so admin.html can see them ──────────────────────────────
+  t.registrations = [...(t.registrations || []), ...newRegs];
+  saveDB();
+
   renderDemoRegistrationsView();
   showActionBanner(`✅ ${newRegs.length} demo registration${newRegs.length === 1 ? "" : "s"} added`, "success");
 }
