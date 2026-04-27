@@ -17342,6 +17342,290 @@ function assignSkatersByPositionBalanced(teams, players, capacity, sport, startP
   return pick;
 }
 
+/* ── Fuzzy name matching for friend-request auto-grouping ─────────────────
+   Uses Levenshtein edit distance to handle spelling mistakes in player names.
+   Confidence levels:
+     "certain"  – exact match (auto-add)
+     "likely"   – ≤ 2 edits, or ≤ 3 edits with matching last name token (default include)
+     "possible" – 3-4 edits (default skip, show for review)
+   ──────────────────────────────────────────────────────────────────────── */
+
+function _levenshtein(a, b){
+  const m=a.length, n=b.length;
+  if(!m) return n; if(!n) return m;
+  let prev=Array.from({length:n+1},(_,j)=>j), curr=[];
+  for(let i=1;i<=m;i++){
+    curr[0]=i;
+    for(let j=1;j<=n;j++)
+      curr[j]=a[i-1]===b[j-1]?prev[j-1]:1+Math.min(prev[j],curr[j-1],prev[j-1]);
+    [prev,curr]=[curr,prev];
+  }
+  return prev[n];
+}
+
+function _normName(s){
+  return String(s||"").toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+}
+
+// Returns { player, confidence:"certain"|"likely"|"possible", dist } or null
+function _fuzzyMatchPlayer(requestedName, players, nameIndex){
+  const norm = _normName(requestedName);
+  if(!norm) return null;
+  if(nameIndex[norm]) return { player:nameIndex[norm], confidence:"certain", dist:0 };
+  let best=null, bestDist=Infinity;
+  for(const p of players){
+    const full = _normName(`${p.first||""} ${p.last||""}`);
+    const disp = _normName(playerDisplayName(p));
+    const d = Math.min(_levenshtein(norm, full), _levenshtein(norm, disp));
+    if(d < bestDist){ bestDist=d; best=p; }
+  }
+  if(!best || bestDist > 5) return null;
+  const bestFull = _normName(`${best.first||""} ${best.last||""}`);
+  const reqToks  = norm.split(" ");
+  const bestToks = bestFull.split(" ");
+  const lastExact = reqToks.length && bestToks.length &&
+                    reqToks[reqToks.length-1] === bestToks[bestToks.length-1];
+  if(bestDist <= 2 || (bestDist <= 3 && lastExact)) return { player:best, confidence:"likely",   dist:bestDist };
+  if(bestDist <= 4)                                  return { player:best, confidence:"possible", dist:bestDist };
+  return null;
+}
+
+// Scans roster friend requests → { certGroups, uncertain, noMatch }
+function autoScanFriendRequests(t){
+  const roster = Array.isArray(t?.roster) ? t.roster : [];
+  if(!roster.length) return { certGroups:[], uncertain:[], noMatch:[] };
+
+  // Build name index (exact lookup)
+  const nameIndex={};
+  roster.forEach(p=>{
+    const full=_normName(`${p.first||""} ${p.last||""}`); if(full) nameIndex[full]=p;
+    const disp=_normName(playerDisplayName(p));            if(disp) nameIndex[disp]=p;
+  });
+
+  // Union-find
+  const parent={};
+  roster.forEach(p=>{ parent[p.id]=p.id; });
+  function find(id){ while(parent[id]!==id){ parent[id]=parent[parent[id]]||parent[id]; id=parent[id]; } return id; }
+  function union(a,b){ const ra=find(a),rb=find(b); if(ra!==rb) parent[rb]=ra; }
+
+  const uncertain=[], noMatch=[];
+  const seenPairs=new Set();
+
+  roster.forEach(p=>{
+    const reqs=[
+      p.friendRequest1||p.friend1Name||"",
+      p.friendRequest2||p.friend2Name||""
+    ].filter(Boolean);
+    reqs.forEach(reqName=>{
+      const result=_fuzzyMatchPlayer(reqName, roster, nameIndex);
+      if(!result || result.player.id===p.id){
+        if(!result) noMatch.push({ requesterId:p.id, requesterName:playerDisplayName(p), requestedName:reqName });
+        return;
+      }
+      const pairKey=[p.id,result.player.id].sort().join("|");
+      if(seenPairs.has(pairKey)) return;
+      seenPairs.add(pairKey);
+      if(result.confidence==="certain"){
+        union(p.id, result.player.id);
+      } else {
+        uncertain.push({ key:pairKey, requesterId:p.id, requesterName:playerDisplayName(p),
+          requestedName:reqName, candidateId:result.player.id,
+          candidateName:playerDisplayName(result.player),
+          confidence:result.confidence, dist:result.dist });
+      }
+    });
+  });
+
+  // Build certain groups (size > 1), skip those already fully in an existing package
+  const groups={};
+  roster.forEach(p=>{ const r=find(p.id); if(!groups[r]) groups[r]=[]; groups[r].push(p.id); });
+  const existingPkgSets=(t.friendPackages||[]).map(pk=>new Set(pk.playerIds||[]));
+  const certGroups=Object.values(groups)
+    .filter(ids=>ids.length>1)
+    .filter(ids=>!existingPkgSets.some(s=>ids.every(id=>s.has(id))))
+    .map(ids=>({
+      playerIds: ids,
+      names: ids.map(id=>{ const p=roster.find(r=>r.id===id); return p?playerDisplayName(p):"?"; })
+    }));
+
+  return { certGroups, uncertain, noMatch };
+}
+
+// ── Friend-request import modal ────────────────────────────────────────────
+let _fiState = null;
+
+function openFriendImportModal(){
+  const t=getTryout(); if(!t) return;
+  const scan=autoScanFriendRequests(t);
+  _fiState={ scan, certGroups:scan.certGroups, decisions:{} };
+  scan.uncertain.forEach(u=>{
+    _fiState.decisions[u.key] = u.confidence==="likely" ? "include" : "skip";
+  });
+  _renderFriendImportModal();
+}
+
+function _renderFriendImportModal(){
+  document.getElementById("fiModalOverlay")?.remove();
+  if(!_fiState) return;
+  const { scan, certGroups, decisions }=_fiState;
+  const { uncertain, noMatch }=scan;
+  const confirmedUncertain=uncertain.filter(u=>(decisions[u.key]||"skip")==="include");
+  const totalNew=certGroups.length+confirmedUncertain.length;
+
+  const overlay=document.createElement("div");
+  overlay.id="fiModalOverlay";
+  overlay.style.cssText="position:fixed;inset:0;background:rgba(5,15,35,0.82);z-index:3500;display:flex;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;";
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:16px;max-width:620px;width:100%;box-shadow:0 28px 80px rgba(0,0,0,0.45);overflow:hidden;margin:auto;">
+      <div style="background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 60%,#0e4d92 100%);padding:22px 24px 18px;">
+        <div style="color:#fff;font-size:18px;font-weight:900;">🤝 Friend Request Packages</div>
+        <div style="color:rgba(255,255,255,0.65);font-size:12px;margin-top:3px;">Auto-scanned from registration teammate requests</div>
+      </div>
+      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:18px;max-height:62vh;overflow-y:auto;">
+
+        ${certGroups.length ? `
+          <div>
+            <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:#15803d;margin-bottom:8px;">✅ Confirmed Groups — ${certGroups.length} ready to import</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              ${certGroups.map((g,i)=>`
+                <div style="border:1px solid #bbf7d0;border-radius:9px;padding:9px 13px;background:#f0fdf4;">
+                  <div style="font-size:11px;font-weight:800;color:#166534;margin-bottom:4px;">Group ${i+1}</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                    ${g.names.map(n=>`<span style="font-size:11px;background:#dcfce7;border:1px solid #86efac;border-radius:999px;padding:2px 9px;color:#15803d;font-weight:700;">${escapeHTML(n)}</span>`).join("")}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        ` : ""}
+
+        ${uncertain.length ? `
+          <div>
+            <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:#b45309;margin-bottom:4px;">⚠️ Spelling Variants — Review Required (${uncertain.length})</div>
+            <div style="font-size:11px;color:#92400e;margin-bottom:8px;">These names didn't exactly match a roster player. Confirm if it's the same person, or skip.</div>
+            <div style="display:flex;flex-direction:column;gap:5px;" id="fiUncertainList">
+              ${uncertain.map(u=>{
+                const dec=(decisions[u.key]||"skip");
+                const isInc=dec==="include";
+                const rowKey=u.key.replace(/\|/g,"__");
+                return `<div id="fiRow_${escapeAttr(rowKey)}" style="border:2px solid ${isInc?"#fde68a":"#e2e8f0"};border-radius:9px;padding:10px 13px;background:${isInc?"#fffbeb":"#f8fafc"};">
+                  <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:12px;font-weight:700;color:#0f172a;">${escapeHTML(u.requesterName)} <span style="color:#94a3b8;font-weight:400;">→</span> "${escapeHTML(u.requestedName)}"</div>
+                      <div style="font-size:11px;color:#64748b;margin-top:3px;">
+                        Best match: <strong>${escapeHTML(u.candidateName)}</strong>
+                        <span style="font-size:10px;padding:1px 7px;border-radius:4px;margin-left:4px;font-weight:700;background:${u.confidence==="likely"?"#fef9c3":"#fee2e2"};color:${u.confidence==="likely"?"#a16207":"#991b1b"};">${u.confidence==="likely"?"Likely":"Possible"}</span>
+                        <span style="font-size:10px;color:#94a3b8;margin-left:3px;">(${u.dist} edit${u.dist!==1?"s":""})</span>
+                      </div>
+                    </div>
+                    <div style="display:flex;gap:5px;flex-shrink:0;margin-top:2px;">
+                      <button onclick="window._fiToggle('${escapeAttr(u.key)}','include')" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${isInc?"#16a34a":"#e2e8f0"};background:${isInc?"#dcfce7":"#fff"};color:${isInc?"#15803d":"#64748b"};">✓ Yes</button>
+                      <button onclick="window._fiToggle('${escapeAttr(u.key)}','skip')" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${!isInc?"#dc2626":"#e2e8f0"};background:${!isInc?"#fee2e2":"#fff"};color:${!isInc?"#991b1b":"#64748b"};">✗ No</button>
+                    </div>
+                  </div>
+                </div>`;
+              }).join("")}
+            </div>
+          </div>
+        ` : ""}
+
+        ${noMatch.length ? `
+          <div>
+            <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:#94a3b8;margin-bottom:6px;">❓ No Match Found (${noMatch.length})</div>
+            <div style="border:1px solid #e2e8f0;border-radius:9px;padding:10px 13px;background:#f8fafc;">
+              <div style="font-size:11px;color:#64748b;margin-bottom:6px;">These requests don't match anyone in the roster — may be unregistered players or heavily misspelled:</div>
+              <div style="display:flex;flex-direction:column;gap:3px;">
+                ${noMatch.map(nm=>`<div style="font-size:12px;color:#0f172a;"><span style="color:#94a3b8;">${escapeHTML(nm.requesterName)}</span> → "<strong>${escapeHTML(nm.requestedName)}</strong>"</div>`).join("")}
+              </div>
+            </div>
+          </div>
+        ` : ""}
+
+        ${!certGroups.length && !uncertain.length && !noMatch.length ? `
+          <div style="text-align:center;padding:28px 0;color:#94a3b8;">
+            <div style="font-size:36px;margin-bottom:10px;">🤝</div>
+            <div style="font-size:13px;font-weight:600;">No friend requests found in this roster.</div>
+            <div style="font-size:11px;margin-top:4px;">Players can add teammate requests during registration.</div>
+          </div>
+        ` : ""}
+
+      </div>
+      <div style="border-top:1px solid #e2e8f0;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#f8fafc;border-radius:0 0 16px 16px;">
+        <div style="font-size:12px;color:#64748b;" id="fiImportSummary">${totalNew} package${totalNew!==1?"s":""} ready to import</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('fiModalOverlay')?.remove()" style="padding:9px 16px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;color:#64748b;">Cancel</button>
+          <button onclick="window._fiImportAll()" style="padding:9px 20px;border:none;border-radius:8px;background:#0a1e3d;color:#fff;cursor:pointer;font-size:13px;font-weight:800;">🤝 Import Packages</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener("click", e=>{ if(e.target===overlay) overlay.remove(); });
+}
+
+window._fiToggle = function(key, decision){
+  if(!_fiState) return;
+  _fiState.decisions[key] = decision;
+  // Patch the row styling in-place (no full re-render needed)
+  const rowKey = key.replace(/\|/g,"__");
+  const row = document.getElementById("fiRow_"+rowKey);
+  if(row){
+    const isInc = decision==="include";
+    row.style.borderColor = isInc ? "#fde68a" : "#e2e8f0";
+    row.style.background  = isInc ? "#fffbeb" : "#f8fafc";
+    const btns = row.querySelectorAll("button");
+    if(btns[0]){
+      btns[0].style.borderColor = isInc ? "#16a34a" : "#e2e8f0";
+      btns[0].style.background  = isInc ? "#dcfce7" : "#fff";
+      btns[0].style.color       = isInc ? "#15803d" : "#64748b";
+    }
+    if(btns[1]){
+      btns[1].style.borderColor = !isInc ? "#dc2626" : "#e2e8f0";
+      btns[1].style.background  = !isInc ? "#fee2e2" : "#fff";
+      btns[1].style.color       = !isInc ? "#991b1b" : "#64748b";
+    }
+  }
+  // Update summary count
+  const confirmCount = (_fiState.scan?.uncertain||[]).filter(u=>(_fiState.decisions[u.key]||"skip")==="include").length;
+  const totalNew = _fiState.certGroups.length + confirmCount;
+  const sumEl = document.getElementById("fiImportSummary");
+  if(sumEl) sumEl.textContent = `${totalNew} package${totalNew!==1?"s":""} ready to import`;
+};
+
+window._fiImportAll = function(){
+  const t=getTryout(); if(!t||!_fiState) return;
+  if(!Array.isArray(t.friendPackages)) t.friendPackages=[];
+  const rosterMap=new Map((t.roster||[]).map(p=>[p.id,p]));
+  let added=0;
+
+  // Import certain groups
+  _fiState.certGroups.forEach(g=>{
+    const existingSets=t.friendPackages.map(pk=>new Set(pk.playerIds||[]));
+    if(existingSets.some(s=>g.playerIds.every(id=>s.has(id)))) return;
+    const names=g.playerIds.slice(0,2).map(id=>{ const p=rosterMap.get(id); return p?String(p.last||""):"?"; });
+    t.friendPackages.push({ id:uid(), name:`${names.join(" & ")}`, playerIds:g.playerIds, highlighted:false });
+    added++;
+  });
+
+  // Import confirmed uncertain pairs
+  (_fiState.scan?.uncertain||[]).forEach(u=>{
+    if((_fiState.decisions[u.key]||"skip")!=="include") return;
+    const existingSets=t.friendPackages.map(pk=>new Set(pk.playerIds||[]));
+    const ids=[u.requesterId, u.candidateId];
+    if(existingSets.some(s=>ids.every(id=>s.has(id)))) return;
+    const names=ids.map(id=>{ const p=rosterMap.get(id); return p?String(p.last||""):"?"; });
+    t.friendPackages.push({ id:uid(), name:`${names.join(" & ")}?`, playerIds:ids, highlighted:false });
+    added++;
+  });
+
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  document.getElementById("fiModalOverlay")?.remove();
+  _fiState=null;
+  ftbRenderPkgs();
+  showActionBanner(added ? `${added} friend package${added!==1?"s":""} imported ✓` : "No new packages to import", added?"success":"info");
+};
+
 /* ── Friend-package builder (union-find) ── */
 function buildFriendPackages(players){
   const nameIndex = {};
@@ -17774,6 +18058,31 @@ function openFreshTeamBuilder(ev){
   window._ftb = { search:'', pkgSearch:'', minScore:0, topN:0, selectedPkgId:null };
   if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
   _renderFreshTB();
+  // Auto-scan friend requests and show badge if there are results
+  setTimeout(()=>{ _ftbRefreshScanBanner(); }, 60);
+}
+
+function _ftbRefreshScanBanner(){
+  const bannerEl = document.getElementById("ftbScanBanner");
+  if(!bannerEl) return;
+  const t = getTryout(); if(!t) return;
+  const { certGroups, uncertain } = autoScanFriendRequests(t);
+  const total = certGroups.length + uncertain.length;
+  if(total > 0){
+    bannerEl.innerHTML = `
+      <button onclick="openFriendImportModal()"
+        style="width:100%;padding:7px 10px;border-radius:7px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:800;cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;">
+        <span style="font-size:13px;">🔍</span>
+        <span style="flex:1;">${certGroups.length} group${certGroups.length!==1?"s":""} found${uncertain.length?` · ${uncertain.length} to review`:""}  from registrations</span>
+        <span style="font-size:10px;opacity:0.7;">Scan →</span>
+      </button>`;
+  } else {
+    bannerEl.innerHTML = `
+      <button onclick="openFriendImportModal()"
+        style="width:100%;padding:6px 10px;border-radius:7px;border:1px solid #e2e8f0;background:#f8fafc;color:#94a3b8;font-size:11px;font-weight:700;cursor:pointer;">
+        🔍 Scan Teammate Requests
+      </button>`;
+  }
 }
 
 function _closeFreshTB(){
@@ -17858,9 +18167,12 @@ function _renderFreshTB(){
              parent column: without it the child's intrinsic height escapes the
              bounded container and the ftbPkgList scroll never activates. -->
         <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;">
-            <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">🤝 Friend Packages</div>
-            <button onclick="ftbAddPkg()" id="ftbAddPkgBtn" style="font-size:11px;padding:3px 10px;background:#0a1e3d;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:900;">+ Add</button>
+          <div style="margin-bottom:10px;flex-shrink:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;">🤝 Friend Packages</div>
+              <button onclick="ftbAddPkg()" id="ftbAddPkgBtn" style="font-size:11px;padding:3px 10px;background:#0a1e3d;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:900;">+ Add</button>
+            </div>
+            <div id="ftbScanBanner"></div>
           </div>
           <!-- Package search -->
           <div style="position:relative;margin-bottom:8px;flex-shrink:0;">
