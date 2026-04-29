@@ -6453,7 +6453,7 @@ const BASEBALL_SK_CATS = {
     {key:"BF3 ArmStr",      label:"Arm Strength"},
     {key:"BF4 ArmAcc",      label:"Arm Accuracy / Throws"},
     {key:"BF5 Footwork",    label:"Footwork / Transitions"},
-    {key:"BF6 Pitching",    label:"Pitching"},
+    {key:"BF6 Pitching",    label:"Pitching/Throwing"},
   ],
   baserunning:[
     {key:"BB1 Speed",       label:"Speed / Base-to-Base"},
@@ -10436,18 +10436,55 @@ function categoryAverages(pid){
 function weightedOverall(pid){
   const p = playerById(pid);
   if(!p) return null;
-  const cats = categoryAverages(pid);
-  if(!cats) return null;
   const t = getTryout();
   const sport = getSportFromTryout(t);
   const s = tryoutSettings();
   const isSpec = isSpecialPosition(p.pos, sport);
   const w = isSpec ? s.goalieWeights : s.skaterWeights;
-  let sum=0, wsum=0;
-  for(const key of Object.keys(w)){
-    if(cats[key]!==null && cats[key]!==undefined){ sum += cats[key]*w[key]; wsum += w[key]; }
+
+  // Detect format: per-rubric keys (new) vs category keys (old/migrated)
+  const catOrder = isSpec ? getSportGoCatOrder(sport) : getSportSkCatOrder(sport);
+  const isPerRubric = Object.keys(w).length > 0 && !catOrder.some(k => Object.prototype.hasOwnProperty.call(w, k));
+
+  if(isPerRubric){
+    // New: weight each rubric individually
+    const allRubrics = isSpec ? getGoalieAll(t) : getSkaterAll(t);
+    const evs = evalsForPlayer(pid);
+    let sum=0, wsum=0;
+    for(const r of allRubrics){
+      const rw = w[r.key] ?? 0;
+      if(!rw) continue;
+      const vals=[];
+      for(const e of evs){
+        const v = normalizeRoleScore(e.scores?.[r.key], r.scale);
+        if(v!==null) vals.push(v);
+      }
+      const sc = avg(vals);
+      if(sc!==null){ sum += sc*rw; wsum += rw; }
+    }
+    // Custom rubrics — each gets its own weight by key
+    for(const r of numericCustomRubrics()){
+      const rw = w[r.key] ?? 0;
+      if(!rw) continue;
+      const vals=[];
+      for(const e of evs){
+        const v = normalizeRoleScore(e.scores?.[r.key], r.scale);
+        if(v!==null) vals.push(v);
+      }
+      const sc = avg(vals);
+      if(sc!==null){ sum += sc*rw; wsum += rw; }
+    }
+    return wsum ? sum/wsum : null;
+  } else {
+    // Legacy: category-level weights
+    const cats = categoryAverages(pid);
+    if(!cats) return null;
+    let sum=0, wsum=0;
+    for(const key of Object.keys(w)){
+      if(cats[key]!==null && cats[key]!==undefined){ sum += cats[key]*w[key]; wsum += w[key]; }
+    }
+    return wsum ? sum/wsum : null;
   }
-  return wsum ? sum/wsum : null;
 }
 function rankInGroup(metricFn, group, direction="desc"){
   const roster = getRoster();
@@ -13922,22 +13959,92 @@ function showRubricPromptAfterCreate(tryoutId){
   overlay.addEventListener("click", e=>{ if(e.target===overlay){ overlay.remove(); openTryout(tryoutId); } });
 }
 
+// Returns sport-appropriate role definitions for the rubric builder tabs
+function getSportRoles(sport){
+  switch(sport){
+    case "Hockey":
+    case "Ringette":
+      return [
+        { key:"skater", label:"Skaters",         icon:"🏃" },
+        { key:"goalie", label:"Goalie",           icon:"🥅" },
+      ];
+    case "Soccer":
+    case "Field Hockey":
+    case "Water Polo":
+      return [
+        { key:"skater", label:"Outfield Players", icon:"⚽" },
+        { key:"goalie", label:"Goalkeeper",       icon:"🥅" },
+      ];
+    case "Football":
+      return [
+        { key:"skater", label:"Skill Positions",  icon:"🏈" },
+        { key:"goalie", label:"Quarterback",      icon:"🎯" },
+      ];
+    case "Baseball":
+    case "Softball":
+      return [
+        { key:"skater", label:"Position Players", icon:"⚾" },
+        { key:"goalie", label:"Pitcher",          icon:"🤾" },
+      ];
+    case "Lacrosse":
+      return [
+        { key:"skater", label:"Players",          icon:"🥍" },
+        { key:"goalie", label:"Goalie",           icon:"🥅" },
+      ];
+    default:
+      return [
+        { key:"skater", label:"Players",          icon:"🏃" },
+      ];
+  }
+}
+
+// Detect old category-key weight format and migrate to per-rubric-key format
+function _migrateToRubricWeights(weights, catOrder, cats){
+  if(!weights || !Object.keys(weights).length) return {};
+  const isOld = catOrder.some(k => Object.prototype.hasOwnProperty.call(weights, k));
+  if(!isOld) return weights;
+  const result = {};
+  for(const catKey of catOrder){
+    const catW = weights[catKey] || 0;
+    const rubrics = Array.isArray(cats[catKey]) ? cats[catKey] : [];
+    if(!rubrics.length) continue;
+    const perRubric = parseFloat((catW / rubrics.length).toFixed(4));
+    for(const r of rubrics){ result[r.key] = perRubric; }
+  }
+  return result;
+}
+
 function openRubricBuilderModal(tryoutId){
   const t = DB.tryouts[tryoutId];
   if(!t) return openTryout(tryoutId);
   const sport = getSportFromTryout(t);
 
+  // Migrate category-level weights → per-rubric-level weights
+  const skCats    = getSportSkCats(sport);
+  const skOrder   = getSportSkCatOrder(sport);
+  const goCats    = getSportGoCats(sport);
+  const goOrder   = getSportGoCatOrder(sport);
+  const rawSkW    = JSON.parse(JSON.stringify(t.settings?.skaterWeights || getSportSkWeights(sport)));
+  const rawGoW    = JSON.parse(JSON.stringify(t.settings?.goalieWeights || getSportGoWeights(sport)));
+  const migrSkW   = _migrateToRubricWeights(rawSkW, skOrder, skCats);
+  const migrGoW   = _migrateToRubricWeights(rawGoW, goOrder, goCats);
+
   // Init mutable state
   _rbState = {
     tryoutId,
     sport,
-    skaterRubrics: JSON.parse(JSON.stringify(t.settings?.skaterRubrics || {})),
-    goalieRubrics: JSON.parse(JSON.stringify(t.settings?.goalieRubrics || {})),
-    customRubrics: JSON.parse(JSON.stringify(Array.isArray(t.settings?.customRubrics) ? t.settings.customRubrics : [])),
-    skaterWeights: JSON.parse(JSON.stringify(t.settings?.skaterWeights || getSportSkWeights(sport))),
-    goalieWeights: JSON.parse(JSON.stringify(t.settings?.goalieWeights || getSportGoWeights(sport))),
+    skaterRubrics:         JSON.parse(JSON.stringify(t.settings?.skaterRubrics || {})),
+    goalieRubrics:         JSON.parse(JSON.stringify(t.settings?.goalieRubrics || {})),
+    customRubrics:         JSON.parse(JSON.stringify(Array.isArray(t.settings?.customRubrics) ? t.settings.customRubrics : [])),
+    skaterWeights:         migrSkW,
+    goalieWeights:         migrGoW,
+    customPositions:       JSON.parse(JSON.stringify(Array.isArray(t.settings?.customPositions) ? t.settings.customPositions : [])),
+    customPositionRubrics: JSON.parse(JSON.stringify(t.settings?.customPositionRubrics || {})),
+    customPositionWeights: JSON.parse(JSON.stringify(t.settings?.customPositionWeights || {})),
     activeRole: "skater",
     showCustomForm: false,
+    showAddPosition: false,
+    newPosName: "",
     customLabel: "",
     customScale: "1-5",
   };
@@ -13949,66 +14056,174 @@ function openRubricBuilderModal(tryoutId){
   _renderRubricBuilder();
 }
 
+function _rbActiveWeights(){
+  if(!_rbState) return {};
+  const role = _rbState.activeRole;
+  if(role === "skater") return _rbState.skaterWeights;
+  if(role === "goalie") return _rbState.goalieWeights;
+  if(!_rbState.customPositionWeights[role]) _rbState.customPositionWeights[role] = {};
+  return _rbState.customPositionWeights[role];
+}
+
+function _rbActiveRubricStore(){
+  if(!_rbState) return {};
+  const role = _rbState.activeRole;
+  if(role === "skater") return _rbState.skaterRubrics;
+  if(role === "goalie") return _rbState.goalieRubrics;
+  if(!_rbState.customPositionRubrics[role]) _rbState.customPositionRubrics[role] = {};
+  return _rbState.customPositionRubrics[role];
+}
+
 function _rbLibraryCats(){
   if(!_rbState) return [];
   const role = _rbState.activeRole;
   const sport = _rbState.sport;
-  const cats = role === "goalie" ? getSportGoCats(sport) : getSportSkCats(sport);
-  const order = role === "goalie" ? getSportGoCatOrder(sport) : getSportSkCatOrder(sport);
+  // Custom positions share the skater library; goalie uses its own
+  const cats   = role === "goalie" ? getSportGoCats(sport)      : getSportSkCats(sport);
+  const order  = role === "goalie" ? getSportGoCatOrder(sport)  : getSportSkCatOrder(sport);
   const labels = role === "goalie" ? getSportGoCatLabels(sport) : getSportSkCatLabels(sport);
   return order.map(key=>({ key, label:String(labels[key]||key), rubrics: Array.isArray(cats[key]) ? cats[key] : [] }));
 }
 
 function _rbSelectedCats(){
   if(!_rbState) return [];
-  const role = _rbState.activeRole;
+  const role  = _rbState.activeRole;
   const sport = _rbState.sport;
-  const sel = role === "goalie" ? _rbState.goalieRubrics : _rbState.skaterRubrics;
-  const order = role === "goalie" ? getSportGoCatOrder(sport) : getSportSkCatOrder(sport);
+  const sel    = _rbActiveRubricStore();
+  const order  = role === "goalie" ? getSportGoCatOrder(sport)  : getSportSkCatOrder(sport);
   const labels = role === "goalie" ? getSportGoCatLabels(sport) : getSportSkCatLabels(sport);
   return order.map(key=>({ key, label:String(labels[key]||key), rubrics: Array.isArray(sel[key]) ? sel[key] : [] })).filter(c=>c.rubrics.length>0);
 }
 
 function _rbIsAdded(catKey, rubricKey){
   if(!_rbState) return false;
-  const role = _rbState.activeRole;
-  const sel = role === "goalie" ? _rbState.goalieRubrics : _rbState.skaterRubrics;
+  const sel = _rbActiveRubricStore();
   return Array.isArray(sel[catKey]) && sel[catKey].some(r=>r.key===rubricKey);
 }
 
 function _renderRubricBuilder(){
   const overlay = document.getElementById("rubricBuilderOverlay");
   if(!overlay || !_rbState) return;
-  const t = DB.tryouts[_rbState.tryoutId];
-  const libCats = _rbLibraryCats();
-  const selCats = _rbSelectedCats();
+  const t           = DB.tryouts[_rbState.tryoutId];
+  const sport       = _rbState.sport;
+  const libCats     = _rbLibraryCats();
+  const selCats     = _rbSelectedCats();
+  const activeWeights = _rbActiveWeights();
+  const customPositions = _rbState.customPositions || [];
+  const roles         = getSportRoles(sport);
   const totalSelected = selCats.reduce((s,c)=>s+c.rubrics.length,0) + _rbState.customRubrics.length;
-  const activeWeights = _rbState.activeRole === "goalie" ? _rbState.goalieWeights : _rbState.skaterWeights;
+
+  // ── Role tab HTML ──────────────────────────────────────────────────────────
+  const builtinTabs = roles.map(role=>{
+    const isActive = _rbState.activeRole === role.key;
+    return `<button onclick="_rbSetRole('${escapeAttr(role.key)}')"
+      style="flex:1;min-width:90px;padding:11px 8px;font-size:13px;font-weight:700;border:none;cursor:pointer;
+             border-bottom:2px solid ${isActive?"#f97316":"transparent"};
+             color:${isActive?"#f97316":"var(--muted)"};background:transparent;white-space:nowrap;">
+      ${role.icon} ${escapeHTML(role.label)}
+    </button>`;
+  }).join("");
+
+  const customPosTabs = customPositions.map((pos,i)=>{
+    const isActive = _rbState.activeRole === pos.key;
+    return `<button onclick="_rbSetRole('${escapeAttr(pos.key)}')"
+      style="flex:1;min-width:90px;padding:11px 6px;font-size:13px;font-weight:700;border:none;cursor:pointer;
+             border-bottom:2px solid ${isActive?"#7c3aed":"transparent"};
+             color:${isActive?"#7c3aed":"var(--muted)"};background:transparent;white-space:nowrap;
+             display:flex;align-items:center;justify-content:center;gap:4px;">
+      👥 ${escapeHTML(pos.label)}
+      <span onclick="event.stopPropagation();_rbDeleteCustomPos(${i})"
+        style="font-size:14px;line-height:1;padding:0 2px;opacity:0.55;cursor:pointer;"
+        title="Remove position">×</span>
+    </button>`;
+  }).join("");
+
+  const addPosTab = `<button onclick="_rbState.showAddPosition=!_rbState.showAddPosition;_rbState.newPosName='';_renderRubricBuilder()"
+    style="padding:11px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+           color:#7c3aed;background:transparent;border-bottom:2px solid transparent;white-space:nowrap;">
+    + Position
+  </button>`;
+
+  const addPosForm = _rbState.showAddPosition ? `
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(124,58,237,0.06);border-bottom:1px solid rgba(124,58,237,0.2);">
+      <span style="font-size:12px;font-weight:700;color:#7c3aed;white-space:nowrap;">New Position:</span>
+      <input id="rbNewPosName" type="text" placeholder="e.g. Catcher, Outfield, Defender…" maxlength="25"
+        value="${escapeAttr(_rbState.newPosName||"")}"
+        oninput="_rbState.newPosName=this.value"
+        onkeydown="if(event.key==='Enter')_rbAddCustomPosition()"
+        style="flex:1;padding:6px 10px;border:1.5px solid rgba(124,58,237,0.4);border-radius:7px;font-size:13px;background:var(--card);color:var(--text);">
+      <button onclick="_rbAddCustomPosition()"
+        style="padding:6px 14px;border:none;border-radius:7px;background:#7c3aed;color:#fff;font-size:12px;font-weight:800;cursor:pointer;">Add</button>
+      <button onclick="_rbState.showAddPosition=false;_renderRubricBuilder()"
+        style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;background:var(--bg2);color:var(--muted);font-size:12px;cursor:pointer;">Cancel</button>
+    </div>` : "";
+
+  // ── Right-panel: rubric rows with per-rubric weight ────────────────────────
+  const selRubricRows = selCats.map(cat=>`
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:6px;">${escapeHTML(cat.label)}</div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        ${cat.rubrics.map(r=>`
+          <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);">
+            <span style="font-size:13px;cursor:ns-resize;color:var(--muted);">⠿</span>
+            <span style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(r.label||r.key)}</span>
+            <span style="font-size:10px;color:var(--muted);font-weight:600;">Wt</span>
+            <input type="number" min="0" max="1" step="0.05"
+              value="${((activeWeights[r.key]||0)).toFixed(2)}"
+              onchange="_rbSetWeight('${escapeAttr(r.key)}',this.value)"
+              style="width:54px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center;background:var(--card);color:var(--text);font-weight:700;">
+            <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--border);color:var(--muted);font-weight:700;">${escapeHTML(r.scale||"1-5")}</span>
+            <button onclick="_rbRemoveLibRubric('${escapeAttr(cat.key)}','${escapeAttr(r.key)}')"
+              style="background:none;border:none;color:#dc2626;font-size:14px;cursor:pointer;line-height:1;padding:0 2px;font-weight:900;">&times;</button>
+          </div>
+        `).join("")}
+      </div>
+    </div>`).join("");
+
+  const customRubricRows = _rbState.customRubrics.length>0 ? `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:#7c3aed;margin-bottom:6px;">Custom Rubrics</div>
+      <div style="display:flex;flex-direction:column;gap:3px;">
+        ${_rbState.customRubrics.map((r,idx)=>`
+          <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid rgba(124,58,237,0.25);background:rgba(124,58,237,0.06);">
+            <span style="font-size:11px;padding:1px 6px;border-radius:4px;background:rgba(124,58,237,0.15);color:#7c3aed;font-weight:800;font-family:monospace;">${escapeHTML(r.key)}</span>
+            <span style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(r.label||r.key)}</span>
+            <span style="font-size:10px;color:var(--muted);font-weight:600;">Wt</span>
+            <input type="number" min="0" max="1" step="0.05"
+              value="${((activeWeights[r.key]||0)).toFixed(2)}"
+              onchange="_rbSetWeight('${escapeAttr(r.key)}',this.value)"
+              style="width:54px;padding:3px 6px;border-radius:6px;border:1px solid rgba(124,58,237,0.35);font-size:12px;text-align:center;background:var(--card);color:#7c3aed;font-weight:700;">
+            <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--border);color:var(--muted);font-weight:700;">${escapeHTML(r.scale||"1-5")}</span>
+            <button onclick="_rbRemoveCustom(${idx})"
+              style="background:none;border:none;color:#dc2626;font-size:14px;cursor:pointer;line-height:1;padding:0 2px;font-weight:900;">&times;</button>
+          </div>
+        `).join("")}
+      </div>
+    </div>` : "";
 
   overlay.innerHTML = `
-    <div style="background:var(--card);border-radius:16px;max-width:920px;width:100%;box-shadow:0 28px 80px rgba(0,0,0,0.45);margin:auto;min-height:0;">
+    <div style="background:var(--card);border-radius:16px;max-width:960px;width:100%;box-shadow:0 28px 80px rgba(0,0,0,0.45);margin:auto;min-height:0;">
 
       <!-- Header -->
       <div style="background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 60%,#0e4d92 100%);border-radius:16px 16px 0 0;padding:20px 24px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <div>
           <div style="color:#fff;font-size:18px;font-weight:900;">🎯 Build Scoring Rubrics</div>
-          <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:3px;">${escapeHTML(t?.name||"Assessment")} &bull; ${escapeHTML(_rbState.sport)}</div>
+          <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:3px;">${escapeHTML(t?.name||"Assessment")} &bull; ${escapeHTML(sport)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:12px;color:rgba(255,255,255,0.6);">${totalSelected} rubric${totalSelected!==1?"s":""} selected</span>
-          <button onclick="document.getElementById('rubricBuilderOverlay')?.remove();openTryout('${escapeJS(_rbState.tryoutId)}')" style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;">&times;</button>
+          <button onclick="document.getElementById('rubricBuilderOverlay')?.remove();openTryout('${escapeJS(_rbState.tryoutId)}')"
+            style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;">&times;</button>
         </div>
       </div>
 
-      <!-- Role tabs -->
-      <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2);">
-        <button onclick="_rbSetRole('skater')" style="flex:1;padding:11px;font-size:13px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid ${_rbState.activeRole==="skater"?"#f97316":"transparent"};color:${_rbState.activeRole==="skater"?"#f97316":"var(--muted)"};background:transparent;">
-          🏃 Skater Rubrics
-        </button>
-        <button onclick="_rbSetRole('goalie')" style="flex:1;padding:11px;font-size:13px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid ${_rbState.activeRole==="goalie"?"#f97316":"transparent"};color:${_rbState.activeRole==="goalie"?"#f97316":"var(--muted)"};background:transparent;">
-          🥅 Goalie Rubrics
-        </button>
+      <!-- Role tabs (sport-specific + custom positions + add button) -->
+      <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto;">
+        ${builtinTabs}
+        ${customPosTabs}
+        ${addPosTab}
       </div>
+      ${addPosForm}
 
       <!-- Two-panel body -->
       <div style="display:grid;grid-template-columns:1fr 1fr;min-height:420px;" id="rbPanels">
@@ -14020,7 +14235,8 @@ function _renderRubricBuilder(){
             <div style="margin-bottom:14px;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
                 <div style="font-size:12px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.04em;">${escapeHTML(cat.label)}</div>
-                <button onclick="_rbAddAllFromCat('${escapeAttr(cat.key)}')" style="font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.35);color:#f97316;cursor:pointer;font-weight:700;">+ All</button>
+                <button onclick="_rbAddAllFromCat('${escapeAttr(cat.key)}')"
+                  style="font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.35);color:#f97316;cursor:pointer;font-weight:700;">+ All</button>
               </div>
               <div class="rbLibCat" data-cat="${escapeAttr(cat.key)}" style="display:flex;flex-direction:column;gap:4px;">
                 ${cat.rubrics.map(r=>{
@@ -14045,66 +14261,23 @@ function _renderRubricBuilder(){
           `).join("")}
         </div>
 
-        <!-- RIGHT: Selected Rubrics -->
+        <!-- RIGHT: Selected Rubrics with per-rubric weights -->
         <div id="rbSelectedPanel"
           ondragover="event.preventDefault()"
           ondrop="_rbDrop(event)"
           style="padding:16px;overflow-y:auto;max-height:58vh;background:var(--bg2);">
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:12px;">✅ Your Selected Rubrics</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);">✅ Selected Rubrics</div>
+            <div style="font-size:10px;color:var(--muted);">Wt = scoring weight (0–1)</div>
+          </div>
           ${selCats.length===0 && _rbState.customRubrics.length===0 ? `
             <div id="rbEmptyDrop" style="border:2px dashed var(--border);border-radius:12px;padding:32px 20px;text-align:center;color:var(--muted);font-size:13px;margin-bottom:12px;">
               <div style="font-size:28px;margin-bottom:8px;">🎯</div>
               Click or drag rubrics from the library<br>to add them here
             </div>
           ` : ""}
-          ${selCats.map(cat=>`
-            <div style="margin-bottom:14px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);">${escapeHTML(cat.label)}</div>
-                <div style="display:flex;align-items:center;gap:5px;">
-                  <span style="font-size:10px;color:var(--muted);font-weight:600;">Weight</span>
-                  <input type="number" min="0" max="1" step="0.05"
-                    value="${((activeWeights[cat.key]||0)).toFixed(2)}"
-                    onchange="_rbSetWeight('${escapeAttr(cat.key)}',this.value)"
-                    style="width:62px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center;background:var(--card);color:var(--text);font-weight:700;">
-                </div>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:3px;">
-                ${cat.rubrics.map((r,idx)=>`
-                  <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);">
-                    <span style="font-size:13px;cursor:ns-resize;color:var(--muted);">⠿</span>
-                    <span style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(r.label||r.key)}</span>
-                    <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--border);color:var(--muted);font-weight:700;">${escapeHTML(r.scale||"1-5")}</span>
-                    <button onclick="_rbRemoveLibRubric('${escapeAttr(cat.key)}','${escapeAttr(r.key)}')" style="background:none;border:none;color:#dc2626;font-size:14px;cursor:pointer;line-height:1;padding:0 2px;font-weight:900;">&times;</button>
-                  </div>
-                `).join("")}
-              </div>
-            </div>
-          `).join("")}
-          ${_rbState.customRubrics.length>0 ? `
-            <div style="margin-bottom:12px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:#7c3aed;">Custom Rubrics</div>
-                <div style="display:flex;align-items:center;gap:5px;">
-                  <span style="font-size:10px;color:var(--muted);font-weight:600;">Weight</span>
-                  <input type="number" min="0" max="1" step="0.05"
-                    value="${((activeWeights["custom"]||0)).toFixed(2)}"
-                    onchange="_rbSetWeight('custom',this.value)"
-                    style="width:62px;padding:3px 7px;border-radius:6px;border:1px solid rgba(124,58,237,0.35);font-size:12px;text-align:center;background:var(--card);color:#7c3aed;font-weight:700;">
-                </div>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:3px;">
-                ${_rbState.customRubrics.map((r,idx)=>`
-                  <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid rgba(124,58,237,0.25);background:rgba(124,58,237,0.06);">
-                    <span style="font-size:11px;padding:1px 6px;border-radius:4px;background:rgba(124,58,237,0.15);color:#7c3aed;font-weight:800;font-family:monospace;">${escapeHTML(r.key)}</span>
-                    <span style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(r.label||r.key)}</span>
-                    <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--border);color:var(--muted);font-weight:700;">${escapeHTML(r.scale||"1-5")}</span>
-                    <button onclick="_rbRemoveCustom(${idx})" style="background:none;border:none;color:#dc2626;font-size:14px;cursor:pointer;line-height:1;padding:0 2px;font-weight:900;">&times;</button>
-                  </div>
-                `).join("")}
-              </div>
-            </div>
-          ` : ""}
+          ${selRubricRows}
+          ${customRubricRows}
 
           <!-- Custom rubric form -->
           <div style="margin-top:8px;">
@@ -14147,8 +14320,37 @@ function _renderRubricBuilder(){
 // ── Rubric Builder actions ─────────────────────────────────────────────────
 window._rbSetRole = function(role){
   if(!_rbState) return;
-  _rbState.activeRole = role;
+  _rbState.activeRole     = role;
   _rbState.showCustomForm = false;
+  _rbState.showAddPosition= false;
+  _renderRubricBuilder();
+};
+
+window._rbAddCustomPosition = function(){
+  if(!_rbState) return;
+  const name = String(_rbState.newPosName || document.getElementById("rbNewPosName")?.value || "").trim();
+  if(!name) return document.getElementById("rbNewPosName")?.focus();
+  const key = "pos_" + name.toLowerCase().replace(/[^a-z0-9]/g,"_") + "_" + Date.now();
+  if(!Array.isArray(_rbState.customPositions)) _rbState.customPositions = [];
+  _rbState.customPositions.push({ key, label: name, icon:"👥" });
+  if(!_rbState.customPositionRubrics) _rbState.customPositionRubrics = {};
+  if(!_rbState.customPositionWeights) _rbState.customPositionWeights = {};
+  _rbState.customPositionRubrics[key] = {};
+  _rbState.customPositionWeights[key] = {};
+  _rbState.activeRole      = key;
+  _rbState.showAddPosition = false;
+  _rbState.newPosName      = "";
+  _renderRubricBuilder();
+};
+
+window._rbDeleteCustomPos = function(idx){
+  if(!_rbState || !Array.isArray(_rbState.customPositions)) return;
+  const pos = _rbState.customPositions[idx];
+  if(!pos) return;
+  _rbState.customPositions.splice(idx, 1);
+  delete (_rbState.customPositionRubrics || {})[pos.key];
+  delete (_rbState.customPositionWeights || {})[pos.key];
+  if(_rbState.activeRole === pos.key) _rbState.activeRole = "skater";
   _renderRubricBuilder();
 };
 
@@ -14184,11 +14386,13 @@ window._rbClickAdd = function(catKey, key, label, scale){
 
 function _rbAddLibRubric(catKey, key, label, scale){
   if(!_rbState) return;
-  const role = _rbState.activeRole;
-  const target = role === "goalie" ? _rbState.goalieRubrics : _rbState.skaterRubrics;
+  const target = _rbActiveRubricStore();
   if(!Array.isArray(target[catKey])) target[catKey] = [];
   if(target[catKey].some(r=>r.key===key)) return; // already added
   target[catKey].push({ key, label, scale: scale||"1-5" });
+  // Auto-init weight at 0.10 if not yet set for this rubric
+  const weights = _rbActiveWeights();
+  if(weights[key] === undefined || weights[key] === null) weights[key] = 0.10;
   _renderRubricBuilder();
 }
 
@@ -14202,8 +14406,7 @@ window._rbAddAllFromCat = function(catKey){
 
 window._rbRemoveLibRubric = function(catKey, key){
   if(!_rbState) return;
-  const role = _rbState.activeRole;
-  const target = role === "goalie" ? _rbState.goalieRubrics : _rbState.skaterRubrics;
+  const target = _rbActiveRubricStore();
   if(!Array.isArray(target[catKey])) return;
   target[catKey] = target[catKey].filter(r=>r.key!==key);
   if(target[catKey].length===0) delete target[catKey];
@@ -14219,6 +14422,9 @@ window._rbAddCustom = function(){
   const nextNum  = (existing.length + 1);
   const key      = `CR${nextNum}`;
   existing.push({ key, label, scale });
+  // Auto-init weight at 0.10 for this custom rubric
+  const weights = _rbActiveWeights();
+  if(weights[key] === undefined || weights[key] === null) weights[key] = 0.10;
   _rbState.showCustomForm = false;
   _rbState.customLabel = "";
   _rbState.customScale = "1-5";
@@ -14233,22 +14439,25 @@ window._rbRemoveCustom = function(idx){
   _renderRubricBuilder();
 };
 
-window._rbSetWeight = function(catKey, val){
+window._rbSetWeight = function(rubricKey, val){
   if(!_rbState) return;
-  const weights = _rbState.activeRole === "goalie" ? _rbState.goalieWeights : _rbState.skaterWeights;
-  weights[catKey] = parseFloat(val) || 0;
+  const weights = _rbActiveWeights();
+  weights[rubricKey] = parseFloat(val) || 0;
 };
 
 window._rbSaveAndOpen = function(){
   if(!_rbState) return;
   const t = DB.tryouts[_rbState.tryoutId];
   if(!t) return;
-  if(!t.settings) t.settings = { skaterWeights: getSportSkWeights(_rbState.sport), goalieWeights: getSportGoWeights(_rbState.sport), customRubrics: [] };
-  t.settings.skaterRubrics  = _rbState.skaterRubrics;
-  t.settings.goalieRubrics  = _rbState.goalieRubrics;
-  t.settings.customRubrics  = _rbState.customRubrics;
-  t.settings.skaterWeights  = _rbState.skaterWeights;
-  t.settings.goalieWeights  = _rbState.goalieWeights;
+  if(!t.settings) t.settings = { skaterWeights:{}, goalieWeights:{}, customRubrics:[] };
+  t.settings.skaterRubrics         = _rbState.skaterRubrics;
+  t.settings.goalieRubrics         = _rbState.goalieRubrics;
+  t.settings.customRubrics         = _rbState.customRubrics;
+  t.settings.skaterWeights         = _rbState.skaterWeights;
+  t.settings.goalieWeights         = _rbState.goalieWeights;
+  t.settings.customPositions       = _rbState.customPositions;
+  t.settings.customPositionRubrics = _rbState.customPositionRubrics;
+  t.settings.customPositionWeights = _rbState.customPositionWeights;
   saveDB();
   if(authState.user) dbSaveTryout(_rbState.tryoutId);
   const tid = _rbState.tryoutId;
