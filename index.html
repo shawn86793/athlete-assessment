@@ -7531,6 +7531,19 @@ function freeformPlaceholder(scale){
 function avg(nums){ const a=(nums||[]).map(Number).filter(x=>!Number.isNaN(x)); return a.length? a.reduce((s,x)=>s+x,0)/a.length : null; }
 function fmt2(n){ return (n===null||n===undefined||Number.isNaN(n)) ? "—" : Number(n).toFixed(2); }
 function num2(n){ return (n===null||n===undefined||Number.isNaN(n)) ? "" : Number(n).toFixed(2); }
+function scoreHeatCell(val, isOverall=false){
+  const n = (val===null||val===undefined||Number.isNaN(Number(val))) ? null : Number(val);
+  const text = n===null ? "—" : n.toFixed(2);
+  if(n===null) return `<td style="color:var(--muted);text-align:center;">${text}</td>`;
+  let bg,color;
+  if(n>=4.5)      { bg="rgba(22,163,74,0.14)";  color="#15803d"; }
+  else if(n>=3.8) { bg="rgba(34,197,94,0.10)";  color="#16a34a"; }
+  else if(n>=3.0) { bg="rgba(234,179,8,0.10)";  color="#a16207"; }
+  else if(n>=2.0) { bg="rgba(217,119,6,0.11)";  color="#d97706"; }
+  else            { bg="rgba(220,38,38,0.12)";   color="#dc2626"; }
+  const fw = isOverall ? "font-weight:800;" : "";
+  return `<td style="background:${bg};color:${color};${fw}text-align:center;">${isOverall?`<b>${text}</b>`:text}</td>`;
+}
 function isNew(createdAt, hours=24){
   if(!createdAt) return false;
   const ms = hours*60*60*1000;
@@ -22369,7 +22382,7 @@ function renderCombinedResultsTable(list, isGoalie){
     const rO = rankOverall.ranks[p.id] || "—";
     const rStr = x => (x==="—") ? "—" : `${x}/${total}`;
 
-    const catVals = catOrder.map(key=>`<td>${fmt2(cats[key])}</td>`).join("");
+    const catVals = catOrder.map(key=>scoreHeatCell(cats[key])).join("");
     const catR = catOrder.map(key=>`<td>${rStr(rankCats[key]?.ranks[p.id]||"—")}</td>`).join("");
 
     return `
@@ -22377,7 +22390,7 @@ function renderCombinedResultsTable(list, isGoalie){
         <td><b>${escapeHTML(playerDisplayName(p))}</b><div class="tiny">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos)} • ${escapeHTML(p.shoots||"—")}</div></td>
         <td>${evCount}</td>
         ${catVals}
-        <td><b>${fmt2(ov)}</b></td>
+        ${scoreHeatCell(ov, true)}
         ${catR}
         <td><b>${rStr(rO)}</b></td>
       </tr>
@@ -22906,11 +22919,11 @@ function renderResultsTable(list, isGoalie){
     const rO = rankOverall.ranks[p.id] || "—";
     const rStr = (x, rankTotal=total) => (x==="—") ? "—" : `${x}/${rankTotal || total}`;
 
-    const catVals = catOrder.map(key=>`<td>${fmt2(cats[key])}</td>`).join("");
+    const catVals = catOrder.map(key=>scoreHeatCell(cats[key])).join("");
     const customRubricVals = hasCustomRanks
-      ? customRubrics.map(r=>`<td>${fmt2(customRubricAverageByKey(p.id, r))}</td>`).join("")
+      ? customRubrics.map(r=>scoreHeatCell(customRubricAverageByKey(p.id, r))).join("")
       : "";
-    const customAvgVal = hasCustomOverall ? `<td>${fmt2(customRubricAverage(p.id))}</td>` : "";
+    const customAvgVal = hasCustomOverall ? scoreHeatCell(customRubricAverage(p.id)) : "";
 
     const catR = catOrder.map(key=>`<td>${rStr(rankCats[key]?.ranks[p.id]||"—", rankCats[key]?.total)}</td>`).join("");
     const customRank = hasCustomOverall ? `<td>${rStr(rankCustom.ranks[p.id]||"—", rankCustom.total)}</td>` : "";
@@ -22927,7 +22940,7 @@ function renderResultsTable(list, isGoalie){
         </td>
         <td>${evCount}</td>
         ${catVals}
-        <td><b>${fmt2(ov)}</b></td>
+        ${scoreHeatCell(ov, true)}
         ${customRubricVals}
         ${customAvgVal}
         ${catR}
