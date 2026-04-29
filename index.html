@@ -13009,7 +13009,30 @@ function renderHomeEventsList(container){
   `;
 
   if(!tryouts.length){
-    html += `<div class="muted" style="text-align:center;padding:24px 0;">${allTryouts.length ? 'No active assessments. Show archived to view past items.' : 'No assessments yet. Create your first event above.'}</div>`;
+    html += allTryouts.length
+      ? `<div class="emptyStateCard">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="display:block;margin:0 auto 14px;">
+            <rect x="12" y="8" width="40" height="48" rx="6" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.25)" stroke-width="2"/>
+            <rect x="24" y="4" width="16" height="9" rx="4" fill="rgba(249,115,22,0.15)" stroke="rgba(249,115,22,0.3)" stroke-width="1.5"/>
+            <path d="M20 26h24M20 34h24M20 42h16" stroke="rgba(249,115,22,0.35)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="48" cy="48" r="10" fill="rgba(249,115,22,0.12)" stroke="rgba(249,115,22,0.3)" stroke-width="1.5"/>
+            <path d="M44 48l2.5 2.5L52 45" stroke="#f97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="emptyStateTitle">All Assessments Archived</div>
+          <div class="emptyStateDesc">Your active view is clear. Toggle "Show Archived" to review past events.</div>
+          <div class="emptyStateActions"><button class="secondary" onclick="document.getElementById('showArchivedToggle')?.click()">Show Archived</button></div>
+        </div>`
+      : `<div class="emptyStateCard">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="display:block;margin:0 auto 14px;">
+            <rect x="12" y="8" width="40" height="48" rx="6" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.25)" stroke-width="2"/>
+            <rect x="24" y="4" width="16" height="9" rx="4" fill="rgba(249,115,22,0.15)" stroke="rgba(249,115,22,0.3)" stroke-width="1.5"/>
+            <path d="M20 26h24M20 34h24M20 42h16" stroke="rgba(249,115,22,0.35)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="48" cy="48" r="10" fill="rgba(249,115,22,0.12)" stroke="rgba(249,115,22,0.3)" stroke-width="1.5"/>
+            <path d="M48 44v4M48 50v2" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <div class="emptyStateTitle">No Assessments Yet</div>
+          <div class="emptyStateDesc">Create your first tryout, assessment, or sort-out to get started tracking players.</div>
+        </div>`;
   }
 
   html += tryouts.map(t=>{
@@ -14915,7 +14938,22 @@ async function loadAndRenderRegistrations(eventCode){
   }
 
   if(!pending.length){
-    listEl.innerHTML = '<div class="muted" style="padding:12px 0;">No registrations yet. Share the QR code to start accepting registrations.</div>';
+    listEl.innerHTML = `<div class="emptyStateCard">
+      <svg width="60" height="60" viewBox="0 0 60 60" fill="none" style="display:block;margin:0 auto 14px;">
+        <rect x="6" y="6" width="20" height="20" rx="3" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.3)" stroke-width="1.8"/>
+        <rect x="34" y="6" width="20" height="20" rx="3" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.3)" stroke-width="1.8"/>
+        <rect x="6" y="34" width="20" height="20" rx="3" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.3)" stroke-width="1.8"/>
+        <rect x="11" y="11" width="10" height="10" rx="1.5" fill="rgba(249,115,22,0.3)"/>
+        <rect x="39" y="11" width="10" height="10" rx="1.5" fill="rgba(249,115,22,0.3)"/>
+        <rect x="11" y="39" width="10" height="10" rx="1.5" fill="rgba(249,115,22,0.3)"/>
+        <rect x="34" y="34" width="9" height="9" rx="1.5" fill="rgba(249,115,22,0.15)" stroke="rgba(249,115,22,0.3)" stroke-width="1.5"/>
+        <rect x="47" y="34" width="7" height="7" rx="1.5" fill="rgba(249,115,22,0.15)"/>
+        <rect x="34" y="47" width="7" height="7" rx="1.5" fill="rgba(249,115,22,0.15)"/>
+      </svg>
+      <div class="emptyStateTitle">No Registrations Yet</div>
+      <div class="emptyStateDesc">Share the QR registration link with players to start collecting sign-ups.</div>
+      <div class="emptyStateActions"><button class="ok" onclick="generateQrCode()">Generate QR Code</button></div>
+    </div>`;
     renderRegistrationsBulkActions();
     return;
   }
@@ -15244,7 +15282,22 @@ function renderDemoRegistrationsView(){
   const pending = pendingRegistrations();
   countEl.textContent = `${pending.length} pending registration${pending.length !== 1 ? "s" : ""}`;
   if(!pending.length){
-    listEl.innerHTML = '<div class="muted" style="padding:12px 0;">No registrations yet. Share the QR code or add demo data to get started.</div>';
+    listEl.innerHTML = `<div class="emptyStateCard">
+      <svg width="60" height="60" viewBox="0 0 60 60" fill="none" style="display:block;margin:0 auto 14px;">
+        <rect x="6" y="6" width="20" height="20" rx="3" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.3)" stroke-width="1.8"/>
+        <rect x="34" y="6" width="20" height="20" rx="3" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.3)" stroke-width="1.8"/>
+        <rect x="6" y="34" width="20" height="20" rx="3" fill="rgba(249,115,22,0.08)" stroke="rgba(249,115,22,0.3)" stroke-width="1.8"/>
+        <rect x="11" y="11" width="10" height="10" rx="1.5" fill="rgba(249,115,22,0.3)"/>
+        <rect x="39" y="11" width="10" height="10" rx="1.5" fill="rgba(249,115,22,0.3)"/>
+        <rect x="11" y="39" width="10" height="10" rx="1.5" fill="rgba(249,115,22,0.3)"/>
+        <rect x="34" y="34" width="9" height="9" rx="1.5" fill="rgba(249,115,22,0.15)" stroke="rgba(249,115,22,0.3)" stroke-width="1.5"/>
+        <rect x="47" y="34" width="7" height="7" rx="1.5" fill="rgba(249,115,22,0.15)"/>
+        <rect x="34" y="47" width="7" height="7" rx="1.5" fill="rgba(249,115,22,0.15)"/>
+      </svg>
+      <div class="emptyStateTitle">No Registrations Yet</div>
+      <div class="emptyStateDesc">Share the QR code or drop in a player list to start collecting registrations.</div>
+      <div class="emptyStateActions"><button class="ok" onclick="generateQrCode()">Generate QR Code</button></div>
+    </div>`;
     renderRegistrationsBulkActions();
     return;
   }
@@ -20087,6 +20140,12 @@ function renderRosterTiles(){
     </div>
   ` : "";
 
+  // Pre-compute rubric pools once for all player completion bars
+  const _rbSport  = getSportFromTryout(t);
+  const _rbSkAll  = getSkaterAll(t);
+  const _rbGoAll  = getGoalieAll(t);
+  const _rbCuAll  = getCustomRubrics();
+
   host.innerHTML = `
     ${assessorIdentityBannerHTML()}
     ${selectBar}
@@ -20099,6 +20158,21 @@ function renderRosterTiles(){
         const playerEvals = evalsForPlayer(p.id);
         const evCount = playerEvals.length;
         const overall = weightedOverall(p.id);
+        const _isGoalie  = isSpecialPosition(p.pos, _rbSport);
+        const _rbBase    = _isGoalie ? _rbGoAll : _rbSkAll;
+        const _rbTotal   = _rbBase.length + _rbCuAll.length;
+        const _rbScored  = _rbTotal > 0 ? [..._rbBase, ..._rbCuAll].filter(r=>playerEvals.some(e=>e.scores?.[r.key]!=null&&String(e.scores[r.key])!=="")).length : 0;
+        const _rbPct     = _rbTotal > 0 ? Math.round(_rbScored/_rbTotal*100) : 0;
+        const _rbColor   = _rbPct===100?"#16a34a":_rbPct>60?"#f59e0b":_rbPct>0?"#f97316":"#94a3b8";
+        const _rbBar     = _rbTotal > 0 ? `<div style="margin-top:7px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            <span style="font-size:9.5px;font-weight:700;letter-spacing:0.05em;color:var(--muted);text-transform:uppercase;">Rubrics</span>
+            <span style="font-size:10px;font-weight:800;color:${_rbColor};">${_rbScored}/${_rbTotal}</span>
+          </div>
+          <div style="height:3px;border-radius:3px;background:var(--border);overflow:hidden;">
+            <div style="height:100%;border-radius:3px;width:${_rbPct}%;background:${_rbColor};transition:width 0.4s;"></div>
+          </div>
+        </div>` : "";
         const createdBadge = isNew(p.createdAt,24) ? `<span class="badge new">CREATED</span>` : ``;
         const anonBadge = p.anonymous ? `<span class="badge anon">ANON</span>` : ``;
         const compareSelected = compareSelection.has(p.id);
@@ -20168,6 +20242,7 @@ function renderRosterTiles(){
                 <div class="ptPill">${evCount} evals</div>
                 <div class="ptPill"><b style="color:var(--black-font-replacement)">${fmt2(overall)}</b></div>
               </div>
+              ${_rbBar}
               <div class="ptScoreState ${scoreStateClass}">
                 <span class="ptScoreDot"></span>
                 <span>${scoreStateLabel}</span>
