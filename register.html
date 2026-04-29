@@ -429,7 +429,7 @@
       function populateYears() {
         const sel = document.getElementById('yearOfBirth');
         const now = new Date().getFullYear();
-        for (let y = now - 3; y >= now - 20; y--) {
+        for (let y = now; y >= now - 100; y--) {
           const opt = document.createElement('option');
           opt.value = String(y);
           opt.textContent = String(y);

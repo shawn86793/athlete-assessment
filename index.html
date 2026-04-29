@@ -14863,7 +14863,15 @@ async function loadAndRenderRegistrations(eventCode){
   const btn = document.getElementById("regRefreshBtn");
   if(btn) btn.disabled = true;
 
-  registrationsCache = await fetchRegistrations(eventCode);
+  const cloudRegs  = await fetchRegistrations(eventCode);
+  // Merge: keep local regs (demo, manually added) that aren't already on the server
+  const t          = getTryout();
+  const localRegs  = Array.isArray(t?.registrations) ? t.registrations : [];
+  const cloudIds   = new Set(cloudRegs.map(r => String(r.registrationId||"")).filter(Boolean));
+  const localOnly  = localRegs.filter(r => !cloudIds.has(String(r.registrationId||"")));
+  registrationsCache = [...localOnly, ...cloudRegs];
+  // Keep local copy in sync so future merges are accurate
+  if(t) t.registrations = registrationsCache;
   normalizeRegistrationSelection();
   registrationsLoading = false;
   if(btn) btn.disabled = false;
@@ -17602,62 +17610,101 @@ function _fuzzyMatchPlayer(requestedName, players, nameIndex){
   return null;
 }
 
-// Scans roster friend requests → { certGroups, uncertain, noMatch }
+// Scans roster + pending registrations for friend requests → { certGroups, uncertain, noMatch }
 function autoScanFriendRequests(t){
   const roster = Array.isArray(t?.roster) ? t.roster : [];
-  if(!roster.length) return { certGroups:[], uncertain:[], noMatch:[] };
+
+  // Also include pending registrations not yet on the roster, represented as virtual players
+  const allLocalRegs = [
+    ...(Array.isArray(t?.registrations) ? t.registrations : []),
+    ...(registrationsCache || [])
+  ];
+  const seenRegIds = new Set();
+  const pendingRegs = allLocalRegs.filter(r => {
+    const id = String(r.registrationId || r.id || "");
+    if(!id || seenRegIds.has(id)) return false;
+    seenRegIds.add(id);
+    return !r.movedToRoster;
+  });
+
+  // Convert pending registrations to virtual player objects for scanning
+  const regPlayers = pendingRegs
+    .filter(r => r.firstName || r.lastName)
+    .map(r => ({
+      id:             r.registrationId || ("reg_" + (r.firstName||"") + (r.lastName||"")),
+      first:          r.firstName || "",
+      last:           r.lastName  || "",
+      friendRequest1: r.friendRequest1 || r.friend1Name || "",
+      friendRequest2: r.friendRequest2 || r.friend2Name || "",
+      _isReg: true,   // flag so display uses full name
+    }));
+
+  // Merge roster + registration-derived players; deduplicate by full name
+  const seenNames = new Set();
+  roster.forEach(p => seenNames.add(_normName(`${p.first||""} ${p.last||""}`)));
+  const uniqueRegPlayers = regPlayers.filter(p => {
+    const n = _normName(`${p.first} ${p.last}`);
+    if(seenNames.has(n)) return false;
+    seenNames.add(n);
+    return true;
+  });
+
+  const allPlayers = [...roster, ...uniqueRegPlayers];
+  if(!allPlayers.length) return { certGroups:[], uncertain:[], noMatch:[] };
 
   // Build name index (exact lookup)
-  const nameIndex={};
-  roster.forEach(p=>{
-    const full=_normName(`${p.first||""} ${p.last||""}`); if(full) nameIndex[full]=p;
-    const disp=_normName(playerDisplayName(p));            if(disp) nameIndex[disp]=p;
+  const nameIndex = {};
+  allPlayers.forEach(p => {
+    const full = _normName(`${p.first||""} ${p.last||""}`); if(full) nameIndex[full] = p;
+    if(!p._isReg){ const disp = _normName(playerDisplayName(p)); if(disp) nameIndex[disp] = p; }
   });
 
   // Union-find
-  const parent={};
-  roster.forEach(p=>{ parent[p.id]=p.id; });
-  function find(id){ while(parent[id]!==id){ parent[id]=parent[parent[id]]||parent[id]; id=parent[id]; } return id; }
-  function union(a,b){ const ra=find(a),rb=find(b); if(ra!==rb) parent[rb]=ra; }
+  const parent = {};
+  allPlayers.forEach(p => { parent[p.id] = p.id; });
+  function find(id){ while(parent[id] !== id){ parent[id] = parent[parent[id]] || parent[id]; id = parent[id]; } return id; }
+  function union(a, b){ const ra = find(a), rb = find(b); if(ra !== rb) parent[rb] = ra; }
 
-  const uncertain=[], noMatch=[];
-  const seenPairs=new Set();
+  const uncertain = [], noMatch = [];
+  const seenPairs = new Set();
 
-  roster.forEach(p=>{
-    const reqs=[
-      p.friendRequest1||p.friend1Name||"",
-      p.friendRequest2||p.friend2Name||""
+  const getName = p => p._isReg ? `${p.first||""} ${p.last||""}`.trim() : playerDisplayName(p);
+
+  allPlayers.forEach(p => {
+    const reqs = [
+      p.friendRequest1 || p.friend1Name || "",
+      p.friendRequest2 || p.friend2Name || ""
     ].filter(Boolean);
-    reqs.forEach(reqName=>{
-      const result=_fuzzyMatchPlayer(reqName, roster, nameIndex);
-      if(!result || result.player.id===p.id){
-        if(!result) noMatch.push({ requesterId:p.id, requesterName:playerDisplayName(p), requestedName:reqName });
+    reqs.forEach(reqName => {
+      const result = _fuzzyMatchPlayer(reqName, allPlayers, nameIndex);
+      if(!result || result.player.id === p.id){
+        if(!result) noMatch.push({ requesterId:p.id, requesterName:getName(p), requestedName:reqName });
         return;
       }
-      const pairKey=[p.id,result.player.id].sort().join("|");
+      const pairKey = [p.id, result.player.id].sort().join("|");
       if(seenPairs.has(pairKey)) return;
       seenPairs.add(pairKey);
-      if(result.confidence==="certain"){
+      if(result.confidence === "certain"){
         union(p.id, result.player.id);
       } else {
-        uncertain.push({ key:pairKey, requesterId:p.id, requesterName:playerDisplayName(p),
+        uncertain.push({ key:pairKey, requesterId:p.id, requesterName:getName(p),
           requestedName:reqName, candidateId:result.player.id,
-          candidateName:playerDisplayName(result.player),
+          candidateName:getName(result.player),
           confidence:result.confidence, dist:result.dist });
       }
     });
   });
 
   // Build certain groups (size > 1), skip those already fully in an existing package
-  const groups={};
-  roster.forEach(p=>{ const r=find(p.id); if(!groups[r]) groups[r]=[]; groups[r].push(p.id); });
-  const existingPkgSets=(t.friendPackages||[]).map(pk=>new Set(pk.playerIds||[]));
-  const certGroups=Object.values(groups)
-    .filter(ids=>ids.length>1)
-    .filter(ids=>!existingPkgSets.some(s=>ids.every(id=>s.has(id))))
-    .map(ids=>({
+  const groups = {};
+  allPlayers.forEach(p => { const r = find(p.id); if(!groups[r]) groups[r] = []; groups[r].push(p.id); });
+  const existingPkgSets = (t.friendPackages || []).map(pk => new Set(pk.playerIds || []));
+  const certGroups = Object.values(groups)
+    .filter(ids => ids.length > 1)
+    .filter(ids => !existingPkgSets.some(s => ids.every(id => s.has(id))))
+    .map(ids => ({
       playerIds: ids,
-      names: ids.map(id=>{ const p=roster.find(r=>r.id===id); return p?playerDisplayName(p):"?"; })
+      names: ids.map(id => { const p = allPlayers.find(r => r.id === id); return p ? getName(p) : "?"; })
     }));
 
   return { certGroups, uncertain, noMatch };
@@ -19234,7 +19281,7 @@ function openImportCSVModal(){
     <div style="background:#fff;border-radius:16px;padding:28px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
       <h3 style="margin:0 0 8px;color:#0a1e3d;font-size:17px;">📂 Import Players from CSV or Excel</h3>
       <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">Accepts <strong>.csv</strong> or <strong>.xlsx</strong> files. Must include a header row with player names. Recognized columns (case-insensitive, typos OK):<br>
-        <code style="background:#f1f5f9;padding:2px 4px;border-radius:4px;font-size:11px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild</code><br>
+        <code style="background:#f1f5f9;padding:2px 4px;border-radius:4px;font-size:11px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild, friendRequest1, friendRequest2</code><br>
         Unknown columns are ignored.</div>
       <label style="display:block;border:2px dashed rgba(255,107,43,0.35);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#ff6b2b;font-size:14px;margin-bottom:14px;font-weight:700;background:rgba(255,107,43,0.04);transition:border-color 0.15s,background 0.15s;" id="csvFilePickerLabel">
         📁 Tap to select or drag &amp; drop a CSV or Excel file here
@@ -19453,6 +19500,14 @@ function parseRowsToPlayers(rows){
       currentTeam:  getCol(row,"currentteam","current team","team") || "",
       currentLevel: getCol(row,"currentlevel","current level","level","division") || "",
       aboutChild:   getCol(row,"aboutchild","about child","about","notes","bio") || "",
+      friendRequest1: getCol(row,
+        "friendrequest1","friend request 1","friendrequest","friend1","friend 1",
+        "teammate1","teammate 1","request1","playwith1","play with 1"
+      ) || "",
+      friendRequest2: getCol(row,
+        "friendrequest2","friend request 2","friend2","friend 2",
+        "teammate2","teammate 2","request2","playwith2","play with 2"
+      ) || "",
       waiverAcceptedAt: Date.now(),
       registrationSource: "csv",
       createdAt: Date.now(),
