@@ -323,6 +323,9 @@
       position:relative;
       overflow-x:hidden;
     }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+    input[type=number]{ -moz-appearance:textfield; }
     body::before{
       content:"";
       position:fixed;
@@ -7841,8 +7844,8 @@ function ensureRubricSettings(t){
   if(!t.settings.skaterWeights) t.settings.skaterWeights = getSportSkWeights(sport);
   if(!t.settings.goalieWeights) t.settings.goalieWeights = getSportGoWeights(sport);
   if(!Array.isArray(t.settings.customRubrics)) t.settings.customRubrics = [];
-  if(!t.settings.skaterRubrics) t.settings.skaterRubrics = cloneRubricCats(getSportSkCats(sport));
-  if(!t.settings.goalieRubrics) t.settings.goalieRubrics = cloneRubricCats(getSportGoCats(sport));
+  if(!t.settings.skaterRubrics) t.settings.skaterRubrics = {};
+  if(!t.settings.goalieRubrics) t.settings.goalieRubrics = {};
 }
 function uniqueKeys(list){
   const out = [];
@@ -9989,8 +9992,8 @@ function tryoutSettings(){
   if(!s.skaterWeights) s.skaterWeights = {...DEFAULT_SK_WEIGHTS};
   if(!s.goalieWeights) s.goalieWeights = {...DEFAULT_GO_WEIGHTS};
   if(!Array.isArray(s.customRubrics)) s.customRubrics = [];
-  if(!s.skaterRubrics) s.skaterRubrics = cloneRubricCats(SK_CATS);
-  if(!s.goalieRubrics) s.goalieRubrics = cloneRubricCats(GO_CATS);
+  if(!s.skaterRubrics) s.skaterRubrics = {};
+  if(!s.goalieRubrics) s.goalieRubrics = {};
   return s;
 }
 function getCustomRubrics(){
@@ -13321,120 +13324,92 @@ function renderRubricReference(){
   const t = getTryout();
   if(!t) return goHome();
   const readOnly = isAssessorReadOnly();
-  if(readOnly) rubricsEditOpen = false;
   const sport = getSportFromTryout(t);
   const hasSpec = sportHasSpecialPosition(sport);
-
-  const skaterCats = getSkaterCats();
-  const goalieCats = getGoalieCats();
-  const skCatOrder = getSportSkCatOrder(sport);
-  const goCatOrder = getSportGoCatOrder(sport);
-  const skCatLabels = getSportSkCatLabels(sport);
-  const goCatLabels = getSportGoCatLabels(sport);
-  const skaterList = skCatOrder.map(key=>({ key, label:skCatLabels[key], items: skaterCats[key] || [] }));
-  const goalieList = goCatOrder.map(key=>({ key, label:goCatLabels[key], items: goalieCats[key] || [] }));
+  const s = t.settings || {};
   const plLabel = playerLabel(sport);
   const spLabel = specialPositionLabel(sport);
-  ensureRoleRubricCollapseState("skater", skCatOrder);
-  ensureRoleRubricCollapseState("goalie", goCatOrder);
-  const referenceTile = `
-    <div class="card rubricTile refTile">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-        <h3 style="margin:0;">Rubric Reference (1–5 Standard)</h3>
-        <button class="secondary small" onclick="toggleRubricEditor()" ${readOnly ? "disabled" : ""}>${rubricsEditOpen ? "Close Edit" : "Edit Rubrics"}</button>
-      </div>
-      <div class="tiny">
-        <b>5</b> = elite / consistently impacts play • <b>4</b> = strong / above average •
-        <b>3</b> = average / meets level • <b>2</b> = below average / inconsistent • <b>1</b> = needs major improvement
-        <br>Rubrics can use 1–10 scoring or free-form speed (mph/km), distance (m/ft), height (m/ft), or time (s) values when configured.
-      </div>
-    </div>
-  `;
+  const skCatOrder  = getSportSkCatOrder(sport);
+  const goCatOrder  = getSportGoCatOrder(sport);
+  const skCatLabels = getSportSkCatLabels(sport);
+  const goCatLabels = getSportGoCatLabels(sport);
+  const customPositions = Array.isArray(s.customPositions) ? s.customPositions : [];
+  const customRubrics   = Array.isArray(s.customRubrics) ? s.customRubrics : [];
 
-  const skaterEditor = `
-    <div class="card ${rubricsEditOpen ? "" : "hidden"}" id="skaterRubricEditorCard">
-      <h3>${plLabel} Rubrics</h3>
-      <div class="muted">Edit labels, scoring scale, or add/remove rubrics by category.</div>
-      <div class="tiny">Changing rubric keys creates new score columns, so existing scores will not map.</div>
-      ${skCatOrder.map(catKey=>`
-        <div class="rubricTile rubricEditorCategory">
-          <div class="rubricCategoryHeader">
-            <div class="rubricCategoryTitle">${skCatLabels[catKey]}</div>
-            <div class="rubricCategoryActions">
-              <button class="secondary tinyBtn" onclick="addRoleRubricRow('skater','${catKey}')" ${readOnly ? "disabled" : ""}>+ Add Custom Rubric</button>
-              <button class="secondary tinyBtn rubricCollapseBtn" id="skater_${catKey}_toggle" onclick="toggleRoleRubricCategory('skater','${catKey}')">${isRoleRubricCategoryCollapsed("skater", catKey) ? "+" : "-"}</button>
-            </div>
-          </div>
-          <div id="skater_${catKey}_rubrics_wrap" class="${isRoleRubricCategoryCollapsed("skater", catKey) ? "hidden" : ""}">
-            <div id="skater_${catKey}_rubrics"></div>
-          </div>
+  function roleSummaryCard(roleLabel, rubricsByCategory, catOrder, catLabels, weights){
+    const totalCount = catOrder.reduce((n,k)=>n+(Array.isArray(rubricsByCategory[k])?rubricsByCategory[k].length:0),0);
+    if(!totalCount){
+      return `<div class="card" style="border:1.5px dashed var(--border);opacity:0.75;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <h3 style="margin:0;">${escapeHTML(roleLabel)}</h3>
+          <span style="font-size:11px;color:var(--muted);">No rubrics added</span>
         </div>
-      `).join("")}
-      <div class="row" style="margin-top:10px;">
-        <div class="col"><button class="ok" onclick="saveRoleRubrics('skater')" ${readOnly ? "disabled" : ""}>Save ${plLabel} Rubrics</button></div>
+        <div style="font-size:13px;color:var(--muted);">Use the rubric builder to select rubrics for ${escapeHTML(roleLabel.toLowerCase())}.</div>
+      </div>`;
+    }
+    const categoryRows = catOrder.map(catKey=>{
+      const rubrics = Array.isArray(rubricsByCategory[catKey]) ? rubricsByCategory[catKey] : [];
+      if(!rubrics.length) return "";
+      return `<div style="margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:5px;">${escapeHTML(catLabels[catKey]||catKey)}</div>
+        ${rubrics.map(r=>{
+          const w = weights?.[r.key]||0;
+          const wPct = w>0?`<span style="font-size:11px;font-weight:700;color:#f97316;background:rgba(249,115,22,0.1);padding:1px 7px;border-radius:10px;">${(w*100).toFixed(1)}%</span>`:`<span style="font-size:11px;color:var(--muted);padding:1px 6px;">unweighted</span>`;
+          const scaleBadge = (r.scale&&r.scale!=="1-5")?`<span style="font-size:10px;background:var(--border);color:var(--muted);padding:1px 5px;border-radius:4px;font-weight:700;">${escapeHTML(r.scale)}</span>`:"";
+          return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;background:var(--bg2);margin-bottom:3px;">
+            <span style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(r.label||r.key)}</span>
+            ${scaleBadge}${wPct}
+          </div>`;
+        }).join("")}
+      </div>`;
+    }).join("");
+    return `<div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <h3 style="margin:0;">${escapeHTML(roleLabel)}</h3>
+        <span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;background:rgba(249,115,22,0.1);color:#f97316;">${totalCount} rubric${totalCount!==1?"s":""}</span>
       </div>
-    </div>
-  `;
-  const goalieEditor = hasSpec ? `
-    <div class="card ${rubricsEditOpen ? "" : "hidden"}" id="goalieRubricEditorCard">
-      <h3>${spLabel} Rubrics</h3>
-      <div class="muted">Edit labels, scoring scale, or add/remove rubrics by category.</div>
-      <div class="tiny">Changing rubric keys creates new score columns, so existing scores will not map.</div>
-      ${goCatOrder.map(catKey=>`
-        <div class="rubricTile rubricEditorCategory">
-          <div class="rubricCategoryHeader">
-            <div class="rubricCategoryTitle">${goCatLabels[catKey]}</div>
-            <div class="rubricCategoryActions">
-              <button class="secondary tinyBtn" onclick="addRoleRubricRow('goalie','${catKey}')" ${readOnly ? "disabled" : ""}>+ Add Custom Rubric</button>
-              <button class="secondary tinyBtn rubricCollapseBtn" id="goalie_${catKey}_toggle" onclick="toggleRoleRubricCategory('goalie','${catKey}')">${isRoleRubricCategoryCollapsed("goalie", catKey) ? "+" : "-"}</button>
-            </div>
-          </div>
-          <div id="goalie_${catKey}_rubrics_wrap" class="${isRoleRubricCategoryCollapsed("goalie", catKey) ? "hidden" : ""}">
-            <div id="goalie_${catKey}_rubrics"></div>
-          </div>
-        </div>
-      `).join("")}
-      <div class="row" style="margin-top:10px;">
-        <div class="col"><button class="ok" onclick="saveRoleRubrics('goalie')" ${readOnly ? "disabled" : ""}>Save ${spLabel} Rubrics</button></div>
-      </div>
-    </div>
-  ` : ``;
+      ${categoryRows}
+    </div>`;
+  }
 
-  const renderList = (title, cats) => `
-    <div class="card">
-      <h3>${title}</h3>
-      ${cats.map(cat=>`
-        <div class="rubricTile">
-          <div style="font-weight:900;margin-bottom:6px;">${cat.label}</div>
-          ${cat.items.map(r=>{
-            const scale = normalizeCustomScale(r.scale || "1-5");
-            const badge = scale !== "1-5" ? `<span class="badge">${customScaleLabel(scale)}</span>` : "";
-            return `
-              <div style="margin:8px 0;">
-                <div style="font-weight:900;">
-                  ${escapeHTML(r.key)}
-                  <span class="muted">— ${escapeHTML(r.label)}</span>
-                  ${badge}
-                </div>
-              </div>
-            `;
-          }).join("")}
-        </div>
-      `).join("")}
-    </div>
-  `;
+  const skTotal = skCatOrder.reduce((n,k)=>n+(Array.isArray(s.skaterRubrics?.[k])?s.skaterRubrics[k].length:0),0);
+  const goTotal = hasSpec?goCatOrder.reduce((n,k)=>n+(Array.isArray(s.goalieRubrics?.[k])?s.goalieRubrics[k].length:0),0):0;
+  const cpTotal = customPositions.reduce((n,pos)=>n+Object.values(s.customPositionRubrics?.[pos.key]||{}).reduce((s2,arr)=>s2+(Array.isArray(arr)?arr.length:0),0),0);
+  const grandTotal = skTotal+goTotal+cpTotal+customRubrics.length;
+
+  const customRubricsCard = customRubrics.length?`
+    <div class="card" style="border-color:rgba(124,58,237,0.25);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <h3 style="margin:0;color:#7c3aed;">Custom Rubrics</h3>
+        <span style="font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;background:rgba(124,58,237,0.1);color:#7c3aed;">${customRubrics.length} rubric${customRubrics.length!==1?"s":""}</span>
+      </div>
+      ${customRubrics.map(r=>{
+        const scaleBadge=(r.scale&&r.scale!=="1-5")?`<span style="font-size:10px;background:var(--border);color:var(--muted);padding:1px 5px;border-radius:4px;font-weight:700;">${escapeHTML(r.scale)}</span>`:"";
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;background:rgba(124,58,237,0.05);margin-bottom:3px;">
+          <span style="font-size:11px;font-family:monospace;font-weight:800;color:#7c3aed;background:rgba(124,58,237,0.12);padding:1px 6px;border-radius:4px;">${escapeHTML(r.key)}</span>
+          <span style="flex:1;font-size:13px;font-weight:600;">${escapeHTML(r.label||r.key)}</span>
+          ${scaleBadge}
+        </div>`;
+      }).join("")}
+    </div>`:"";
 
   app.innerHTML = `
     ${topTabsHTML()}
-    ${referenceTile}
-    ${skaterEditor}
-    ${goalieEditor}
-    ${renderList(plLabel+" Rubrics", skaterList)}
-    ${hasSpec ? renderList(spLabel+" Rubrics", goalieList) : ""}
+    <div class="card rubricTile refTile">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h3 style="margin:0 0 4px;">Scoring Rubrics</h3>
+          <div class="tiny muted">Build your rubric library for each position. Drag rubrics from the library and set a weight for each criterion.</div>
+        </div>
+        ${!readOnly?`<button class="ok" onclick="openRubricBuilderModal('${escapeJS(t.id)}','rubrics')" style="white-space:nowrap;padding:10px 20px;font-size:14px;font-weight:800;">🎯 Build Scoring Rubrics</button>`:""}
+      </div>
+      ${grandTotal===0?`<div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:rgba(249,115,22,0.06);border:1px dashed rgba(249,115,22,0.35);font-size:13px;color:#f97316;font-weight:600;">No rubrics added yet — click Build Scoring Rubrics to get started.</div>`:`<div style="margin-top:10px;font-size:13px;color:var(--muted);"><b style="color:var(--text);">${grandTotal}</b> rubric${grandTotal!==1?"s":""} configured across all positions.</div>`}
+    </div>
+    ${roleSummaryCard(plLabel, s.skaterRubrics||{}, skCatOrder, skCatLabels, s.skaterWeights||{})}
+    ${hasSpec?roleSummaryCard(spLabel, s.goalieRubrics||{}, goCatOrder, goCatLabels, s.goalieWeights||{}):""}
+    ${customPositions.map(pos=>roleSummaryCard("👥 "+pos.label, s.customPositionRubrics?.[pos.key]||{}, skCatOrder, skCatLabels, s.customPositionWeights?.[pos.key]||{})).join("")}
+    ${customRubricsCard}
   `;
-
-  renderRoleRubricEditorRows("skater");
-  if(hasSpec) renderRoleRubricEditorRows("goalie");
 }
 
 function toggleRubricEditor(){
@@ -14014,7 +13989,7 @@ function _migrateToRubricWeights(weights, catOrder, cats){
   return result;
 }
 
-function openRubricBuilderModal(tryoutId){
+function openRubricBuilderModal(tryoutId, returnTo){
   const t = DB.tryouts[tryoutId];
   if(!t) return openTryout(tryoutId);
   const sport = getSportFromTryout(t);
@@ -14047,6 +14022,7 @@ function openRubricBuilderModal(tryoutId){
     newPosName: "",
     customLabel: "",
     customScale: "1-5",
+    returnTo: returnTo || null,
   };
 
   const overlay = document.createElement("div");
@@ -14117,9 +14093,9 @@ function _renderRubricBuilder(){
   const builtinTabs = roles.map(role=>{
     const isActive = _rbState.activeRole === role.key;
     return `<button onclick="_rbSetRole('${escapeAttr(role.key)}')"
-      style="flex:1;min-width:90px;padding:11px 8px;font-size:13px;font-weight:700;border:none;cursor:pointer;
+      style="flex:1;padding:10px 8px;font-size:12px;font-weight:700;border:none;cursor:pointer;
              border-bottom:2px solid ${isActive?"#f97316":"transparent"};
-             color:${isActive?"#f97316":"var(--muted)"};background:transparent;white-space:nowrap;">
+             color:${isActive?"#f97316":"var(--muted)"};background:transparent;text-align:center;">
       ${role.icon} ${escapeHTML(role.label)}
     </button>`;
   }).join("");
@@ -14127,10 +14103,10 @@ function _renderRubricBuilder(){
   const customPosTabs = customPositions.map((pos,i)=>{
     const isActive = _rbState.activeRole === pos.key;
     return `<button onclick="_rbSetRole('${escapeAttr(pos.key)}')"
-      style="flex:1;min-width:90px;padding:11px 6px;font-size:13px;font-weight:700;border:none;cursor:pointer;
+      style="flex:1;padding:10px 6px;font-size:12px;font-weight:700;border:none;cursor:pointer;
              border-bottom:2px solid ${isActive?"#7c3aed":"transparent"};
-             color:${isActive?"#7c3aed":"var(--muted)"};background:transparent;white-space:nowrap;
-             display:flex;align-items:center;justify-content:center;gap:4px;">
+             color:${isActive?"#7c3aed":"var(--muted)"};background:transparent;
+             display:flex;align-items:center;justify-content:center;gap:4px;text-align:center;">
       👥 ${escapeHTML(pos.label)}
       <span onclick="event.stopPropagation();_rbDeleteCustomPos(${i})"
         style="font-size:14px;line-height:1;padding:0 2px;opacity:0.55;cursor:pointer;"
@@ -14139,8 +14115,8 @@ function _renderRubricBuilder(){
   }).join("");
 
   const addPosTab = `<button onclick="_rbState.showAddPosition=!_rbState.showAddPosition;_rbState.newPosName='';_renderRubricBuilder()"
-    style="padding:11px 12px;font-size:12px;font-weight:700;border:none;cursor:pointer;
-           color:#7c3aed;background:transparent;border-bottom:2px solid transparent;white-space:nowrap;">
+    style="flex:1;padding:10px 8px;font-size:12px;font-weight:700;border:none;cursor:pointer;
+           color:#7c3aed;background:transparent;border-bottom:2px solid transparent;text-align:center;">
     + Position
   </button>`;
 
@@ -14171,7 +14147,7 @@ function _renderRubricBuilder(){
             <input type="number" min="0" max="1" step="0.05"
               value="${((activeWeights[r.key]||0)).toFixed(2)}"
               onchange="_rbSetWeight('${escapeAttr(r.key)}',this.value)"
-              style="width:54px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center;background:var(--card);color:var(--text);font-weight:700;">
+              style="width:76px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);font-size:13px;text-align:center;background:var(--card);color:var(--text);font-weight:700;">
             <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--border);color:var(--muted);font-weight:700;">${escapeHTML(r.scale||"1-5")}</span>
             <button onclick="_rbRemoveLibRubric('${escapeAttr(cat.key)}','${escapeAttr(r.key)}')"
               style="background:none;border:none;color:#dc2626;font-size:14px;cursor:pointer;line-height:1;padding:0 2px;font-weight:900;">&times;</button>
@@ -14192,7 +14168,7 @@ function _renderRubricBuilder(){
             <input type="number" min="0" max="1" step="0.05"
               value="${((activeWeights[r.key]||0)).toFixed(2)}"
               onchange="_rbSetWeight('${escapeAttr(r.key)}',this.value)"
-              style="width:54px;padding:3px 6px;border-radius:6px;border:1px solid rgba(124,58,237,0.35);font-size:12px;text-align:center;background:var(--card);color:#7c3aed;font-weight:700;">
+              style="width:76px;padding:4px 8px;border-radius:6px;border:1px solid rgba(124,58,237,0.35);font-size:13px;text-align:center;background:var(--card);color:#7c3aed;font-weight:700;">
             <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--border);color:var(--muted);font-weight:700;">${escapeHTML(r.scale||"1-5")}</span>
             <button onclick="_rbRemoveCustom(${idx})"
               style="background:none;border:none;color:#dc2626;font-size:14px;cursor:pointer;line-height:1;padding:0 2px;font-weight:900;">&times;</button>
@@ -14212,13 +14188,13 @@ function _renderRubricBuilder(){
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-size:12px;color:rgba(255,255,255,0.6);">${totalSelected} rubric${totalSelected!==1?"s":""} selected</span>
-          <button onclick="document.getElementById('rubricBuilderOverlay')?.remove();openTryout('${escapeJS(_rbState.tryoutId)}')"
+          <button onclick="_rbCloseModal()"
             style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;">&times;</button>
         </div>
       </div>
 
       <!-- Role tabs (sport-specific + custom positions + add button) -->
-      <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto;">
+      <div style="display:flex;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--bg2);">
         ${builtinTabs}
         ${customPosTabs}
         ${addPosTab}
@@ -14309,8 +14285,8 @@ function _renderRubricBuilder(){
       <div style="border-top:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--card);border-radius:0 0 16px 16px;">
         <div style="font-size:12px;color:var(--muted);">${totalSelected > 0 ? `<span style="color:#16a34a;font-weight:700;">✓ ${totalSelected} rubric${totalSelected!==1?"s":""} ready to save</span>` : "Tip: select rubrics from the library on the left, or create your own."}</div>
         <div style="display:flex;gap:10px;">
-          <button onclick="document.getElementById('rubricBuilderOverlay')?.remove();openTryout('${escapeJS(_rbState.tryoutId)}')" class="secondary" style="padding:10px 18px;font-size:13px;">Skip for Now</button>
-          <button onclick="_rbSaveAndOpen()" class="ok" style="padding:10px 20px;font-size:14px;font-weight:800;background:linear-gradient(135deg,#f97316,#ea580c);border-color:transparent;">💾 Save Rubrics &amp; Continue →</button>
+          <button onclick="_rbCloseModal()" class="secondary" style="padding:10px 18px;font-size:13px;">${_rbState.returnTo === "rubrics" ? "Cancel" : "Skip for Now"}</button>
+          <button onclick="_rbSaveAndOpen()" class="ok" style="padding:10px 20px;font-size:14px;font-weight:800;background:linear-gradient(135deg,#f97316,#ea580c);border-color:transparent;">💾 ${_rbState.returnTo === "rubrics" ? "Save Rubrics" : "Save Rubrics &amp; Continue →"}</button>
         </div>
       </div>
     </div>
@@ -14445,6 +14421,15 @@ window._rbSetWeight = function(rubricKey, val){
   weights[rubricKey] = parseFloat(val) || 0;
 };
 
+window._rbCloseModal = function(){
+  const returnTo = _rbState?.returnTo;
+  const tid = _rbState?.tryoutId;
+  _rbState = null;
+  document.getElementById("rubricBuilderOverlay")?.remove();
+  if(returnTo === "rubrics") renderRubricReference();
+  else if(tid) openTryout(tid);
+};
+
 window._rbSaveAndOpen = function(){
   if(!_rbState) return;
   const t = DB.tryouts[_rbState.tryoutId];
@@ -14460,11 +14445,13 @@ window._rbSaveAndOpen = function(){
   t.settings.customPositionWeights = _rbState.customPositionWeights;
   saveDB();
   if(authState.user) dbSaveTryout(_rbState.tryoutId);
+  const returnTo = _rbState.returnTo;
   const tid = _rbState.tryoutId;
   _rbState = null;
   document.getElementById("rubricBuilderOverlay")?.remove();
   showActionBanner("Rubrics saved", "success");
-  openTryout(tid);
+  if(returnTo === "rubrics") renderRubricReference();
+  else openTryout(tid);
 };
 
 // ── End Rubric Builder ────────────────────────────────────────────────────────
@@ -23009,7 +22996,7 @@ function renderSettings(){
       <h3>Assessment Information</h3>
       <div class="row">
         <div class="col"><label class="muted">Assessment Name</label><input id="stName" value="${escapeAttr(t.name||"")}" ${roAttr}></div>
-        <div class="col"><label class="muted">Rink</label><input id="stRink" value="${escapeAttr(t.rink||"")}" ${roAttr}></div>
+        <div class="col"><label class="muted">Location</label><input id="stRink" value="${escapeAttr(t.rink||"")}" ${roAttr}></div>
       </div>
       <div class="row">
         <div class="col">
@@ -23360,14 +23347,17 @@ function saveTryoutInfo(){
   t.defaultPosition = getValidPositionForSport(t.defaultPosition || "", newSport);
   const strippedStalePositions = stripInvalidRosterPositions(t, newSport);
 
-  // If sport changed, offer to reset rubrics to sport defaults
+  // If sport changed, offer to clear rubrics so user can rebuild via the builder
   if(oldSport !== newSport && newSport !== "Other"){
-    if(confirm(`Sport changed to ${newSport}. Load default ${newSport} rubrics and weights? (This replaces current rubric definitions and weights.)`)){
+    if(confirm(`Sport changed to ${newSport}. Clear existing rubrics so you can rebuild them for ${newSport} using the Rubric Builder?`)){
       if(!t.settings) t.settings = {};
-      t.settings.skaterRubrics = cloneRubricCats(getSportSkCats(newSport));
-      t.settings.goalieRubrics = cloneRubricCats(getSportGoCats(newSport));
-      t.settings.skaterWeights = getSportSkWeights(newSport);
-      t.settings.goalieWeights = getSportGoWeights(newSport);
+      t.settings.skaterRubrics = {};
+      t.settings.goalieRubrics = {};
+      t.settings.skaterWeights = {};
+      t.settings.goalieWeights = {};
+      t.settings.customPositions = [];
+      t.settings.customPositionRubrics = {};
+      t.settings.customPositionWeights = {};
     }
   }
   t.headAssessor = headAssessor;
@@ -27627,7 +27617,7 @@ function buildTeamHubAssessmentCreateForm(season, seasonTryouts){
       <div class="col"><label class="muted">Date</label><input id="tDate" type="date" ${roAttr}></div>
       <div class="col"><label class="muted">Time</label><input id="tStart" type="time" ${roAttr}></div>
     </div>
-    <input id="tRink" placeholder="Rink or location" ${roAttr} />
+    <input id="tRink" placeholder="Location" ${roAttr} />
     <div class="row">
       <div class="col">
         <label class="muted">Lead Assessor</label>
