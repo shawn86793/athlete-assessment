@@ -326,6 +326,43 @@
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
     input[type=number]{ -moz-appearance:textfield; }
+
+    /* ── #5 Rubric builder mobile: stack panels vertically ─────────────────── */
+    @media(max-width:640px){
+      #rbPanels{
+        grid-template-columns:1fr !important;
+      }
+      #rbPanels > div:first-child{
+        max-height:42vh !important;
+        border-right:none !important;
+        border-bottom:1px solid var(--border);
+      }
+      #rbPanels > div:nth-child(2){
+        max-height:42vh !important;
+      }
+      #rubricBuilderOverlay{
+        padding:8px !important;
+        align-items:flex-start;
+      }
+      #rubricBuilderOverlay > div{
+        border-radius:12px !important;
+      }
+    }
+    /* ── Team builder dashboard mobile ─────────────────────────────────────── */
+    @media(max-width:600px){
+      #teamBuilderDashboardOverlay > div > div:first-child{
+        flex-direction:column;
+        align-items:flex-start !important;
+      }
+      #teamBuilderDashboardOverlay > div > div:first-child > div:last-child{
+        margin-left:0 !important;
+        width:100%;
+      }
+      #teamBuilderDashboardOverlay button{
+        flex:1;
+        justify-content:center;
+      }
+    }
     body::before{
       content:"";
       position:fixed;
@@ -22462,7 +22499,18 @@ function renderCombinedResultsTable(list, isGoalie){
 
     return `
       <tr>
-        <td><b>${escapeHTML(playerDisplayName(p))}</b><div class="tiny">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos)} • ${escapeHTML(p.shoots||"—")}</div></td>
+        <td><div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:30px;height:30px;border-radius:50%;background:${(()=>{const c=getPositionAvatarClass(p.pos,sport);return{'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'}[c]||'#6366f1';})()};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;">
+              ${escapeHTML(((p.first||"")[0]||playerDisplayName(p)[0]||"?").toUpperCase()+((p.last||"")[0]||"").toUpperCase())}
+            </div>
+            <div style="min-width:0;">
+              <div style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(playerDisplayName(p))}</div>
+              <div style="display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap;">
+                <span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${(()=>{const c=getPositionAvatarClass(p.pos,sport);return{'pos-forward':'rgba(255,107,43,0.12)','pos-defence':'rgba(13,148,136,0.12)','pos-goalie':'rgba(249,115,22,0.12)','pos-other':'rgba(99,102,241,0.12)'}[c]||'rgba(99,102,241,0.12)';})()};color:${(()=>{const c=getPositionAvatarClass(p.pos,sport);return{'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'}[c]||'#6366f1';})()};">${escapeHTML(p.pos||"—")}</span>
+                <span style="font-size:10px;color:var(--muted);">#${escapeHTML(p.jersey||"—")}</span>
+              </div>
+            </div>
+          </div></td>
         <td>${evCount}</td>
         ${catVals}
         ${scoreHeatCell(ov, true)}
@@ -23006,12 +23054,28 @@ function renderResultsTable(list, isGoalie){
       ? customRubrics.map((r, idx)=>`<td>${rStr(customRanks[idx].ranks[p.id]||"—", customRanks[idx].total)}</td>`).join("")
       : "";
 
+    const _rAvatarClass = getPositionAvatarClass(p.pos, sport);
+    const _rAvatarBgMap = {'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'};
+    const _rAvatarBg  = _rAvatarBgMap[_rAvatarClass] || '#6366f1';
+    const _rInitials  = ((p.first||"")[0]||playerDisplayName(p)[0]||"?").toUpperCase() + ((p.last||"")[0]||"").toUpperCase();
+    const _rPosBg     = _rAvatarClass==="pos-goalie"  ? "rgba(249,115,22,0.12)"
+                      : _rAvatarClass==="pos-defence" ? "rgba(13,148,136,0.12)"
+                      : _rAvatarClass==="pos-forward" ? "rgba(255,107,43,0.12)"
+                      : "rgba(99,102,241,0.12)";
     return `
       <tr>
         <td>
-          <b>${escapeHTML(playerDisplayName(p))}</b>
-          ${buildSparkline(catOrder.map(key => cats[key] ?? null), 5)}
-          <div class="tiny">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos)} • ${escapeHTML(p.shoots||"—")}</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:30px;height:30px;border-radius:50%;background:${_rAvatarBg};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;letter-spacing:0.02em;">${escapeHTML(_rInitials)}</div>
+            <div style="min-width:0;">
+              <div style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(playerDisplayName(p))}</div>
+              <div style="display:flex;align-items:center;gap:5px;margin-top:2px;flex-wrap:wrap;">
+                ${buildSparkline(catOrder.map(key => cats[key] ?? null), 5)}
+                <span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${_rPosBg};color:${_rAvatarBg};">${escapeHTML(p.pos||"—")}</span>
+                <span style="font-size:10px;color:var(--muted);">#${escapeHTML(p.jersey||"—")}</span>
+              </div>
+            </div>
+          </div>
         </td>
         <td>${evCount}</td>
         ${catVals}
