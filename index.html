@@ -23,8 +23,8 @@
   <!-- SheetJS is loaded ON DEMAND inside exportFullResultsXLSX() — NOT here.
        Keeping it out of the page-level load saves ~1.2 MB on every visit. -->
   <link rel="preload" as="image" href="assets/tryout-main-logo-optimized.webp" type="image/webp" fetchpriority="high" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" media="print" onload="this.media='all'" />
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@400;600;700&display=swap" /></noscript>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=Space+Grotesk:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&family=Space+Grotesk:wght@400;500;600;700&display=swap" /></noscript>
 
   <!-- Dark mode anti-flash: applied synchronously before first paint -->
   <script>
@@ -113,6 +113,21 @@
       --ease-base:190ms ease-out;
       --ease-slow:310ms ease-out;
       --ease-spring:240ms cubic-bezier(0.34,1.15,0.64,1);
+
+      /* ── Line-height scale ───────────────────────────────────────────────── */
+      --lh-none:1;
+      --lh-tight:1.15;
+      --lh-snug:1.3;
+      --lh-base:1.55;
+      --lh-relaxed:1.7;
+
+      /* ── Letter-spacing scale ────────────────────────────────────────────── */
+      --tracking-tighter:-0.03em;
+      --tracking-tight:-0.02em;
+      --tracking-normal:0em;
+      --tracking-wide:0.04em;
+      --tracking-wider:0.07em;
+      --tracking-widest:0.12em;
     }
 
     [data-theme="dark"]{
@@ -369,7 +384,7 @@
     *{box-sizing:border-box;}
     html{scroll-behavior:smooth;}
     body{
-      font-family:"Inter","Manrope", system-ui, -apple-system, Segoe UI, sans-serif;
+      font-family:"Inter", system-ui, -apple-system, sans-serif;
       background:var(--bg);
       color:var(--ink);
       font-size:var(--text-base);
@@ -535,21 +550,107 @@
       font-size:19px;
       margin:0;
     }
-    h1,h2,h3,h4{
+    h1,h2,h3,h4,h5,h6{
       margin:6px 0 10px 0;
-      font-family:"Space Grotesk","Manrope",sans-serif;
-      letter-spacing:-0.02em;
-      line-height:1.2;
+      font-family:"Space Grotesk", system-ui, sans-serif;
+      letter-spacing:var(--tracking-tight);
+      line-height:var(--lh-tight);
+      -webkit-font-smoothing:antialiased;
+      font-feature-settings:"ss01","cv01";
+    }
+    h1{ font-size:var(--text-3xl); font-weight:900; }
+    h2{ font-size:var(--text-xl);  font-weight:800; }
+    h3{ font-size:var(--text-lg);  font-weight:700; }
+    h4{ font-size:var(--text-md);  font-weight:700; letter-spacing:var(--tracking-tight); }
+    h5{ font-size:var(--text-base);font-weight:700; letter-spacing:var(--tracking-normal); }
+    h6{ font-size:var(--text-sm);  font-weight:700; text-transform:uppercase; letter-spacing:var(--tracking-wider); color:var(--muted); }
+    .muted{ color:var(--muted); font-size:var(--text-base); }
+    .tiny{  color:var(--muted); font-size:var(--text-sm); }
+    label{
+      font-size:var(--text-sm);
+      font-weight:700;
+      color:var(--muted);
+      letter-spacing:var(--tracking-wide);
+      line-height:var(--lh-snug);
+    }
+    label.muted{ display:block; margin-bottom:2px; font-weight:600; }
+    .hidden{ display:none; }
+
+    /* ── Semantic Type Utilities (#5) ────────────────────────────────────────
+       Use these instead of ad-hoc inline font-size + color combos.
+    ─────────────────────────────────────────────────────────────────────────── */
+
+    /* Section / field labels — "ASSESSOR", "SCORE", "POSITION" */
+    .t-label{
+      font-size:var(--text-xs);
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:var(--tracking-widest);
+      color:var(--muted);
+      line-height:var(--lh-snug);
+    }
+    /* Supporting / caption text */
+    .t-caption{
+      font-size:var(--text-sm);
+      color:var(--muted);
+      line-height:var(--lh-snug);
+    }
+    /* Orange overline accent — above section headings */
+    .t-overline{
+      font-size:var(--text-xs);
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:var(--tracking-widest);
+      color:var(--btn);
+      line-height:var(--lh-snug);
+      margin-bottom:4px;
+    }
+    /* Monospace — jersey numbers, athlete IDs, codes */
+    .t-mono{
+      font-family:ui-monospace,"Cascadia Code","Fira Code",monospace;
+      font-size:var(--text-sm);
+      letter-spacing:var(--tracking-wide);
+    }
+    /* Large stat / metric numbers — scores, counts */
+    .t-metric{
+      font-family:"Space Grotesk",system-ui,sans-serif;
+      font-size:var(--text-3xl);
+      font-weight:900;
+      letter-spacing:var(--tracking-tighter);
+      line-height:var(--lh-none);
+      font-variant-numeric:tabular-nums;
       -webkit-font-smoothing:antialiased;
     }
-    h1{font-size:var(--text-3xl);font-weight:900;}
-    h2{font-size:var(--text-xl);font-weight:800;}
-    h3{font-size:var(--text-lg);font-weight:700;}
-    h4{font-size:var(--text-md);font-weight:700;letter-spacing:-0.01em;}
-    .muted{color:var(--muted);font-size:14px;}
-    .tiny{color:var(--muted);font-size:13px;}
-    label.muted{display:block;margin-bottom:2px;font-weight:600;}
-    .hidden{display:none;}
+    /* Smaller numeric display — pills, badges, table cells */
+    .t-number{
+      font-variant-numeric:tabular-nums;
+      font-feature-settings:"tnum";
+    }
+    /* Card inner heading — "Evaluation Summary", "Rubric Score" */
+    .t-heading{
+      font-family:"Space Grotesk",system-ui,sans-serif;
+      font-size:var(--text-md);
+      font-weight:700;
+      letter-spacing:var(--tracking-tight);
+      color:var(--ink);
+    }
+    /* Sub-heading / section divider inside a card */
+    .t-subheading{
+      font-size:var(--text-base);
+      font-weight:600;
+      color:var(--ink);
+      letter-spacing:var(--tracking-normal);
+    }
+
+    /* Apply tabular-nums globally to numeric pill/badge contexts */
+    .ptPill,
+    .badge,
+    .pill,
+    .swgBNBadge,
+    .planUsageBanner{
+      font-variant-numeric:tabular-nums;
+      font-feature-settings:"tnum";
+    }
 
     /* ── Score heat utility classes (pick up dark/light token automatically) ── */
     .score-great{ background:var(--score-great-bg); color:var(--score-great-ink); }
@@ -567,8 +668,9 @@
       border-radius:var(--radius-md);
       border:1px solid var(--border);
       margin:6px 0;
-      font-size:16px;
-      font-family:inherit;
+      font-size:var(--text-base);
+      font-family:"Inter",system-ui,sans-serif;
+      line-height:var(--lh-snug);
       background:var(--field-bg);
       color:var(--ink);
       transition:border-color var(--ease-base), box-shadow var(--ease-base),
@@ -587,6 +689,8 @@
       background: var(--btn-nav);
       color: var(--btn-nav-text);
       font-weight: 700;
+      font-family: "Inter", system-ui, sans-serif;
+      letter-spacing: var(--tracking-normal);
       cursor: pointer;
       border: 1px solid rgba(10,30,61,0.12);
       box-shadow: 0 2px 8px rgba(10,30,61,0.10);
@@ -772,12 +876,13 @@
       color:#fff;
     }
     .wizardLabel{
-      font-size:10px;
+      font-size:var(--text-xs);
       font-weight:700;
       color:var(--muted);
       text-transform:uppercase;
-      letter-spacing:0.05em;
+      letter-spacing:var(--tracking-wider);
       white-space:nowrap;
+      line-height:var(--lh-snug);
     }
     .wizardLabel.active{ color:var(--btn); }
     .wizardConnector{
@@ -813,11 +918,12 @@
       padding-top:0;
     }
     .addPlayerSectionLabel{
-      font-size:13px;
+      font-size:var(--text-xs);
       color:var(--muted);
       font-weight:700;
-      letter-spacing:0.03em;
+      letter-spacing:var(--tracking-widest);
       text-transform:uppercase;
+      line-height:var(--lh-snug);
       margin-bottom:8px;
     }
     .req{
@@ -954,7 +1060,7 @@
     .brandLogo.tLogo{height:74px;}
     .brandLogo.mainLogo{height:144px;}
     .brandTitle{
-      font-family:"Montserrat","Segoe UI",system-ui,sans-serif;
+      font-family:"Space Grotesk",system-ui,sans-serif;
       font-weight:900;
       letter-spacing:0.06em;
       font-size:16px;
@@ -1336,8 +1442,19 @@
     }
     .ptTop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-width:0;}
     .ptTop > div:first-child{min-width:0;}
-    .ptName{font-weight:800;font-size:16px;line-height:1.2;}
-    .ptSub{font-size:13px;color:var(--muted);margin-top:6px;}
+    .ptName{
+      font-family:"Space Grotesk",system-ui,sans-serif;
+      font-weight:800;
+      font-size:var(--text-md);
+      line-height:var(--lh-snug);
+      letter-spacing:var(--tracking-tight);
+    }
+    .ptSub{
+      font-size:var(--text-sm);
+      color:var(--muted);
+      margin-top:5px;
+      line-height:var(--lh-snug);
+    }
     .ptBottom{display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
     .ptPill{
       background:rgba(10,30,61,0.06);
@@ -1351,8 +1468,9 @@
       display:flex;
       align-items:center;
       gap:6px;
-      font-size:13px;
+      font-size:var(--text-sm);
       font-weight:700;
+      line-height:var(--lh-snug);
     }
     .ptScoreDot{
       width:8px;
@@ -2479,8 +2597,16 @@
     }
     .summaryCard:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(10,30,61,0.12);}
     .summaryCardIcon{font-size:22px;margin-bottom:4px;line-height:1;}
-    .summaryCardValue{font-size:1.55rem;font-weight:900;color:#0a1e3d;line-height:1.1;letter-spacing:-0.02em;}
-    .summaryCardLabel{font-size:10px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;}
+    .summaryCardValue{
+      font-family:"Space Grotesk",system-ui,sans-serif;
+      font-size:1.55rem;font-weight:900;color:var(--ink);
+      line-height:var(--lh-tight);letter-spacing:var(--tracking-tighter);
+      font-variant-numeric:tabular-nums;
+    }
+    .summaryCardLabel{
+      font-size:var(--text-xs);color:var(--muted);margin-top:4px;
+      text-transform:uppercase;letter-spacing:var(--tracking-widest);font-weight:700;
+    }
     .summaryCard.sc-blue .summaryCardIcon{filter:drop-shadow(0 0 4px rgba(255,107,43,0.25));}
     .summaryCard.sc-blue .summaryCardValue{color:#ff6b2b;}
     .summaryCard.sc-teal .summaryCardValue{color:#0d9488;}
@@ -2503,18 +2629,20 @@
     .ptScoreRingFill{stroke-linecap:round;transition:stroke-dasharray 0.5s var(--ease-spring);}
     [data-theme="dark"] .ptScoreRingBg{stroke:rgba(255,255,255,0.10);}
     .ptScoreNum{
-      font-family:"Space Grotesk","Manrope",sans-serif;
+      font-family:"Space Grotesk",system-ui,sans-serif;
       font-weight:900;
-      letter-spacing:-0.03em;
+      letter-spacing:var(--tracking-tighter);
       dominant-baseline:middle;
       text-anchor:middle;
+      font-variant-numeric:tabular-nums;
     }
     .ptScoreLabel{
-      font-family:"Inter","Manrope",sans-serif;
+      font-family:"Inter",system-ui,sans-serif;
       font-weight:600;
       dominant-baseline:middle;
       text-anchor:middle;
       opacity:0.55;
+      letter-spacing:var(--tracking-normal);
     }
 
     /* ── Bottom Tab Nav (#4) ─────────────────────────────────────────────────── */
@@ -3381,7 +3509,14 @@
       text-align:center;
     }
     .planGateIcon{ font-size:52px; margin-bottom:12px; }
-    .planGateTitle{ font-size:22px; font-weight:900; margin-bottom:8px; }
+    .planGateTitle{
+      font-family:"Space Grotesk",system-ui,sans-serif;
+      font-size:var(--text-xl);
+      font-weight:900;
+      letter-spacing:var(--tracking-tight);
+      line-height:var(--lh-snug);
+      margin-bottom:8px;
+    }
     .planGateDesc{ font-size:15px; color:var(--muted); line-height:1.6; margin-bottom:20px; }
     .planGateActions{ display:flex; gap:10px; flex-direction:column; }
     .planGateActions button{ width:100%; padding:14px; font-size:16px; font-weight:800; border-radius:14px; }
