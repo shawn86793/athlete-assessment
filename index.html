@@ -3108,6 +3108,22 @@
       *{animation:none !important;transition:none !important;scroll-behavior:auto !important;}
     }
 
+    /* ── #9 Modal entrance / exit animations ────────────────────────────────── */
+    @keyframes swgOverlayFade{
+      from{opacity:0;}
+      to  {opacity:1;}
+    }
+    @keyframes swgPanelPop{
+      from{opacity:0;transform:scale(0.93) translateY(10px);}
+      to  {opacity:1;transform:scale(1)    translateY(0);}
+    }
+    .swgOverlayAnim{
+      animation:swgOverlayFade 160ms ease-out both;
+    }
+    .swgPanelAnim{
+      animation:swgPanelPop 200ms cubic-bezier(0.34,1.15,0.64,1) both;
+    }
+
     /* QR Code Modal */
     .qrModalOverlay{
       position:fixed;
@@ -14529,6 +14545,24 @@ window._rbSaveAndOpen = function(){
 
 // ── End Rubric Builder ────────────────────────────────────────────────────────
 
+// ── #9 Modal animation observer ───────────────────────────────────────────────
+(function(){
+  const _obs = new MutationObserver(mutations=>{
+    for(const m of mutations){
+      for(const node of m.addedNodes){
+        if(node.nodeType!==1) continue;
+        const id = (node.id||"").toLowerCase();
+        if(!id.includes("overlay") && !id.includes("modal")) continue;
+        node.classList.add("swgOverlayAnim");
+        const panel = node.firstElementChild;
+        if(panel) panel.classList.add("swgPanelAnim");
+      }
+    }
+  });
+  if(document.body) _obs.observe(document.body,{childList:true});
+  else document.addEventListener("DOMContentLoaded",()=>_obs.observe(document.body,{childList:true}));
+})();
+
 async function copyTryout(id){
   const source = DB.tryouts[id];
   if(!source) return;
@@ -18905,31 +18939,62 @@ function renderTeamBuilderDashboard(){
     (pkg.playerIds||[]).forEach(id => { if(!explicitPkgsByPlayerId.has(id)) explicitPkgsByPlayerId.set(id, pkg); });
   });
 
-  const teamsHTML = (data.teams||[]).map(team => {
-    const avg = calcTeamAvgScore(team);
-    const avgStr = avg !== null ? num2(avg) : "—";
-    const playersHTML = (team.players||[]).map(pid => {
+  const TB_COLORS = ['#f97316','#3b82f6','#10b981','#8b5cf6','#ef4444','#eab308','#06b6d4','#ec4899','#84cc16','#14b8a6'];
+  const _tbSport  = getSportFromTryout(t);
+  const _tbAvatarBgMap = {'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#f97316','pos-other':'#6366f1'};
+
+  const teamsHTML = (data.teams||[]).map((team, teamIdx) => {
+    const avg       = calcTeamAvgScore(team);
+    const avgStr    = avg !== null ? num2(avg) : "—";
+    const teamColor = TB_COLORS[teamIdx % TB_COLORS.length];
+    const avgColor  = avg===null?'#94a3b8':avg>=4.5?'#15803d':avg>=3.8?'#16a34a':avg>=3.0?'#a16207':avg>=2.0?'#d97706':'#dc2626';
+
+    // Positional breakdown
+    const posG = {fwd:0,def:0,gol:0,oth:0};
+    (team.players||[]).forEach(pid=>{
+      const pl = rosterMap.get(pid); if(!pl) return;
+      const cls = getPositionAvatarClass(pl.pos||"", _tbSport);
+      if(cls==="pos-forward") posG.fwd++;
+      else if(cls==="pos-defence") posG.def++;
+      else if(cls==="pos-goalie") posG.gol++;
+      else posG.oth++;
+    });
+    const posTags = [
+      posG.fwd?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(255,107,43,0.18);color:#f97316;">F·${posG.fwd}</span>`:"",
+      posG.def?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(13,148,136,0.18);color:#0d9488;">D·${posG.def}</span>`:"",
+      posG.gol?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(249,115,22,0.18);color:#ea580c;">G·${posG.gol}</span>`:"",
+      posG.oth?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(99,102,241,0.18);color:#6366f1;">O·${posG.oth}</span>`:"",
+    ].filter(Boolean).join(" ");
+
+    const playersHTML = (team.players||[]).map((pid, rowIdx) => {
       const player = rosterMap.get(pid);
       if(!player) return "";
       const det = (team.details||{})[pid] || {};
       const fpLabel = dashFPLookup.get(pid) || "";
       const explicitPkg = explicitPkgsByPlayerId.get(pid);
       const pkgTag = fpLabel
-        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${explicitPkg?.highlighted ? '#f97316' : '#334e7a'};margin-left:4px;vertical-align:middle;" title="${escapeAttr(explicitPkg?.name || fpLabel)}">${escapeHTML(fpLabel)}</span>`
+        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${explicitPkg?.highlighted?'#f97316':'#334e7a'};margin-left:4px;" title="${escapeAttr(explicitPkg?.name||fpLabel)}">${escapeHTML(fpLabel)}</span>`
         : "";
-      const overallStr = (det.overall !== null && det.overall !== undefined && Number.isFinite(Number(det.overall))) ? num2(det.overall) : "—";
+      const overallNum = Number(det.overall);
+      const overallStr = Number.isFinite(overallNum) ? num2(overallNum) : "—";
+      const overallColor = !Number.isFinite(overallNum)?'#94a3b8':overallNum>=4.5?'#15803d':overallNum>=3.8?'#16a34a':overallNum>=3.0?'#a16207':overallNum>=2.0?'#d97706':'#dc2626';
       const displayName = det.name || playerDisplayName(player) || `#${player.jersey||"?"}`;
+      const posAvatarBg = _tbAvatarBgMap[getPositionAvatarClass(player.pos||"", _tbSport)] || '#6366f1';
+      const initials = ((player.first||"")[0]||"").toUpperCase() + ((player.last||"")[0]||"").toUpperCase();
+      const rowBg = rowIdx%2===0 ? '#f8fafc' : '#ffffff';
       return `<div class="tbPlayerRow" draggable="true"
         ondragstart="tbDragStart('${escapeAttr(pid)}','${escapeAttr(team.id)}',event)"
         ondragend="tbDragEnd(event)"
         onclick="openTradeModal('${escapeAttr(pid)}','${escapeAttr(team.id)}')"
-        style="display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;margin-bottom:3px;background:#fafafa;"
-        title="Drag to move to another team, or click to trade">
+        style="display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;margin-bottom:2px;background:${rowBg};cursor:pointer;transition:background 0.15s;"
+        title="Drag to move or click to trade">
+        <div style="width:24px;height:24px;border-radius:50%;background:${posAvatarBg};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;">${escapeHTML(initials||"?")}</div>
         <div style="flex:1;min-width:0;overflow:hidden;">
-          <span style="font-size:12px;font-weight:700;color:#0f172a;">#${escapeHTML(String(player.jersey||det.jersey||"?"))} ${escapeHTML(displayName)}</span>${pkgTag}
-          <div style="font-size:10px;color:#64748b;">${escapeHTML(det.position||player.pos||"")} &nbsp;·&nbsp; Avg ${overallStr}</div>
+          <div style="font-size:12px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${escapeHTML(String(player.jersey||det.jersey||"?"))} ${escapeHTML(displayName)}${pkgTag}</div>
+          <div style="font-size:10px;color:#64748b;">${escapeHTML(det.position||player.pos||"—")}</div>
         </div>
-        <span style="flex-shrink:0;font-size:10px;color:#94a3b8;">⠿</span>
+        <div style="font-size:13px;font-weight:800;color:${overallColor};flex-shrink:0;">${overallStr}</div>
+        <span style="flex-shrink:0;font-size:10px;color:#cbd5e1;">⠿</span>
       </div>`;
     }).join("");
 
@@ -18937,15 +19002,31 @@ function renderTeamBuilderDashboard(){
       ondragover="tbDragOver(event)"
       ondragleave="tbDragLeave(event)"
       ondrop="tbDrop('${escapeAttr(team.id)}',event)"
-      style="background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:14px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div>
-          <div style="font-size:14px;font-weight:900;color:#0a1e3d;">${escapeHTML(team.name)}</div>
-          <div style="font-size:11px;color:#64748b;">⭐ Avg ${avgStr} &nbsp;·&nbsp; ${(team.players||[]).length} players</div>
+      style="background:#fff;border:1.5px solid ${teamColor}44;border-radius:14px;overflow:hidden;box-shadow:0 3px 14px rgba(0,0,0,0.14);">
+      <div style="height:5px;background:linear-gradient(90deg,${teamColor},${teamColor}77);"></div>
+      <div style="padding:12px 14px 0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+            <div style="width:10px;height:10px;border-radius:50%;background:${teamColor};flex-shrink:0;box-shadow:0 0 6px ${teamColor}88;"></div>
+            <div style="font-size:14px;font-weight:900;color:#0a1e3d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(team.name)}</div>
+          </div>
+          <button onclick="renameTBTeam('${escapeAttr(team.id)}')" style="font-size:10px;padding:2px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;flex-shrink:0;" title="Rename team">✏️</button>
         </div>
-        <button onclick="renameTBTeam('${escapeAttr(team.id)}')" style="font-size:10px;padding:2px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;" title="Rename team">✏️</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;padding:8px 10px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;">Avg Score</div>
+            <div style="font-size:19px;font-weight:900;color:${avgColor};line-height:1.1;">${avgStr}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:1px;">${(team.players||[]).length} players</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;margin-bottom:5px;">Positions</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">${posTags||'<span style="font-size:10px;color:#94a3b8;">—</span>'}</div>
+          </div>
+        </div>
       </div>
-      ${playersHTML || '<div style="color:#94a3b8;font-size:12px;padding:4px 0;">Drop a player here or use ↔ Trade</div>'}
+      <div style="padding:0 10px 12px;">
+        ${playersHTML||'<div style="color:#94a3b8;font-size:12px;padding:8px 0;text-align:center;border:1.5px dashed #e2e8f0;border-radius:8px;">Drop a player here or use ↔ Trade</div>'}
+      </div>
     </div>`;
   }).join("");
 
