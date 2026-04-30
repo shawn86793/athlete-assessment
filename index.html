@@ -17930,11 +17930,17 @@ function renderRoster(){
 
       <div class="row" style="align-items:flex-end;">
         <div class="col2">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <h3 style="margin:0;">Player List</h3>
+            ${canManage ? `
+              <button class="secondary small" style="padding:4px 10px;font-size:12px;width:auto;" onclick="openImportCSVModal()">📂 Import</button>
+            ` : ``}
+            ${canManage && isTeamSortEvent(t) ? `
+              <button class="secondary small" style="padding:4px 10px;font-size:12px;width:auto;background:rgba(249,115,22,0.10);border-color:rgba(249,115,22,0.45);color:#f97316;" onclick="openFreshTeamBuilder(event)">🧠 Teams</button>
+            ` : ``}
             ${canManage && t.roster.length > 0 ? `
-              <button class="secondary small" style="padding:4px 12px;font-size:12px;border-color:#dc2626;color:#dc2626;background:var(--card);" onclick="toggleRosterSelectMode()">
-                ${rosterSelectMode ? "✕ Cancel" : "🗑 Select to Delete"}
+              <button class="secondary small" style="padding:4px 10px;font-size:12px;border-color:#dc2626;color:#dc2626;background:var(--card);width:auto;" onclick="toggleRosterSelectMode()">
+                ${rosterSelectMode ? "✕ Cancel" : "🗑 Delete"}
               </button>
             ` : ``}
           </div>
@@ -20258,22 +20264,22 @@ function openImportCSVModal(){
   if(existing) existing.remove();
   const modal = document.createElement("div");
   modal.id = "csvImportModal";
-  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:3000;padding:20px;box-sizing:border-box;";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;z-index:11000;padding:20px;box-sizing:border-box;";
   modal.innerHTML = `
-    <div style="background:#fff;border-radius:16px;padding:28px;max-width:520px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-      <h3 style="margin:0 0 8px;color:#0a1e3d;font-size:17px;">📂 Import Players from CSV or Excel</h3>
-      <div style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.5;">Accepts <strong>.csv</strong> or <strong>.xlsx</strong> files. Must include a header row with player names. Recognized columns (case-insensitive, typos OK):<br>
-        <code style="background:#f1f5f9;padding:2px 4px;border-radius:4px;font-size:11px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild, friendRequest1, friendRequest2</code><br>
-        Unknown columns are ignored.</div>
-      <label style="display:block;border:2px dashed rgba(255,107,43,0.35);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#ff6b2b;font-size:14px;margin-bottom:14px;font-weight:700;background:rgba(255,107,43,0.04);transition:border-color 0.15s,background 0.15s;" id="csvFilePickerLabel">
+    <div style="background:var(--card);border-radius:var(--radius-xl);padding:28px;max-width:520px;width:100%;box-shadow:var(--shadow-xl);border:1px solid var(--border);">
+      <h3 style="margin:0 0 8px;color:var(--ink);font-size:17px;font-family:'Space Grotesk',system-ui,sans-serif;">📂 Import Players from CSV or Excel</h3>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;">Accepts <strong style="color:var(--ink)">.csv</strong> or <strong style="color:var(--ink)">.xlsx</strong> files. Must include a header row with player names. Recognized columns:<br>
+        <code style="background:var(--field-bg);color:var(--ink);padding:2px 6px;border-radius:4px;font-size:11px;display:inline-block;margin-top:4px;">first, last, jersey, pos, yearOfBirth, guardianName, guardianEmail, guardianPhone, currentTeam, currentLevel, aboutChild, friendRequest1, friendRequest2</code><br>
+        <span style="margin-top:4px;display:block;">Unknown columns are ignored.</span></div>
+      <label style="display:block;border:2px dashed rgba(255,107,43,0.40);border-radius:var(--radius-md);padding:20px;text-align:center;cursor:pointer;color:var(--btn);font-size:14px;margin-bottom:14px;font-weight:700;background:rgba(255,107,43,0.06);transition:border-color 0.15s,background 0.15s;" id="csvFilePickerLabel">
         📁 Tap to select or drag &amp; drop a CSV or Excel file here
-        <div style="font-size:11px;font-weight:400;color:#64748b;margin-top:4px;">Works on phone or desktop · .csv and .xlsx supported</div>
+        <div style="font-size:11px;font-weight:400;color:var(--muted);margin-top:4px;">Works on phone or desktop · .csv and .xlsx supported</div>
         <input type="file" accept=".csv,.xlsx,text/csv" onchange="handleCSVImport(event)" style="display:none;">
       </label>
-      <div id="csvImportPreview" style="display:none;max-height:160px;overflow-y:auto;font-size:12px;color:#334155;margin-bottom:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"></div>
+      <div id="csvImportPreview" style="display:none;max-height:160px;overflow-y:auto;font-size:12px;color:var(--ink);margin-bottom:14px;background:var(--field-bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
-        <button onclick="document.getElementById('csvImportModal').remove()" style="padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;color:#334155;cursor:pointer;font-size:13px;font-weight:600;">Cancel</button>
-        <button id="csvImportConfirmBtn" onclick="confirmCSVImport()" disabled style="padding:10px 20px;background:#94a3b8;color:#fff;border:none;border-radius:8px;cursor:not-allowed;font-weight:700;font-size:13px;">Import Players</button>
+        <button onclick="document.getElementById('csvImportModal').remove()" style="padding:10px 18px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--field-bg);color:var(--ink);cursor:pointer;font-size:13px;font-weight:600;">Cancel</button>
+        <button id="csvImportConfirmBtn" onclick="confirmCSVImport()" disabled style="padding:10px 20px;background:#94a3b8;color:#fff;border:none;border-radius:var(--radius-sm);cursor:not-allowed;font-weight:700;font-size:13px;">Import Players</button>
       </div>
     </div>
   `;
@@ -20285,8 +20291,8 @@ function openImportCSVModal(){
   if(label){
     label.addEventListener("dragenter", e => {
       e.preventDefault(); e.stopPropagation();
-      label.style.borderColor  = "#ff6b2b";
-      label.style.background   = "#dbeafe";
+      label.style.borderColor  = "var(--btn)";
+      label.style.background   = "rgba(255,107,43,0.12)";
     });
     label.addEventListener("dragover", e => {
       e.preventDefault(); e.stopPropagation();
@@ -20294,13 +20300,13 @@ function openImportCSVModal(){
     });
     label.addEventListener("dragleave", e => {
       e.preventDefault(); e.stopPropagation();
-      label.style.borderColor  = "#bfdbfe";
-      label.style.background   = "#f0f9ff";
+      label.style.borderColor  = "rgba(255,107,43,0.40)";
+      label.style.background   = "rgba(255,107,43,0.06)";
     });
     label.addEventListener("drop", e => {
       e.preventDefault(); e.stopPropagation();
-      label.style.borderColor  = "#bfdbfe";
-      label.style.background   = "#f0f9ff";
+      label.style.borderColor  = "rgba(255,107,43,0.40)";
+      label.style.background   = "rgba(255,107,43,0.06)";
       const file = e.dataTransfer?.files?.[0];
       if(!file) return;
       // Reuse the same handler as the file-picker input
@@ -20323,9 +20329,9 @@ function _showImportPreview(players){
       preview.innerHTML = '<span style="color:#dc2626;">⚠️ No valid rows found. Make sure your file has "First name" and "Last name" columns (or similar).</span>';
     } else {
       const sampleRows = players.slice(0,5).map(p =>
-        `<div style="padding:4px 0;border-bottom:1px solid #e2e8f0;color:#0f172a;">#${escapeHTML(String(p.jersey||"?"))} <strong>${escapeHTML(playerDisplayName(p))}</strong> · ${escapeHTML(p.pos||"—")}</div>`
+        `<div style="padding:4px 0;border-bottom:1px solid var(--border);color:var(--ink);">#${escapeHTML(String(p.jersey||"?"))} <strong>${escapeHTML(playerDisplayName(p))}</strong> · ${escapeHTML(p.pos||"—")}</div>`
       ).join("");
-      preview.innerHTML = `<div style="color:#16a34a;font-weight:700;margin-bottom:6px;">✓ ${players.length} player${players.length!==1?"s":""} ready to import</div>${sampleRows}${players.length>5?`<div style="color:#64748b;margin-top:4px;">…and ${players.length-5} more</div>`:""}`;
+      preview.innerHTML = `<div style="color:var(--success);font-weight:700;margin-bottom:6px;">✓ ${players.length} player${players.length!==1?"s":""} ready to import</div>${sampleRows}${players.length>5?`<div style="color:var(--muted);margin-top:4px;">…and ${players.length-5} more</div>`:""}`;
     }
   }
   if(btn){
