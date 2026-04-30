@@ -32,7 +32,7 @@
       var saved = null;
       try{ saved = localStorage.getItem("aasDarkMode"); } catch(e){}
       var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      var isDark = saved === "dark" || (saved === null && prefersDark);
+      var isDark = saved !== "light"; /* dark is the default; only opt-out saves "light" */
       if(isDark){
         document.documentElement.setAttribute("data-theme","dark");
         /* Lock background immediately so no white flash on load/refresh */
@@ -79,62 +79,114 @@
       --black-font-replacement:#0d1629;
       --radius:14px;
       --shadow:0 4px 24px rgba(10,30,61,0.10);
+
+      /* ── Spacing scale ───────────────────────────────────────────────────── */
+      --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
+      --sp-6:24px; --sp-8:32px; --sp-12:48px; --sp-16:64px;
+
+      /* ── Border-radius scale ─────────────────────────────────────────────── */
+      --radius-xs:6px; --radius-sm:8px; --radius-md:12px;
+      --radius-lg:16px; --radius-xl:22px; --radius-2xl:30px;
+      --radius-full:9999px;
+
+      /* ── Type scale ──────────────────────────────────────────────────────── */
+      --text-xs:10px; --text-sm:12px; --text-base:15px;
+      --text-md:17px; --text-lg:20px; --text-xl:24px;
+      --text-2xl:30px; --text-3xl:38px; --text-display:52px;
+
+      /* ── Score / heat colour tokens (light) ──────────────────────────────── */
+      --score-great-bg:rgba(22,163,74,0.13);   --score-great-ink:#15803d;
+      --score-good-bg:rgba(34,197,94,0.10);    --score-good-ink:#16a34a;
+      --score-avg-bg:rgba(234,179,8,0.10);     --score-avg-ink:#a16207;
+      --score-low-bg:rgba(217,119,6,0.11);     --score-low-ink:#c2410c;
+      --score-poor-bg:rgba(220,38,38,0.12);    --score-poor-ink:#dc2626;
+
+      /* ── Shadow scale ────────────────────────────────────────────────────── */
+      --shadow-xs:0 1px 3px rgba(10,30,61,0.07);
+      --shadow-sm:0 2px 8px rgba(10,30,61,0.09);
+      --shadow-md:0 4px 16px rgba(10,30,61,0.11);
+      --shadow-lg:0 8px 28px rgba(10,30,61,0.14);
+      --shadow-xl:0 16px 48px rgba(10,30,61,0.18);
+
+      /* ── Transition tokens ───────────────────────────────────────────────── */
+      --ease-fast:110ms ease-out;
+      --ease-base:190ms ease-out;
+      --ease-slow:310ms ease-out;
+      --ease-spring:240ms cubic-bezier(0.34,1.15,0.64,1);
     }
 
     [data-theme="dark"]{
-      --bg:#070d1a;
-      --ink:#f0f4ff;
-      --card:#0f1b30;
-      --tile:#121f38;
-      --field-bg:#152240;
-      --field-bg-dark:#0d1629;
-      --muted:#8899bb;
-      --border:rgba(255,255,255,0.07);
+      /* ── Core palette (premium deep-navy dark) ─────────────────────────── */
+      --bg:#080c16;
+      --ink:#e8eeff;
+      --card:#111827;
+      --tile:#1a2236;
+      --field-bg:#1e2d45;
+      --field-bg-dark:#0d1117;
+      --muted:#8fa3c8;
+      --border:rgba(255,255,255,0.09);
+
+      /* ── Button tokens ─────────────────────────────────────────────────── */
       --btn:#ff6b2b;
       --btn-hover:#ff8c55;
-      --btn-nav:#0d1629;
+      --btn-nav:#162035;
       --btn-nav-text:#ffffff;
       --btn-secondary:rgba(255,255,255,0.07);
-      --btn-secondary-border:rgba(255,255,255,0.14);
-      --btn-secondary-text:#c8d8f0;
+      --btn-secondary-border:rgba(255,255,255,0.13);
+      --btn-secondary-text:#bdd0ee;
       --btn-positive:#22c55e;
       --btn-edit:#38BDF8;
       --btn-danger:#f87171;
-      --upgrade:#ff6b2b;
-      --upgradeHover:#ff8c55;
-      --btn2:#38BDF8;
-      --btnText:#ffffff;
-      --danger:#f87171;
-      --ok:#ff6b2b;
-      --warn:#fb923c;
-      --success:#22c55e;
-      --info:#38BDF8;
-      --brand-glow-1:rgba(255,107,43,0.15);
-      --brand-glow-2:rgba(255,107,43,0.07);
-      --brand-grid:rgba(255,255,255,0.05);
+
+      /* ── Semantic tokens ───────────────────────────────────────────────── */
+      --upgrade:#ff6b2b; --upgradeHover:#ff8c55;
+      --btn2:#38BDF8; --btnText:#ffffff;
+      --danger:#f87171; --ok:#ff6b2b; --warn:#fb923c;
+      --success:#22c55e; --info:#38BDF8;
+
+      /* ── Brand / decorative ────────────────────────────────────────────── */
+      --brand-glow-1:rgba(255,107,43,0.18);
+      --brand-glow-2:rgba(255,107,43,0.08);
+      --brand-grid:rgba(255,255,255,0.045);
       --black-font-replacement:#facc15;
+
+      /* ── Score / heat colour tokens (dark — brighter for readability) ─── */
+      --score-great-bg:rgba(22,163,74,0.22);   --score-great-ink:#4ade80;
+      --score-good-bg:rgba(34,197,94,0.16);    --score-good-ink:#22c55e;
+      --score-avg-bg:rgba(234,179,8,0.18);     --score-avg-ink:#facc15;
+      --score-low-bg:rgba(251,146,60,0.18);    --score-low-ink:#fb923c;
+      --score-poor-bg:rgba(248,113,113,0.20);  --score-poor-ink:#f87171;
+
+      /* ── Shadow scale (dark) ───────────────────────────────────────────── */
+      --shadow-xs:0 1px 3px rgba(0,0,0,0.30);
+      --shadow-sm:0 2px 8px rgba(0,0,0,0.38);
+      --shadow-md:0 4px 16px rgba(0,0,0,0.45);
+      --shadow-lg:0 8px 28px rgba(0,0,0,0.55);
+      --shadow-xl:0 16px 48px rgba(0,0,0,0.65);
+
       --radius:14px;
-      --shadow:0 8px 32px rgba(0,0,0,0.45);
+      --shadow:0 8px 40px rgba(0,0,0,0.55);
     }
 
     /* Dark mode body background */
     [data-theme="dark"] body{
       background:var(--bg);
       color:var(--ink);
-      border-top:2px solid rgba(249,115,22,0.45);
+      border-top:2px solid rgba(255,107,43,0.50);
     }
     [data-theme="dark"] body::before{
       background:
-        radial-gradient(900px 300px at 0% 0%, rgba(249,115,22,0.06), transparent 70%),
-        radial-gradient(1200px 400px at 80% 10%, rgba(255,107,43,0.06), transparent 60%),
-        linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+        radial-gradient(1100px 380px at 5% 0%,  rgba(255,107,43,0.08),  transparent 65%),
+        radial-gradient(800px  260px at 85% 8%,  rgba(56,189,248,0.05),  transparent 60%),
+        radial-gradient(600px  200px at 50% 60%, rgba(139,92,246,0.04),  transparent 55%),
+        linear-gradient(180deg, #0e1420 0%, #080c16 100%);
     }
     [data-theme="dark"] body::after{
       background-image:
         url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E"),
-        radial-gradient(rgba(255,255,255,0.04) 0.5px, transparent 0.5px);
-      background-size: 200px 200px, 18px 18px;
-      opacity: 0.04;
+        radial-gradient(rgba(255,255,255,0.035) 0.5px, transparent 0.5px);
+      background-size: 200px 200px, 20px 20px;
+      opacity: 0.045;
     }
 
     /* Dark mode specific overrides */
@@ -203,20 +255,25 @@
       border-color:rgba(255,255,255,0.08);
     }
     [data-theme="dark"] .card{
-      box-shadow:0 4px 20px rgba(0,0,0,0.35);
-      border-color:rgba(240,246,252,0.08);
+      box-shadow:0 4px 24px rgba(0,0,0,0.45);
+      border-color:rgba(255,255,255,0.07);
+      border-left-color:rgba(255,107,43,0.22);
+    }
+    [data-theme="dark"] .card:hover{
+      box-shadow:0 6px 32px rgba(0,0,0,0.55);
+      border-color:rgba(255,255,255,0.10);
     }
     [data-theme="dark"] .miniTile{
       background:var(--tile);
-      border-color:rgba(240,246,252,0.08);
+      border-color:rgba(255,255,255,0.07);
     }
     [data-theme="dark"] .playerTile{
       background:var(--card);
-      border-color:rgba(240,246,252,0.08);
+      border-color:rgba(255,255,255,0.07);
     }
     [data-theme="dark"] .rubricTile{
       background:var(--tile);
-      border-color:rgba(240,246,252,0.08);
+      border-color:rgba(255,255,255,0.07);
     }
     [data-theme="dark"] .tableWrap{
       background:var(--card);
@@ -315,13 +372,17 @@
       font-family:"Inter","Manrope", system-ui, -apple-system, Segoe UI, sans-serif;
       background:var(--bg);
       color:var(--ink);
-      font-size:15px;
+      font-size:var(--text-base);
       margin:0;
       padding:18px;
       min-height:100vh;
-      line-height:1.5;
+      line-height:1.55;
       position:relative;
       overflow-x:hidden;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      font-feature-settings:"cv02","cv03","cv04","cv11";
+      text-rendering:optimizeLegibility;
     }
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
@@ -390,11 +451,17 @@
       padding:18px;
       border-radius:var(--radius);
       margin:12px 0;
-      box-shadow:var(--shadow);
+      box-shadow:var(--shadow-md);
       border:1px solid var(--border);
-      border-left:1px solid rgba(255,107,43,0.18);
+      border-left:3px solid rgba(255,107,43,0.22);
       content-visibility:auto;
       contain-intrinsic-size:1px 420px;
+      transition:box-shadow var(--ease-base), border-color var(--ease-base),
+                 transform var(--ease-fast);
+    }
+    .card:hover{
+      box-shadow:var(--shadow-lg);
+      transform:translateY(-1px);
     }
     @keyframes shimmer{
       0%{ background-position: 200% 0; }
@@ -432,36 +499,50 @@
       font-size:19px;
       margin:0;
     }
-    h1,h2,h3{
+    h1,h2,h3,h4{
       margin:6px 0 10px 0;
-      font-family:"Space Grotesk", "Manrope", sans-serif;
-      letter-spacing:-0.01em;
+      font-family:"Space Grotesk","Manrope",sans-serif;
+      letter-spacing:-0.02em;
+      line-height:1.2;
+      -webkit-font-smoothing:antialiased;
     }
-    h1{font-size:36px;}
-    h2{font-size:24px;}
-    h3{font-size:19px;}
+    h1{font-size:var(--text-3xl);font-weight:900;}
+    h2{font-size:var(--text-xl);font-weight:800;}
+    h3{font-size:var(--text-lg);font-weight:700;}
+    h4{font-size:var(--text-md);font-weight:700;letter-spacing:-0.01em;}
     .muted{color:var(--muted);font-size:14px;}
     .tiny{color:var(--muted);font-size:13px;}
     label.muted{display:block;margin-bottom:2px;font-weight:600;}
     .hidden{display:none;}
 
+    /* ── Score heat utility classes (pick up dark/light token automatically) ── */
+    .score-great{ background:var(--score-great-bg); color:var(--score-great-ink); }
+    .score-good { background:var(--score-good-bg);  color:var(--score-good-ink);  }
+    .score-avg  { background:var(--score-avg-bg);   color:var(--score-avg-ink);   }
+    .score-low  { background:var(--score-low-bg);   color:var(--score-low-ink);   }
+    .score-poor { background:var(--score-poor-bg);  color:var(--score-poor-ink);  }
+    /* Pill variant — adds padding + radius for use in badges/tags */
+    .score-pill { display:inline-block; padding:2px 9px; border-radius:var(--radius-full);
+                  font-weight:800; font-size:var(--text-sm); }
+
     input,select,textarea,button{
       width:100%;
       padding:12px 14px;
-      border-radius:12px;
+      border-radius:var(--radius-md);
       border:1px solid var(--border);
       margin:6px 0;
       font-size:16px;
       font-family:inherit;
       background:var(--field-bg);
       color:var(--ink);
-      transition:border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+      transition:border-color var(--ease-base), box-shadow var(--ease-base),
+                 transform var(--ease-fast), background var(--ease-base),
+                 filter var(--ease-fast);
     }
     input:focus,select:focus,textarea:focus{
-      outline:2px solid rgba(255,107,43,0.25);
-      outline-offset:-1px;
-      border-color:rgba(255,107,43,0.25);
-      box-shadow:0 0 0 3px rgba(255,107,43,0.24);
+      outline:none;
+      border-color:rgba(255,107,43,0.40);
+      box-shadow:0 0 0 3px rgba(255,107,43,0.20);
     }
     input[type="checkbox"]{width:auto;margin:0 8px 0 0;}
     textarea{min-height:100px;resize:vertical;}
@@ -474,9 +555,9 @@
       border: 1px solid rgba(10,30,61,0.12);
       box-shadow: 0 2px 8px rgba(10,30,61,0.10);
     }
-    button:hover{ filter: brightness(0.92); }
-    button:active{ filter: brightness(0.88); transform: translateY(1px); }
-    button:disabled{ opacity: 0.4; cursor: not-allowed; filter: none; }
+    button:hover{ filter:brightness(0.93); }
+    button:active{ filter:brightness(0.87); transform:translateY(1px) scale(0.985); }
+    button:disabled{ opacity:0.38; cursor:not-allowed; filter:none; transform:none; }
 
     /* Primary action - orange - the one thing to do next */
     button.ok,
@@ -7588,14 +7669,15 @@ function scoreHeatCell(val, isOverall=false){
   const n = (val===null||val===undefined||Number.isNaN(Number(val))) ? null : Number(val);
   const text = n===null ? "—" : n.toFixed(2);
   if(n===null) return `<td style="color:var(--muted);text-align:center;">${text}</td>`;
-  let bg,color;
-  if(n>=4.5)      { bg="rgba(22,163,74,0.14)";  color="#15803d"; }
-  else if(n>=3.8) { bg="rgba(34,197,94,0.10)";  color="#16a34a"; }
-  else if(n>=3.0) { bg="rgba(234,179,8,0.10)";  color="#a16207"; }
-  else if(n>=2.0) { bg="rgba(217,119,6,0.11)";  color="#d97706"; }
-  else            { bg="rgba(220,38,38,0.12)";   color="#dc2626"; }
+  /* Use CSS token vars so dark-mode overrides apply automatically */
+  let bgVar, inkVar;
+  if(n>=4.5)      { bgVar="--score-great-bg"; inkVar="--score-great-ink"; }
+  else if(n>=3.8) { bgVar="--score-good-bg";  inkVar="--score-good-ink";  }
+  else if(n>=3.0) { bgVar="--score-avg-bg";   inkVar="--score-avg-ink";   }
+  else if(n>=2.0) { bgVar="--score-low-bg";   inkVar="--score-low-ink";   }
+  else            { bgVar="--score-poor-bg";   inkVar="--score-poor-ink";  }
   const fw = isOverall ? "font-weight:800;" : "";
-  return `<td style="background:${bg};color:${color};${fw}text-align:center;">${isOverall?`<b>${text}</b>`:text}</td>`;
+  return `<td style="background:var(${bgVar});color:var(${inkVar});${fw}text-align:center;">${isOverall?`<b>${text}</b>`:text}</td>`;
 }
 function isNew(createdAt, hours=24){
   if(!createdAt) return false;
@@ -18947,7 +19029,7 @@ function renderTeamBuilderDashboard(){
     const avg       = calcTeamAvgScore(team);
     const avgStr    = avg !== null ? num2(avg) : "—";
     const teamColor = TB_COLORS[teamIdx % TB_COLORS.length];
-    const avgColor  = avg===null?'#94a3b8':avg>=4.5?'#15803d':avg>=3.8?'#16a34a':avg>=3.0?'#a16207':avg>=2.0?'#d97706':'#dc2626';
+    const avgColor  = avg===null?'var(--muted)':avg>=4.5?'var(--score-great-ink)':avg>=3.8?'var(--score-good-ink)':avg>=3.0?'var(--score-avg-ink)':avg>=2.0?'var(--score-low-ink)':'var(--score-poor-ink)';
 
     // Positional breakdown
     const posG = {fwd:0,def:0,gol:0,oth:0};
@@ -18977,11 +19059,11 @@ function renderTeamBuilderDashboard(){
         : "";
       const overallNum = Number(det.overall);
       const overallStr = Number.isFinite(overallNum) ? num2(overallNum) : "—";
-      const overallColor = !Number.isFinite(overallNum)?'#94a3b8':overallNum>=4.5?'#15803d':overallNum>=3.8?'#16a34a':overallNum>=3.0?'#a16207':overallNum>=2.0?'#d97706':'#dc2626';
+      const overallColor = !Number.isFinite(overallNum)?'var(--muted)':overallNum>=4.5?'var(--score-great-ink)':overallNum>=3.8?'var(--score-good-ink)':overallNum>=3.0?'var(--score-avg-ink)':overallNum>=2.0?'var(--score-low-ink)':'var(--score-poor-ink)';
       const displayName = det.name || playerDisplayName(player) || `#${player.jersey||"?"}`;
       const posAvatarBg = _tbAvatarBgMap[getPositionAvatarClass(player.pos||"", _tbSport)] || '#6366f1';
       const initials = ((player.first||"")[0]||"").toUpperCase() + ((player.last||"")[0]||"").toUpperCase();
-      const rowBg = rowIdx%2===0 ? '#f8fafc' : '#ffffff';
+      const rowBg = rowIdx%2===0 ? 'var(--tile)' : 'var(--card)';
       return `<div class="tbPlayerRow" draggable="true"
         ondragstart="tbDragStart('${escapeAttr(pid)}','${escapeAttr(team.id)}',event)"
         ondragend="tbDragEnd(event)"
@@ -18990,8 +19072,8 @@ function renderTeamBuilderDashboard(){
         title="Drag to move or click to trade">
         <div style="width:24px;height:24px;border-radius:50%;background:${posAvatarBg};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;">${escapeHTML(initials||"?")}</div>
         <div style="flex:1;min-width:0;overflow:hidden;">
-          <div style="font-size:12px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${escapeHTML(String(player.jersey||det.jersey||"?"))} ${escapeHTML(displayName)}${pkgTag}</div>
-          <div style="font-size:10px;color:#64748b;">${escapeHTML(det.position||player.pos||"—")}</div>
+          <div style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">#${escapeHTML(String(player.jersey||det.jersey||"?"))} ${escapeHTML(displayName)}${pkgTag}</div>
+          <div style="font-size:10px;color:var(--muted);">${escapeHTML(det.position||player.pos||"—")}</div>
         </div>
         <div style="font-size:13px;font-weight:800;color:${overallColor};flex-shrink:0;">${overallStr}</div>
         <span style="flex-shrink:0;font-size:10px;color:#cbd5e1;">⠿</span>
@@ -19012,14 +19094,14 @@ function renderTeamBuilderDashboard(){
           </div>
           <button onclick="renameTBTeam('${escapeAttr(team.id)}')" style="font-size:10px;padding:2px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;flex-shrink:0;" title="Rename team">✏️</button>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;padding:8px 10px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;padding:8px 10px;background:var(--tile);border-radius:10px;border:1px solid var(--border);">
           <div>
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;">Avg Score</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);">Avg Score</div>
             <div style="font-size:19px;font-weight:900;color:${avgColor};line-height:1.1;">${avgStr}</div>
-            <div style="font-size:10px;color:#94a3b8;margin-top:1px;">${(team.players||[]).length} players</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:1px;">${(team.players||[]).length} players</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;margin-bottom:5px;">Positions</div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:5px;">Positions</div>
             <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">${posTags||'<span style="font-size:10px;color:#94a3b8;">—</span>'}</div>
           </div>
         </div>
