@@ -955,19 +955,39 @@
     .coachPrimaryNav{
       position:relative;
       display:flex;
-      gap:8px;
+      gap:6px;
       flex-wrap:wrap;
       width:100%;
+      padding:4px;
+      background:var(--tile);
+      border-radius:var(--radius-full);
+      border:1px solid var(--border);
+    }
+    /* On mobile the bottom tab nav replaces the topbar nav */
+    @media(max-width:768px){
+      .coachPrimaryNav{ display:none !important; }
     }
     .coachPrimaryNav > button{
-      flex:1 1 120px;
-      min-width:110px;
+      flex:1 1 auto;
+      min-width:0;
       white-space:nowrap;
+      padding:8px 14px;
+      border-radius:var(--radius-full);
+      border:none;
+      background:transparent;
+      box-shadow:none;
+      font-size:13px;
+      font-weight:700;
+      color:var(--muted);
+    }
+    .coachPrimaryNav > button:hover:not(.ok){
+      background:var(--field-bg);
+      color:var(--ink);
     }
     .coachPrimaryNav > button.ok{
-      background:var(--ok);
+      background:var(--btn);
       color:#fff;
-      border-color:rgba(10,30,61,0.12);
+      box-shadow:0 2px 8px rgba(249,115,22,0.28);
     }
     .coachNavMoreMenu{
       position:absolute;
@@ -1216,7 +1236,7 @@
       cursor:pointer;
       user-select:none;
       border:1px solid var(--border);
-      min-height:122px;
+      min-height:148px;
       display:flex;
       flex-direction:column;
       justify-content:space-between;
@@ -2441,11 +2461,110 @@
       .summaryCardValue{font-size:1.3rem;}
     }
 
-    /* ── Score Ring on Player Tile ────────── */
-    .ptScoreRing{flex-shrink:0;margin-left:4px;}
+    /* ── Score Ring on Player Tile (#3) ─────────────────────────────────────── */
+    .ptScoreRing{flex-shrink:0;margin-left:6px;}
     .ptScoreRingBg{stroke:rgba(10,30,61,0.08);}
-    .ptScoreRingFill{stroke-linecap:round;transition:stroke-dasharray 0.4s ease;}
-    [data-theme="dark"] .ptScoreRingBg{stroke:rgba(255,255,255,0.1);}
+    .ptScoreRingFill{stroke-linecap:round;transition:stroke-dasharray 0.5s var(--ease-spring);}
+    [data-theme="dark"] .ptScoreRingBg{stroke:rgba(255,255,255,0.10);}
+    .ptScoreNum{
+      font-family:"Space Grotesk","Manrope",sans-serif;
+      font-weight:900;
+      letter-spacing:-0.03em;
+      dominant-baseline:middle;
+      text-anchor:middle;
+    }
+    .ptScoreLabel{
+      font-family:"Inter","Manrope",sans-serif;
+      font-weight:600;
+      dominant-baseline:middle;
+      text-anchor:middle;
+      opacity:0.55;
+    }
+
+    /* ── Bottom Tab Nav (#4) ─────────────────────────────────────────────────── */
+    .swgBottomNav{
+      position:fixed;
+      bottom:0; left:0; right:0;
+      z-index:11500;
+      display:none;               /* shown only on mobile via media query below */
+      align-items:stretch;
+      background:var(--card);
+      border-top:1px solid var(--border);
+      box-shadow:0 -6px 24px rgba(0,0,0,0.18);
+      padding-bottom:env(safe-area-inset-bottom,0px);
+    }
+    @media(max-width:768px){
+      .swgBottomNav{ display:flex; }
+      /* push page content up so bottom nav never covers it */
+      body{ padding-bottom:calc(62px + env(safe-area-inset-bottom,0px)); }
+    }
+    .swgBNItem{
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:3px;
+      padding:8px 2px;
+      cursor:pointer;
+      border:none;
+      background:transparent;
+      border-radius:0;
+      margin:0;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:0.02em;
+      line-height:1;
+      position:relative;
+      transition:color var(--ease-fast);
+      -webkit-tap-highlight-color:transparent;
+      min-height:56px;
+    }
+    .swgBNItem.active{
+      color:var(--btn);
+    }
+    .swgBNItem.active::after{
+      content:"";
+      position:absolute;
+      top:0; left:18%; right:18%;
+      height:2.5px;
+      background:var(--btn);
+      border-radius:0 0 var(--radius-sm) var(--radius-sm);
+    }
+    .swgBNIcon{
+      font-size:21px;
+      line-height:1;
+      display:block;
+    }
+    .swgBNBadge{
+      position:absolute;
+      top:5px;
+      right:calc(50% - 20px);
+      min-width:15px;
+      height:15px;
+      background:#f97316;
+      color:#fff;
+      border-radius:var(--radius-full);
+      font-size:8px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 3px;
+      border:1.5px solid var(--card);
+    }
+
+    /* ── Desktop nav improvements (#4) ──────────────────────────────────────── */
+    .coachPrimaryNav > button{
+      border-radius:var(--radius-full) !important;
+      font-size:13px;
+      transition:background var(--ease-fast), color var(--ease-fast),
+                 transform var(--ease-fast);
+    }
+    .coachPrimaryNav > button:hover:not(.ok){
+      transform:translateY(-1px);
+    }
 
     /* ── Radar Chart ───────────────────────── */
     .radarWrap{margin:12px 0;display:flex;flex-direction:column;align-items:center;}
@@ -10809,6 +10928,7 @@ function go(view){
     currentView = requested || "home";
   }
   render();
+  renderBottomNav();
   window.scrollTo(0, 0);
 }
 function goHub(){
@@ -10817,6 +10937,7 @@ function goHub(){
   if(season){
     currentView = "seasonList";
     render();
+    renderBottomNav();
     window.scrollTo(0, 0);
     return;
   }
@@ -10829,6 +10950,7 @@ function goHome(){
     editingEvalId = null;
     workingScores = {};
     render();
+    renderBottomNav();
     window.scrollTo(0, 0);
     return;
   }
@@ -10836,6 +10958,7 @@ function goHome(){
   currentCombinedData=null;
   showArchivedOnHome=false;
   currentView="home"; render();
+  renderBottomNav();
   window.scrollTo(0, 0);
 }
 function endAssessorAssessment(){
@@ -11716,6 +11839,55 @@ function startGlobalHomeNavObserver(){
   injectGlobalHomeButton();
 }
 
+/* ─── BOTTOM NAV (#4) ─────────────────────────────────────────────────────── */
+function renderBottomNav(){
+  const t = getTryout();
+  const canManage = canManageRoster();
+  const inviteMode = isAssessorInviteSession();
+  // Only show inside a tryout view
+  const insideTryout = !!t && !["home","seasonList","upgrade","profile","help"].includes(currentView);
+  let nav = document.getElementById("swgBottomNav");
+
+  if(!insideTryout){
+    if(nav){ nav.style.display = "none"; }
+    return;
+  }
+
+  const pending = pendingRegistrations().length;
+  const playerActive = ["roster","player","editPlayer"].includes(currentView);
+  const regActive    = currentView === "registrations";
+  const resultsActive = currentView === "results";
+  const rubricsActive = currentView === "rubrics";
+  const settingsActive = currentView === "settings";
+  const exportActive  = currentView === "export";
+
+  const items = inviteMode ? [
+    { icon:"👥", label:"Players",  active:playerActive, action:"go('roster')" },
+  ] : [
+    { icon:"👥", label:"Players",  active:playerActive,  action:"go('roster')" },
+    { icon:"📋", label:"Reg",      active:regActive,     action:"go('registrations')", badge: pending||0 },
+    { icon:"📊", label:"Results",  active:resultsActive, action:"go('results')" },
+    { icon:"🎯", label:"Rubrics",  active:rubricsActive, action:"go('rubrics')" },
+    { icon:"⚙️", label:"Settings", active:settingsActive||exportActive, action:"go('settings')" },
+    { icon:"🏠", label:"Hub",      active:false, action:"goHub()" },
+  ];
+
+  if(!nav){
+    nav = document.createElement("nav");
+    nav.id = "swgBottomNav";
+    nav.className = "swgBottomNav";
+    document.body.appendChild(nav);
+  }
+  nav.style.display = "";
+  nav.innerHTML = items.map(v=>`
+    <button class="swgBNItem${v.active?" active":""}" onclick="${v.action}">
+      ${v.badge ? `<span class="swgBNBadge">${v.badge}</span>` : ""}
+      <span class="swgBNIcon">${v.icon}</span>
+      <span>${v.label}</span>
+    </button>
+  `).join("");
+}
+
 /* ─── DARK MODE ─── */
 function isDarkMode(){
   return document.documentElement.getAttribute("data-theme") === "dark";
@@ -11828,6 +12000,7 @@ function render(){
   syncNavMoreMenu();
   applyButtonIntentStyles(document);
   updateAuthUI();
+  renderBottomNav();
 }
 
 /** -------------------------
@@ -20396,8 +20569,18 @@ function renderRosterTiles(){
         const avatarInitials = getPositionInitials(p.pos);
         // Score ring: map position class → fill colour, compute arc length (scale 0-5, r=18 → circ≈113)
         const _ptAvatarBgMap = {'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'};
-        const _ptAvatarBg = _ptAvatarBgMap[avatarClass] || '#6366f1';
-        const _ptRingFill = overall > 0 ? Math.min((overall/5)*113,113).toFixed(1) : "0";
+        const _ptAvatarBg  = _ptAvatarBgMap[avatarClass] || '#6366f1';
+        // Larger ring: r=27, circ=2π×27≈169.6
+        const _ptCirc      = 169.6;
+        const _ptRingFill  = (overall!==null && overall>0) ? Math.min((overall/5)*_ptCirc,_ptCirc).toFixed(1) : "0";
+        // Arc colour = score quality tier (picks up dark-mode token automatically)
+        const _ptArcColor  = overall===null ? 'var(--border)'
+                           : overall>=4.5  ? 'var(--score-great-ink)'
+                           : overall>=3.8  ? 'var(--score-good-ink)'
+                           : overall>=3.0  ? 'var(--score-avg-ink)'
+                           : overall>=2.0  ? 'var(--score-low-ink)'
+                           : 'var(--score-poor-ink)';
+        const _ptScoreTxt  = overall===null ? "—" : Number(overall).toFixed(2);
         const jerseyDisplay = p.jersey ? String(p.jersey) : "";
         const fc = friendColors[p.id];
         const friendBar = fc ? `<div class="friendPkgBar" style="background:${fc.bar};"></div>` : "";
@@ -20426,21 +20609,27 @@ function renderRosterTiles(){
                   <div class="ptSub">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos||"—")}${p.athleteId ? ` • <span style="font-family:monospace;font-size:10px;color:#94a3b8;letter-spacing:0.04em;">ID ${escapeHTML(p.athleteId)}</span>` : ""}</div>
                   <div class="ptSub">Assigned: <b style="color:var(--black-font-replacement)">${escapeHTML(assigned)}</b></div>
                 </div>
-                <div class="ptScoreRing" aria-label="Score ${fmt2(overall)} out of 5">
-                  <svg width="44" height="44" viewBox="0 0 44 44">
-                    <circle class="ptScoreRingBg" cx="22" cy="22" r="18" stroke-width="3" fill="none"/>
-                    <circle class="ptScoreRingFill" cx="22" cy="22" r="18" stroke-width="3" fill="none"
-                      stroke="${_ptAvatarBg}" stroke-dasharray="${_ptRingFill} 113"
-                      transform="rotate(-90 22 22)"/>
-                    <circle cx="22" cy="22" r="13" fill="${_ptAvatarBg}"/>
-                    <text x="22" y="26.5" text-anchor="middle" font-size="9.5" font-weight="800" fill="#fff"
-                      font-family="Manrope,Space Grotesk,Arial,sans-serif">${escapeHTML(avatarInitials)}</text>
+                <div class="ptScoreRing" aria-label="Score ${_ptScoreTxt} out of 5">
+                  <svg width="68" height="68" viewBox="0 0 68 68">
+                    <!-- track -->
+                    <circle class="ptScoreRingBg" cx="34" cy="34" r="27" stroke-width="4" fill="none"/>
+                    <!-- arc: colour = score tier -->
+                    <circle class="ptScoreRingFill" cx="34" cy="34" r="27" stroke-width="4" fill="none"
+                      stroke="${_ptArcColor}" stroke-dasharray="${_ptRingFill} ${_ptCirc}"
+                      transform="rotate(-90 34 34)"/>
+                    <!-- position colour inner disc -->
+                    <circle cx="34" cy="34" r="20" fill="${_ptAvatarBg}" opacity="0.92"/>
+                    <!-- score number -->
+                    <text x="34" y="32" class="ptScoreNum" font-size="${_ptScoreTxt==="—"?15:overall>=10?12:13}"
+                      fill="#fff">${escapeHTML(_ptScoreTxt)}</text>
+                    <!-- "/ 5" label -->
+                    <text x="34" y="44" class="ptScoreLabel" font-size="8" fill="#fff">/ 5</text>
                   </svg>
                 </div>
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-                <div class="ptPill">${evCount} evals</div>
-                <div class="ptPill"><b style="color:var(--black-font-replacement)">${fmt2(overall)}</b></div>
+                <div class="ptPill">${evCount} eval${evCount!==1?"s":""}</div>
+                <div class="ptPill" style="font-size:10px;color:var(--muted);">out of 5.00</div>
               </div>
               ${_rbBar}
               <div class="ptScoreState ${scoreStateClass}">
