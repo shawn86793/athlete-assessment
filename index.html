@@ -5534,6 +5534,255 @@
     /* ── Skeleton shimmer speed-up ───────────────────────────── */
     .skeletonLine{animation-duration:1.0s!important;}
 
+    /* ══════════════════════════════════════════════════════════════
+       #8 — SCORE NUMBER PAD  (mobile bottom-sheet score entry)
+       ══════════════════════════════════════════════════════════════ */
+
+    /* Desktop shows the inline score row; mobile shows the tap button */
+    @media(min-width:769px){ .scoreTapMobile{ display:none !important; } }
+    @media(max-width:768px){ .scoreRowDesktop{ display:none !important; } }
+
+    .scoreTapMobile{ display:flex; align-items:center; gap:8px; }
+    .scoreTapBtn{
+      flex:1; display:flex; align-items:center;
+      justify-content:space-between; gap:8px;
+      padding:11px 14px;
+      background:var(--field-bg);
+      border:1px solid var(--border);
+      border-radius:var(--radius-sm);
+      cursor:pointer;
+      transition:background var(--ease-fast), border-color var(--ease-fast);
+      -webkit-tap-highlight-color:transparent;
+    }
+    .scoreTapBtn.scored{
+      background:rgba(255,107,43,0.10);
+      border-color:rgba(255,107,43,0.32);
+    }
+    .scoreTapLeft{ display:flex; align-items:baseline; gap:6px; }
+    .scoreTapValue{
+      font-size:var(--text-xl); font-weight:900;
+      letter-spacing:var(--tracking-tighter);
+      color:var(--btn); line-height:1;
+      font-variant-numeric:tabular-nums;
+      min-width:28px;
+    }
+    .scoreTapValue.unscored{ color:var(--muted); font-size:var(--text-md); }
+    .scoreTapHint{ font-size:var(--text-sm); color:var(--muted); }
+    .scoreTapCaret{ font-size:16px; color:var(--muted); flex-shrink:0; }
+
+    /* Bottom-sheet overlay */
+    .swgScorePad{
+      position:fixed; inset:0; z-index:12000;
+      background:rgba(0,0,0,0.58);
+      backdrop-filter:blur(5px);
+      display:flex; align-items:flex-end;
+      animation:swgOverlayFade 160ms ease-out both;
+    }
+    .swgScorePadSheet{
+      width:100%;
+      background:var(--card);
+      border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+      padding-bottom:env(safe-area-inset-bottom,0px);
+      animation:scorePadUp 260ms cubic-bezier(0.34,1.15,0.64,1) both;
+      max-height:72vh; overflow-y:auto;
+    }
+    @keyframes scorePadUp{
+      from{ transform:translateY(100%); opacity:.6; }
+      to  { transform:translateY(0);    opacity:1;  }
+    }
+    .swgScorePadHandle{
+      width:36px; height:4px; border-radius:var(--radius-full);
+      background:var(--border); margin:10px auto 0;
+    }
+    .swgScorePadMeta{
+      padding:12px 20px 4px; text-align:center;
+    }
+    .swgScorePadCat{
+      font-size:var(--text-xs); font-weight:800;
+      text-transform:uppercase; letter-spacing:var(--tracking-widest);
+      color:var(--btn);
+    }
+    .swgScorePadRubric{
+      font-size:var(--text-md); font-weight:700; color:var(--ink); margin-top:3px;
+    }
+    .swgScorePadDiv{
+      height:1px; background:var(--border); margin:10px 16px 0;
+    }
+    .swgScorePadGrid{
+      display:grid; grid-template-columns:repeat(5,1fr);
+      gap:8px; padding:14px 16px 4px;
+    }
+    .swgScorePadGrid.scale10{
+      grid-template-columns:repeat(5,1fr); /* 2 rows of 5 */
+    }
+    .swgScorePadNum{
+      display:flex; flex-direction:column; align-items:center;
+      justify-content:center; min-height:66px;
+      border-radius:var(--radius-md);
+      background:var(--field-bg); border:2px solid var(--border);
+      font-size:var(--text-xl); font-weight:900;
+      color:var(--muted); cursor:pointer;
+      transition:background var(--ease-fast), color var(--ease-fast),
+        transform var(--ease-spring), border-color var(--ease-fast), box-shadow var(--ease-fast);
+      letter-spacing:var(--tracking-tighter);
+      font-variant-numeric:tabular-nums;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none; gap:2px;
+    }
+    .swgScorePadNum:active{ transform:scale(0.90); }
+    .swgScorePadNum.spActive{
+      background:var(--btn); color:#fff;
+      border-color:transparent;
+      box-shadow:0 4px 18px rgba(255,107,43,0.42);
+      transform:scale(1.06);
+    }
+    .swgScorePadNumHint{
+      font-size:8px; font-weight:700; letter-spacing:.04em;
+      text-transform:uppercase; opacity:.75; line-height:1;
+    }
+    .swgScorePadActions{
+      display:flex; gap:10px; padding:12px 16px 18px;
+    }
+    .swgScorePadActions button{ flex:1; }
+
+    /* ══════════════════════════════════════════════════════════════
+       #9 — PLAYER CARD REDESIGN
+       ══════════════════════════════════════════════════════════════ */
+
+    /* Sticky collapsed header */
+    .playerStickyHdr{
+      position:fixed; top:0; left:0; right:0; z-index:1200;
+      background:rgba(17,24,39,0.88);
+      backdrop-filter:blur(16px) saturate(160%);
+      border-bottom:1px solid var(--border);
+      padding:10px 14px;
+      display:flex; align-items:center; gap:10px;
+      transform:translateY(-100%);
+      transition:transform 0.22s ease;
+      pointer-events:none;
+    }
+    [data-theme="light"] .playerStickyHdr{
+      background:rgba(240,244,250,0.90);
+    }
+    .playerStickyHdr.pshVisible{
+      transform:translateY(0);
+      pointer-events:auto;
+    }
+    .playerStickyHdrName{
+      flex:1; font-family:"Space Grotesk",system-ui,sans-serif;
+      font-size:var(--text-base); font-weight:700;
+      letter-spacing:var(--tracking-tight);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .playerStickyHdrScore{
+      font-size:var(--text-sm); font-weight:800;
+      padding:3px 9px; border-radius:var(--radius-full);
+      background:var(--btn); color:#fff;
+      font-variant-numeric:tabular-nums; flex-shrink:0;
+    }
+    .playerStickyHdrBtns{ display:flex; gap:6px; flex-shrink:0; }
+    .playerStickyHdrBtns button{
+      font-size:12px !important; padding:5px 10px !important;
+      width:auto !important; min-height:0 !important;
+    }
+
+    /* Category horizontal score bars */
+    .catBarsSection{ margin-top:14px; }
+    .catBarsTitle{
+      font-size:var(--text-xs); font-weight:800; text-transform:uppercase;
+      letter-spacing:var(--tracking-widest); color:var(--muted); margin-bottom:10px;
+    }
+    .catBarsWrap{ display:flex; flex-direction:column; gap:9px; }
+    .catBar{ display:flex; align-items:center; gap:10px; }
+    .catBarLabel{
+      font-size:var(--text-sm); font-weight:600; color:var(--muted);
+      min-width:70px; text-align:right; flex-shrink:0;
+    }
+    .catBarTrack{
+      flex:1; height:8px; background:var(--field-bg);
+      border-radius:var(--radius-full); overflow:hidden;
+    }
+    .catBarFill{
+      height:100%; border-radius:var(--radius-full);
+      width:0; transition:width .7s cubic-bezier(.34,1.15,.64,1);
+    }
+    .catBarVal{
+      font-size:var(--text-sm); font-weight:800; color:var(--ink);
+      min-width:28px; font-variant-numeric:tabular-nums; flex-shrink:0;
+    }
+
+    /* Improved assessment history cards */
+    .evalCard2{
+      background:var(--tile); border:1px solid var(--border);
+      border-radius:var(--radius-md); overflow:hidden; margin:0 0 10px;
+    }
+    .evalCard2Hdr{
+      display:flex; align-items:center; gap:10px;
+      padding:12px 14px 8px; flex-wrap:wrap;
+    }
+    .evalCard2ScoreBadge{
+      display:flex; flex-direction:column; align-items:center;
+      min-width:46px; flex-shrink:0;
+    }
+    .evalCard2Score{
+      font-size:var(--text-lg); font-weight:900;
+      letter-spacing:var(--tracking-tighter);
+      font-variant-numeric:tabular-nums; line-height:1;
+    }
+    .evalCard2ScoreLbl{
+      font-size:8px; text-transform:uppercase;
+      letter-spacing:.06em; color:var(--muted); font-weight:700;
+    }
+    .evalCard2Meta{ flex:1; min-width:0; }
+    .evalCard2Title{
+      font-size:var(--text-sm); font-weight:700; color:var(--ink);
+    }
+    .evalCard2Sub{
+      font-size:var(--text-xs); color:var(--muted); margin-top:1px;
+    }
+    .evalCard2RecBadge{
+      font-size:10px; font-weight:800;
+      padding:2px 8px; border-radius:var(--radius-full);
+      flex-shrink:0; align-self:flex-start;
+    }
+    .evalCard2Rec-Make{ background:rgba(22,163,74,.18); color:var(--score-great-ink); }
+    .evalCard2Rec-Keep{ background:rgba(34,197,94,.14); color:var(--score-good-ink); }
+    .evalCard2Rec-Bubble{ background:rgba(234,179,8,.15); color:var(--score-avg-ink); }
+    .evalCard2Rec-Release{ background:rgba(220,38,38,.14); color:var(--score-poor-ink); }
+    .evalCard2Bars{
+      padding:4px 14px 10px;
+      display:flex; flex-direction:column; gap:5px;
+    }
+    .evalCard2Bar{ display:flex; align-items:center; gap:8px; }
+    .evalCard2BarLbl{
+      font-size:9px; font-weight:700; text-transform:uppercase;
+      letter-spacing:.06em; color:var(--muted); min-width:54px; text-align:right;
+    }
+    .evalCard2BarTrack{
+      flex:1; height:5px; background:var(--field-bg);
+      border-radius:var(--radius-full); overflow:hidden;
+    }
+    .evalCard2BarFill{ height:100%; border-radius:var(--radius-full); }
+    .evalCard2BarVal{
+      font-size:10px; font-weight:800; color:var(--ink);
+      min-width:22px; font-variant-numeric:tabular-nums;
+    }
+    .evalCard2Notes{
+      padding:8px 14px 10px; border-top:1px solid var(--border);
+    }
+    .evalCard2NoteRow{
+      font-size:var(--text-sm); color:var(--muted); margin-bottom:4px;
+    }
+    .evalCard2NoteRow b{ color:var(--ink); }
+    .evalCard2Actions{
+      display:flex; gap:6px; padding:8px 14px 10px;
+      border-top:1px solid var(--border); flex-wrap:wrap;
+    }
+    .evalCard2Actions button{
+      width:auto !important; padding:6px 12px !important;
+      font-size:var(--text-sm) !important;
+    }
+
   </style>
 </head>
 
@@ -21509,11 +21758,36 @@ function renderPlayerHub(){
 
   const nav = getAdjacentPlayerIds(p.id);
 
+  // Category bar colors aligned with arc ring colors
+  const _catBarColors = ["#ff6b2b","#6366f1","#0d9488","#f59e0b","#ec4899","#22c55e"];
+  const catBarsHTML = catOrder.map((key, idx) => {
+    const raw = cats[key];
+    const val = raw != null ? (raw > 5 ? raw / 2 : raw) : null;
+    if(val === null) return "";
+    const pct = Math.min(100, (val / 5) * 100).toFixed(1);
+    const color = _catBarColors[idx % _catBarColors.length];
+    return `<div class="catBar">
+      <div class="catBarLabel">${escapeHTML(catLabels[key]||key)}</div>
+      <div class="catBarTrack"><div class="catBarFill" style="width:0%;background:${color};" data-target="${pct}"></div></div>
+      <div class="catBarVal">${val.toFixed(1)}</div>
+    </div>`;
+  }).join("");
+
   app.innerHTML = `
     ${topTabsHTML()}
 
+    <!-- ── Sticky collapsed header (appears on scroll) ── -->
+    <div class="playerStickyHdr" id="playerStickyHdr">
+      <div class="playerStickyHdrName">${escapeHTML(playerDisplayName(p))}</div>
+      ${overall > 0 ? `<div class="playerStickyHdrScore">${fmt2(overall)}</div>` : ""}
+      <div class="playerStickyHdrBtns">
+        <button class="ok" onclick="startNewEval('${escapeJS(p.id)}')">+ Score</button>
+        <button class="secondary" onclick="go('roster')">← Back</button>
+      </div>
+    </div>
+
     <!-- ── OURA-style hero profile card ── -->
-    <div class="card oura-profile-hero">
+    <div class="card oura-profile-hero" id="playerHeroCard">
       <div style="display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:4px;" id="playerNavRow">
         ${nav.prev ? `<button class="secondary small" style="width:auto;" onclick="openPlayerHub('${nav.prev}')">← Prev</button>` : `<span></span>`}
         <span style="font-size:12px;color:#94a3b8;">${nav.idx+1} of ${nav.total}</span>
@@ -21550,7 +21824,7 @@ function renderPlayerHub(){
         <span class="badge">Assigned: ${escapeHTML(p.assignedAssessor||"Unassigned")}</span>
       </div>
 
-      <!-- Sparkline (Feature #5) -->
+      <!-- Sparkline -->
       ${_sparkScores.length >= 2 ? `
       <div class="oura-sparkline-row">
         <span class="oura-spark-label">${_sparkScores.length} sessions</span>
@@ -21559,12 +21833,18 @@ function renderPlayerHub(){
       </div>` : ""}
     </div>
 
-    <!-- ── Category arc rings ── -->
-    <div class="card" style="padding-bottom:12px;">
+    <!-- ── Category arc rings + horizontal bars ── -->
+    <div class="card" style="padding-bottom:16px;">
       <h3 style="margin-bottom:0;">Categories</h3>
       <div class="oura-cat-rings">
         ${catRingsHTML}
       </div>
+      ${catBarsHTML ? `<div class="catBarsSection">
+        <div class="catBarsTitle">Score breakdown</div>
+        <div class="catBarsWrap" id="catBarsWrap">
+          ${catBarsHTML}
+        </div>
+      </div>` : ""}
     </div>
 
     <!-- ── Rankings ── -->
@@ -21589,39 +21869,62 @@ function renderPlayerHub(){
       </div>
     </div>
 
-    <!-- ── Contact ── -->
-    <div class="card">
-      <h3>Player Contact</h3>
-      ${contactItems ? `<div class="pillRow">${contactItems}</div>` : `<div class="muted">No contact info on file.</div>`}
-    </div>
-
     <!-- ── Actions ── -->
     <div class="card">
-      <div class="row">
-        <div class="col"><button class="ok" onclick="startNewEval('${p.id}')">+ New Assessment</button></div>
-        ${canManage ? `<div class="col"><button class="secondary" onclick="openEditPlayer('${p.id}')">Edit Player</button></div>` : ``}
-        ${inviteMode ? "" : `<div class="col"><button class="secondary" onclick="go('results')">View Results Board</button></div>`}
-        ${canManage ? `<div class="col"><button class="danger" onclick="deletePlayer('${p.id}')">Delete Player</button></div>` : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="ok" style="flex:1;min-width:130px;" onclick="startNewEval('${escapeJS(p.id)}')">＋ New Assessment</button>
+        ${canManage ? `<button class="secondary" style="flex:1;min-width:110px;" onclick="openEditPlayer('${escapeJS(p.id)}')">✏ Edit Player</button>` : ""}
+        ${inviteMode ? "" : `<button class="secondary" style="flex:1;min-width:130px;" onclick="go('results')">📊 Results Board</button>`}
+        ${canManage ? `<button class="danger" style="flex:1;min-width:110px;" onclick="deletePlayer('${escapeJS(p.id)}')">✕ Delete</button>` : ""}
       </div>
     </div>
+
+    <!-- ── Contact ── -->
+    ${contactItems ? `<div class="card">
+      <h3>Contact</h3>
+      <div class="pillRow">${contactItems}</div>
+    </div>` : ""}
 
     <!-- ── Assessment History ── -->
     <div class="card">
       <h3>Assessment History</h3>
-      ${evs.length ? "" : `<div class="muted">No assessments yet. Tap "New Assessment".</div>`}
+      ${evs.length ? "" : `<div class="muted" style="padding:4px 0;">No assessments yet. Tap "New Assessment".</div>`}
       ${evs.map(e=>renderEvalRow(e, p)).join("")}
     </div>
   `;
   initTopbarCollapse();
 
-  // Animate hero ring + category arcs
+  // Animate hero ring + category arcs + category bars
   requestAnimationFrame(() => {
     const heroArc = document.getElementById("ouraHeroArc");
     if(heroArc) heroArc.style.strokeDashoffset = heroArc.dataset.target;
     document.querySelectorAll(".catArc").forEach(el => {
       el.style.strokeDashoffset = el.dataset.target;
     });
+    // Stagger bar fills
+    document.querySelectorAll(".catBarFill[data-target]").forEach((el, i) => {
+      setTimeout(() => { el.style.width = el.dataset.target + "%"; }, i * 60);
+    });
   });
+
+  // Sticky header on scroll
+  const _stickyHdr = document.getElementById("playerStickyHdr");
+  const _heroCard  = document.getElementById("playerHeroCard");
+  let _stickyRaf = null;
+  const _onScroll = () => {
+    if(_stickyRaf) return;
+    _stickyRaf = requestAnimationFrame(() => {
+      _stickyRaf = null;
+      if(!_heroCard || !_stickyHdr) return;
+      const bottom = _heroCard.getBoundingClientRect().bottom;
+      _stickyHdr.classList.toggle("pshVisible", bottom < 60);
+    });
+  };
+  window.addEventListener("scroll", _onScroll, { passive: true });
+  // Clean up scroll listener on next navigation
+  const _origOnNav = window._playerStickyCleanup;
+  if(_origOnNav) _origOnNav();
+  window._playerStickyCleanup = () => window.removeEventListener("scroll", _onScroll);
 
   // Touch swipe support
   let _swipeStartX = 0;
@@ -21651,29 +21954,59 @@ function renderPlayerHub(){
 }
 
 function renderEvalRow(e, p){
-  const who = escapeHTML(e.evaluator||"—");
-  const sess = escapeHTML(e.session||"—");
-  const date = escapeHTML(e.date||"");
-  const created = e.createdAt ? new Date(e.createdAt).toLocaleString() : "";
-  const badge = statusBadgeHTML(e.createdAt, e.updatedAt);
-  const canEdit = canEditAssessment(e);
+  const who    = escapeHTML(e.evaluator||"—");
+  const sess   = escapeHTML(e.session||"—");
+  const date   = escapeHTML(e.date||"");
+  const badge  = statusBadgeHTML(e.createdAt, e.updatedAt);
+  const canEdit   = canEditAssessment(e);
   const canDelete = canEdit && !isAssessorReadOnly();
+  const ov     = evalOverallScore(e);
+  const ovStr  = ov !== null ? ov.toFixed(2) : "—";
+  const ovColor = ov === null ? "var(--muted)"
+    : ov >= 4.5 ? "var(--score-great-ink)"
+    : ov >= 3.8 ? "var(--score-good-ink)"
+    : ov >= 3.0 ? "var(--score-avg-ink)"
+    : ov >= 2.0 ? "var(--score-low-ink)"
+    : "var(--score-poor-ink)";
+  const rec    = e.recommendation || "";
+  const recCls = rec ? `evalCard2Rec-${rec}` : "";
+
+  const catScores = evalCatScores(e, p);
+  const _catBarColors2 = ["#ff6b2b","#6366f1","#0d9488","#f59e0b","#ec4899","#22c55e"];
+  const catBarsHTML = catScores.map((c, idx) => {
+    const pct = Math.min(100, (c.avg / 5) * 100).toFixed(1);
+    const col = _catBarColors2[idx % _catBarColors2.length];
+    return `<div class="evalCard2Bar">
+      <div class="evalCard2BarLbl">${escapeHTML(c.label)}</div>
+      <div class="evalCard2BarTrack"><div class="evalCard2BarFill" style="width:${pct}%;background:${col};"></div></div>
+      <div class="evalCard2BarVal">${c.avg.toFixed(1)}</div>
+    </div>`;
+  }).join("");
+
+  const hasNotes = e.strengths || e.improve || e.recommendation;
   return `
-    <div class="card">
-      <div class="evalRow" style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-        <div class="evalRowInfo">
-          <div style="font-weight:900;">${date ? "Date: "+date+" • " : ""}Evaluator: ${who} • ${sess} ${badge}</div>
-          <div class="muted">${escapeHTML(created)}</div>
-          ${e.strengths ? `<div class="tiny"><b>Strengths:</b> ${escapeHTML(e.strengths)}</div>` : ``}
-          ${e.improve ? `<div class="tiny"><b>Improve:</b> ${escapeHTML(e.improve)}</div>` : ``}
-          ${e.recommendation ? `<div class="tiny"><b>Rec:</b> ${escapeHTML(e.recommendation)}</div>` : ``}
+    <div class="evalCard2">
+      <div class="evalCard2Hdr">
+        <div class="evalCard2ScoreBadge">
+          <div class="evalCard2Score" style="color:${ovColor};">${ovStr}</div>
+          <div class="evalCard2ScoreLbl">/ 5</div>
         </div>
-        <div class="evalRowActions" style="min-width:220px;">
-          ${canEdit ? `
-            <button class="small" onclick="startEditEval('${e.id}')">Edit Assessment</button>
-            ${canDelete ? `<button class="small danger" onclick="deleteAssessment('${e.id}')">Delete Assessment</button>` : ``}
-          ` : `<div class="tiny">Only the evaluator or Lead Assessor can edit.</div>`}
+        <div class="evalCard2Meta">
+          <div class="evalCard2Title">${who} · ${sess} ${badge}</div>
+          <div class="evalCard2Sub">${date || "No date"}</div>
         </div>
+        ${rec ? `<div class="evalCard2RecBadge ${recCls}">${escapeHTML(rec)}</div>` : ""}
+      </div>
+      ${catBarsHTML ? `<div class="evalCard2Bars">${catBarsHTML}</div>` : ""}
+      ${hasNotes ? `<div class="evalCard2Notes">
+        ${e.strengths ? `<div class="evalCard2NoteRow"><b>Strengths:</b> ${escapeHTML(e.strengths)}</div>` : ""}
+        ${e.improve   ? `<div class="evalCard2NoteRow"><b>Improve:</b> ${escapeHTML(e.improve)}</div>` : ""}
+      </div>` : ""}
+      <div class="evalCard2Actions">
+        ${canEdit
+          ? `<button class="secondary" onclick="startEditEval('${escapeJS(e.id)}')">Edit</button>
+             ${canDelete ? `<button class="danger" onclick="deleteAssessment('${escapeJS(e.id)}')">Delete</button>` : ""}`
+          : `<div class="t-caption" style="padding:4px 0;">Only evaluator or Lead Assessor can edit.</div>`}
       </div>
     </div>
   `;
@@ -22172,13 +22505,29 @@ function renderScore(){
               </div>
             `;
           }
-          const max = scale === "1-10" ? 10 : 5;
+          const isScale10 = scale === "1-10";
+          const max = isScale10 ? 10 : 5;
+          const hasVal = sel !== undefined && sel !== null && sel !== "";
+          const tapHints = {1:"poor",2:"below",3:"avg",4:"strong",5:"elite"};
+          const tapHint = (!isScale10 && hasVal) ? (tapHints[Number(sel)]||"") : "";
           return `
             <div class="scoreRubricItem">
               <div class="scoreRubricItemLabel">
                 ${escapeHTML(r.key)} <span class="muted" style="font-weight:500;">— ${escapeHTML(r.label)}</span>${scaleBadge}
               </div>
-              <div class="scoreRow" data-score-key="${escapeAttr(r.key)}">
+              <!-- Mobile: single tap-to-open pad button -->
+              <div class="scoreTapMobile">
+                <button class="scoreTapBtn${hasVal?" scored":""}" data-score-key="${escapeAttr(r.key)}"
+                  onclick="openScorePad('${escapeJS(r.key)}','${escapeJS(r.label)}','${escapeJS(catLabels[catKey]||catKey)}','${escapeJS(scale)}')">
+                  <div class="scoreTapLeft">
+                    <span class="scoreTapValue${hasVal?"":" unscored"}">${hasVal?sel:"—"}</span>
+                    ${tapHint ? `<span class="scoreTapHint">${tapHint}</span>` : ""}
+                  </div>
+                  <span class="scoreTapCaret">›</span>
+                </button>
+              </div>
+              <!-- Desktop: inline score row -->
+              <div class="scoreRow scoreRowDesktop" data-score-key="${escapeAttr(r.key)}">
                 ${Array.from({length:max}, (_,i)=>i+1).map(n=>`
                   <button type="button" class="scoreBtn ${sel===n?'selected':''}" onclick="setScore('${escapeJS(r.key)}', ${n}, false, this)">${n}</button>
                 `).join("")}
@@ -22214,6 +22563,136 @@ function setScore(key, val, reRender=true, el=null){
 function cssEscapeValue(value){
   if(typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(String(value));
   return String(value).replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   #8  Score Number Pad — mobile bottom-sheet score picker
+   ───────────────────────────────────────────────────────────────── */
+const _SP_HINTS5  = {1:"poor", 2:"below", 3:"avg", 4:"strong", 5:"elite"};
+const _SP_HINTS10 = {5:"avg", 10:"elite"};
+
+function openScorePad(key, rubricLabel, catLabel, scale){
+  document.getElementById("swgScorePad")?.remove();
+  const norm = normalizeCustomScale(scale || "1-5");
+  const is10  = norm === "1-10";
+  const max   = is10 ? 10 : 5;
+  const cur   = workingScores[key];
+  const hints = is10 ? _SP_HINTS10 : _SP_HINTS5;
+
+  const numsHTML = Array.from({length:max}, (_,i)=>{
+    const n    = i + 1;
+    const hint = hints[n] || "";
+    const act  = Number(cur) === n;
+    return `<button class="swgScorePadNum${act?" spActive":""}"
+      onclick="swgScorePadPick('${escapeJS(key)}',${n})">
+      ${n}${hint ? `<span class="swgScorePadNumHint">${hint}</span>` : ""}
+    </button>`;
+  }).join("");
+
+  const overlay = document.createElement("div");
+  overlay.id = "swgScorePad";
+  overlay.className = "swgScorePad";
+  overlay.innerHTML = `
+    <div class="swgScorePadSheet" id="swgScorePadSheet">
+      <div class="swgScorePadHandle"></div>
+      <div class="swgScorePadMeta">
+        <div class="swgScorePadCat">${escapeHTML(catLabel)}</div>
+        <div class="swgScorePadRubric">${escapeHTML(rubricLabel)}</div>
+      </div>
+      <div class="swgScorePadDiv"></div>
+      <div class="swgScorePadGrid${is10?" scale10":""}">
+        ${numsHTML}
+      </div>
+      <div class="swgScorePadActions">
+        <button class="secondary" onclick="swgScorePadClear('${escapeJS(key)}')">Clear</button>
+        <button class="ok" onclick="swgScorePadDone()">Done ✓</button>
+      </div>
+    </div>`;
+  overlay.addEventListener("click", e => { if(e.target === overlay) swgScorePadDone(); });
+  document.body.appendChild(overlay);
+}
+
+function swgScorePadPick(key, val){
+  setScore(key, val, false);
+  // Highlight selected button inside pad
+  const pad = document.getElementById("swgScorePad");
+  if(pad){
+    pad.querySelectorAll(".swgScorePadNum").forEach((btn,i) => {
+      btn.classList.toggle("spActive", i+1 === val);
+    });
+  }
+  _spUpdateTapBtn(key, val);
+  // Brief haptic-like visual flash then auto-close after short delay
+  setTimeout(() => swgScorePadDone(), 420);
+}
+
+function swgScorePadClear(key){
+  setScore(key, "", false);
+  const pad = document.getElementById("swgScorePad");
+  if(pad) pad.querySelectorAll(".swgScorePadNum").forEach(b => b.classList.remove("spActive"));
+  _spUpdateTapBtn(key, null);
+  setTimeout(() => swgScorePadDone(), 260);
+}
+
+function swgScorePadDone(){
+  const pad = document.getElementById("swgScorePad");
+  if(!pad) return;
+  const sheet = pad.querySelector(".swgScorePadSheet");
+  if(sheet){
+    sheet.style.transition = "transform 0.2s ease-in, opacity 0.2s ease-in";
+    sheet.style.transform  = "translateY(100%)";
+    sheet.style.opacity    = "0";
+  }
+  pad.style.transition = "opacity 0.22s ease-in";
+  pad.style.opacity    = "0";
+  setTimeout(() => pad.remove(), 230);
+}
+
+function _spUpdateTapBtn(key, val){
+  const btn = document.querySelector(`.scoreTapBtn[data-score-key="${CSS.escape(String(key))}"]`);
+  if(!btn) return;
+  const valEl = btn.querySelector(".scoreTapValue");
+  const hintEl = btn.querySelector(".scoreTapHint");
+  const hints = {1:"poor",2:"below",3:"avg",4:"strong",5:"elite"};
+  if(val){
+    btn.classList.add("scored");
+    if(valEl){ valEl.textContent = val; valEl.classList.remove("unscored"); }
+    if(hintEl) hintEl.textContent = hints[val] || "";
+  } else {
+    btn.classList.remove("scored");
+    if(valEl){ valEl.textContent = "—"; valEl.classList.add("unscored"); }
+    if(hintEl) hintEl.textContent = "";
+  }
+  updateLiveRing();
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   #9  Player Card helpers
+   ───────────────────────────────────────────────────────────────── */
+function evalOverallScore(e){
+  const vals = Object.values(e.scores||{})
+    .map(v=>{ const n=Number(v); return (!isNaN(n)&&n>0) ? (n>5?n/2:n) : null; })
+    .filter(v=>v!==null);
+  return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+}
+
+function evalCatScores(e, p){
+  const t = getTryout(); if(!t) return {};
+  const sport = getSportFromTryout(t);
+  const isGoalie = isSpecialPosition(p?.pos, sport);
+  const cats = isGoalie ? getGoalieCats() : getSkaterCats();
+  const catOrder = isGoalie ? getSportGoCatOrder(sport) : getSportSkCatOrder(sport);
+  const catLabels = isGoalie ? getSportGoCatLabels(sport) : getSportSkCatLabels(sport);
+  return catOrder.map(catKey => {
+    const defs = cats[catKey] || [];
+    const vals = defs.map(r => {
+      const v = e.scores?.[r.key];
+      const n = Number(v);
+      return (!isNaN(n)&&n>0) ? (n>5?n/2:n) : null;
+    }).filter(v=>v!==null);
+    const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    return { key:catKey, label:catLabels[catKey]||catKey, avg };
+  }).filter(c => c.avg !== null);
 }
 
 function cancelEdit(){
