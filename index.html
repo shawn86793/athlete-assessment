@@ -467,28 +467,64 @@
       0%{ background-position: 200% 0; }
       100%{ background-position: -200% 0; }
     }
+    /* ── Skeleton Loading (#6) ──────────────────────────────────────────────── */
     .skeletonCard{
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 18px;
-      margin: 12px 0;
-      border: 1px solid var(--border);
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:18px;
+      margin:12px 0;
+      border:1px solid var(--border);
+      border-left:3px solid rgba(255,107,43,0.10);
     }
+    /* shared shimmer gradient mixin */
+    .skeletonLine,
+    .skBlock,
+    .skCircle,
+    .skTile,
+    .skRow{
+      background:linear-gradient(90deg, var(--tile) 25%, var(--field-bg) 50%, var(--tile) 75%);
+      background-size:200% 100%;
+      animation:shimmer 1.3s ease infinite;
+    }
+    [data-theme="dark"] .skeletonLine,
+    [data-theme="dark"] .skBlock,
+    [data-theme="dark"] .skCircle,
+    [data-theme="dark"] .skTile,
+    [data-theme="dark"] .skRow{
+      background:linear-gradient(90deg, var(--tile) 25%, var(--field-bg-dark) 50%, var(--tile) 75%);
+      background-size:200% 100%;
+    }
+    /* Line */
     .skeletonLine{
-      height: 14px;
-      border-radius: 6px;
-      background: linear-gradient(90deg, var(--tile) 25%, var(--field-bg) 50%, var(--tile) 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s ease infinite;
-      margin: 10px 0;
+      height:14px; border-radius:6px; margin:10px 0;
     }
-    .skeletonLine.w80{ width: 80%; }
-    .skeletonLine.w60{ width: 60%; }
-    .skeletonLine.w40{ width: 40%; }
-    [data-theme="dark"] .skeletonLine{
-      background: linear-gradient(90deg, var(--tile) 25%, var(--field-bg-dark) 50%, var(--tile) 75%);
-      background-size: 200% 100%;
+    .skeletonLine.w80{width:80%;}
+    .skeletonLine.w60{width:60%;}
+    .skeletonLine.w40{width:40%;}
+    /* Generic block */
+    .skBlock{ border-radius:var(--radius-sm); }
+    /* Circle (avatars) */
+    .skCircle{ border-radius:var(--radius-full); flex-shrink:0; }
+    /* Player tile skeleton */
+    .skTile{
+      border-radius:14px;
+      min-height:148px;
+      border:1px solid var(--border);
     }
+    /* Table row skeleton */
+    .skRow{
+      height:36px;
+      border-radius:6px;
+      margin:6px 0;
+    }
+    /* Staggered delays so tiles don't all pulse in sync */
+    .skTile:nth-child(2),.skRow:nth-child(2){ animation-delay:0.1s; }
+    .skTile:nth-child(3),.skRow:nth-child(3){ animation-delay:0.2s; }
+    .skTile:nth-child(4),.skRow:nth-child(4){ animation-delay:0.3s; }
+    .skTile:nth-child(5),.skRow:nth-child(5){ animation-delay:0.4s; }
+    .skTile:nth-child(6),.skRow:nth-child(6){ animation-delay:0.15s; }
+    .skTile:nth-child(7),.skRow:nth-child(7){ animation-delay:0.25s; }
+    .skTile:nth-child(8),.skRow:nth-child(8){ animation-delay:0.35s; }
     .card.warmAccent{
       border-left-color:rgba(249,115,22,0.5);
     }
@@ -3249,6 +3285,84 @@
       border-color:rgba(180,35,24,0.3);
       color:var(--danger);
     }
+    /* ── Consolidated Modal System (#7) ─────────────────────────────────────── */
+    .swgModal{
+      position:fixed;inset:0;
+      z-index:10200;
+      display:flex;align-items:center;justify-content:center;
+      padding:16px;
+      background:rgba(8,12,24,0.72);
+      backdrop-filter:blur(4px);
+      -webkit-backdrop-filter:blur(4px);
+    }
+    .swgModalCard{
+      background:var(--card);
+      border-radius:var(--radius-xl);
+      width:100%;
+      max-height:92vh;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      box-shadow:var(--shadow-xl);
+      border:1px solid var(--border);
+    }
+    .swgModalHeader{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:18px 22px 14px;
+      border-bottom:1px solid var(--border);
+      flex-shrink:0;
+    }
+    .swgModalTitle{
+      font-family:"Space Grotesk","Manrope",sans-serif;
+      font-size:var(--text-lg);
+      font-weight:900;
+      color:var(--ink);
+      letter-spacing:-0.02em;
+      margin:0;
+      line-height:1.2;
+    }
+    .swgModalClose{
+      width:32px;height:32px;
+      border-radius:var(--radius-full);
+      border:1px solid var(--border);
+      background:var(--tile);
+      color:var(--muted);
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;line-height:1;
+      cursor:pointer;
+      padding:0;margin:0;
+      flex-shrink:0;
+      transition:background var(--ease-fast),color var(--ease-fast);
+      width:auto;min-width:32px;
+    }
+    .swgModalClose:hover{ background:var(--field-bg); color:var(--ink); }
+    .swgModalBody{
+      padding:20px 22px;
+      overflow-y:auto;
+      flex:1;
+      color:var(--ink);
+    }
+    .swgModalFooter{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      padding:14px 22px;
+      border-top:1px solid var(--border);
+      flex-shrink:0;
+      flex-wrap:wrap;
+    }
+    .swgModalFooter button{ width:auto; min-width:100px; }
+    @media(max-width:480px){
+      .swgModalCard{ border-radius:var(--radius-lg); }
+      .swgModalBody{ padding:16px; }
+      .swgModalHeader{ padding:14px 16px 12px; }
+      .swgModalFooter{ padding:12px 16px; }
+    }
+
     /* Plan gate modal */
     .planGateOverlay{
       position:fixed;inset:0;
@@ -5735,40 +5849,29 @@ function deleteOrg(orgId){
 }
 
 function openCreateOrgModal(prefill = {}){
-  document.getElementById("createOrgOverlay")?.remove();
-  const overlay = document.createElement("div");
-  overlay.id = "createOrgOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
-  overlay.innerHTML = `
-    <div style="background:var(--card);border-radius:14px;padding:28px 24px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);max-height:90vh;overflow-y:auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--ink);">🏢 Create Organization</h3>
-        <button onclick="document.getElementById('createOrgOverlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>
-      </div>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;">An organization groups all your teams under a single brand — club, association, or league.</p>
-
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Organization Name <span style="color:#dc2626;">*</span></label>
-      <input id="orgCreateName" value="${escapeAttr(prefill.name||"")}" placeholder="e.g., City Hockey Club, Metro Soccer Association"
-        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Primary Sport</label>
-      <select id="orgCreateSport" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+  const sportOpts = (typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS : ["Hockey","Soccer","Football","Baseball","Basketball","Ringette"])
+    .map(s=>`<option value="${escapeAttr(s)}"${prefill.sport===s?" selected":""}>${escapeHTML(s)}</option>`).join("");
+  swgModal({
+    id: "createOrgOverlay",
+    title: "🏢 Create Organization",
+    body: `
+      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;line-height:1.55;">An organization groups all your teams under a single brand — club, association, or league.</p>
+      <label class="muted">Organization Name <span class="req">*</span></label>
+      <input id="orgCreateName" value="${escapeAttr(prefill.name||"")}" placeholder="e.g., City Hockey Club, Metro Soccer Association">
+      <label class="muted" style="margin-top:10px;">Primary Sport</label>
+      <select id="orgCreateSport">
         <option value="Multi-Sport"${(prefill.sport||"Multi-Sport")==="Multi-Sport"?" selected":""}>Multi-Sport</option>
-        ${(typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS : ["Hockey","Soccer","Football","Baseball","Basketball","Ringette"]).map(s=>`<option value="${escapeAttr(s)}"${prefill.sport===s?" selected":""}>${escapeHTML(s)}</option>`).join("")}
+        ${sportOpts}
       </select>
-
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">City / Region <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
-      <input id="orgCreateCity" value="${escapeAttr(prefill.city||"")}" placeholder="e.g., Toronto, Vancouver"
-        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:22px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button onclick="document.getElementById('createOrgOverlay').remove()" style="padding:10px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;cursor:pointer;font-weight:700;color:var(--muted);">Cancel</button>
-        <button onclick="submitCreateOrg()" style="padding:10px 22px;border:none;border-radius:8px;background:#0a1e3d;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">Create Organization</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+      <label class="muted" style="margin-top:10px;">City / Region <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+      <input id="orgCreateCity" value="${escapeAttr(prefill.city||"")}" placeholder="e.g., Toronto, Vancouver">
+    `,
+    footer: `
+      <button class="secondary" onclick="document.getElementById('createOrgOverlay')?.remove()">Cancel</button>
+      <button class="ok" onclick="submitCreateOrg()">Create Organization</button>
+    `,
+    maxWidth: "460px"
+  });
   setTimeout(() => document.getElementById("orgCreateName")?.focus(), 40);
 }
 
@@ -5791,38 +5894,29 @@ function submitCreateOrg(){
 function openEditOrgModal(orgId){
   const org = getOrgById(orgId);
   if(!org) return;
-  document.getElementById("editOrgOverlay")?.remove();
-  const overlay = document.createElement("div");
-  overlay.id = "editOrgOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
-  overlay.innerHTML = `
-    <div style="background:var(--card);border-radius:14px;padding:28px 24px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--ink);">Edit Organization</h3>
-        <button onclick="document.getElementById('editOrgOverlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>
-      </div>
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Organization Name</label>
-      <input id="orgEditName" value="${escapeAttr(org.name)}"
-        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Primary Sport</label>
-      <select id="orgEditSport" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
+  const sportOpts = (typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS : ["Hockey","Soccer","Football","Baseball","Basketball","Ringette"])
+    .map(s=>`<option value="${escapeAttr(s)}"${org.sport===s?" selected":""}>${escapeHTML(s)}</option>`).join("");
+  swgModal({
+    id: "editOrgOverlay",
+    title: "Edit Organization",
+    body: `
+      <label class="muted">Organization Name</label>
+      <input id="orgEditName" value="${escapeAttr(org.name)}">
+      <label class="muted" style="margin-top:10px;">Primary Sport</label>
+      <select id="orgEditSport">
         <option value="Multi-Sport"${org.sport==="Multi-Sport"?" selected":""}>Multi-Sport</option>
-        ${(typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS : ["Hockey","Soccer","Football","Baseball","Basketball","Ringette"]).map(s=>`<option value="${escapeAttr(s)}"${org.sport===s?" selected":""}>${escapeHTML(s)}</option>`).join("")}
+        ${sportOpts}
       </select>
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">City / Region</label>
-      <input id="orgEditCity" value="${escapeAttr(org.city||"")}"
-        style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:22px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-      <div style="display:flex;gap:10px;justify-content:space-between;">
-        <button onclick="confirmDeleteOrg('${escapeJS(orgId)}')" style="padding:10px 14px;border:1.5px solid #dc2626;border-radius:8px;background:var(--card);font-size:12px;cursor:pointer;font-weight:700;color:#dc2626;">Delete Org</button>
-        <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('editOrgOverlay').remove()" style="padding:10px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;cursor:pointer;font-weight:700;color:var(--muted);">Cancel</button>
-          <button onclick="submitEditOrg('${escapeJS(orgId)}')" style="padding:10px 22px;border:none;border-radius:8px;background:#0a1e3d;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">Save</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+      <label class="muted" style="margin-top:10px;">City / Region</label>
+      <input id="orgEditCity" value="${escapeAttr(org.city||"")}">
+    `,
+    footer: `
+      <button class="danger" style="margin-right:auto;" onclick="confirmDeleteOrg('${escapeJS(orgId)}')">Delete Org</button>
+      <button class="secondary" onclick="document.getElementById('editOrgOverlay')?.remove()">Cancel</button>
+      <button class="ok" onclick="submitEditOrg('${escapeJS(orgId)}')">Save</button>
+    `,
+    maxWidth: "460px"
+  });
 }
 
 function submitEditOrg(orgId){
@@ -5849,76 +5943,47 @@ function confirmDeleteOrg(orgId){
 // ── Organization Demo Generator ───────────────────────────────────────────
 
 function openOrgDemoGenerator(){
-  document.getElementById("orgDemoOverlay")?.remove();
   const org = getPrimaryOrg();
-  const overlay = document.createElement("div");
-  overlay.id = "orgDemoOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
-  overlay.innerHTML = `
-    <div style="background:var(--card);border-radius:14px;padding:28px 24px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);max-height:92vh;overflow-y:auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--ink);">🎭 Generate Demo Data</h3>
-        <button onclick="document.getElementById('orgDemoOverlay').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;">&times;</button>
-      </div>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;">Instantly populate${org ? ` ${escapeHTML(org.name)} ` : " "}with realistic test data to explore all features.</p>
-
-      <div style="display:flex;flex-direction:column;gap:16px;">
-
-        <!-- Assessments section -->
-        <div style="border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;">
+  swgModal({
+    id: "orgDemoOverlay",
+    title: "🎭 Generate Demo Data",
+    body: `
+      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;line-height:1.55;">Instantly populate${org ? ` ${escapeHTML(org.name)} ` : " "}with realistic test data to explore all features.</p>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="border:1.5px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;">
           <div style="font-size:13px;font-weight:900;color:var(--ink);margin-bottom:10px;">📋 Assessment Events</div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;width:auto;">
             <input type="checkbox" id="demoGenAssessments" checked> Generate assessment events with scored players
           </label>
           <div style="display:flex;gap:10px;">
-            <div style="flex:1;">
-              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Events</label>
-              <input id="demoGenEventCount" type="number" min="1" max="6" value="2"
-                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-            </div>
-            <div style="flex:1;">
-              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Players / Event</label>
-              <input id="demoGenPlayerCount" type="number" min="5" max="40" value="20"
-                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-            </div>
-            <div style="flex:1;">
-              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Assessments</label>
-              <input id="demoGenEvalCount" type="number" min="1" max="5" value="3"
-                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-            </div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Events</label>
+              <input id="demoGenEventCount" type="number" min="1" max="6" value="2"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Players/Event</label>
+              <input id="demoGenPlayerCount" type="number" min="5" max="40" value="20"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Assessments</label>
+              <input id="demoGenEvalCount" type="number" min="1" max="5" value="3"></div>
           </div>
         </div>
-
-        <!-- Registrations section -->
-        <div style="border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;">
+        <div style="border:1.5px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;">
           <div style="font-size:13px;font-weight:900;color:var(--ink);margin-bottom:10px;">📝 Registrations</div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;width:auto;">
             <input type="checkbox" id="demoGenRegs" checked> Generate registration records with payment data
           </label>
           <div style="display:flex;gap:10px;">
-            <div style="flex:1;">
-              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Count</label>
-              <input id="demoGenRegCount" type="number" min="5" max="1000" value="30"
-                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-            </div>
-            <div style="flex:1;">
-              <label style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;display:block;margin-bottom:3px;">Birth Years</label>
-              <input id="demoGenRegYears" value="2008–2016" placeholder="2008–2016"
-                style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;box-sizing:border-box;background:var(--card);color:var(--ink);">
-            </div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Count</label>
+              <input id="demoGenRegCount" type="number" min="5" max="1000" value="30"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Birth Years</label>
+              <input id="demoGenRegYears" value="2008–2016" placeholder="2008–2016"></div>
           </div>
         </div>
-
       </div>
-
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px;">
-        <button onclick="document.getElementById('orgDemoOverlay').remove()" style="padding:10px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:13px;cursor:pointer;font-weight:700;color:var(--muted);">Cancel</button>
-        <button onclick="runOrgDemoGenerator()" style="padding:10px 22px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-size:14px;font-weight:900;cursor:pointer;">🎭 Generate</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  overlay.addEventListener("click", e => { if(e.target===overlay) overlay.remove(); });
+    `,
+    footer: `
+      <button class="secondary" onclick="document.getElementById('orgDemoOverlay')?.remove()">Cancel</button>
+      <button class="intent-primary" onclick="runOrgDemoGenerator()">🎭 Generate</button>
+    `,
+    maxWidth: "500px"
+  });
 }
 
 function runOrgDemoGenerator(){
@@ -11567,7 +11632,7 @@ async function saveProfilePassword(){
 }
 
 function renderProfile(){
-  showSkeleton(2, "Profile");
+  showSkeleton(2, "Profile", "player");
   showPersistentLogo(true);
   if(!authState.user){
     currentView = "home";
@@ -11709,7 +11774,7 @@ function renderProfile(){
 }
 
 function renderArchivedAssessments(){
-  showSkeleton(3, "Archived Assessments");
+  showSkeleton(3, "Archived Assessments", "cards");
   showPersistentLogo(true);
   if(authState.ready && !authState.user){
     goHome();
@@ -11839,6 +11904,53 @@ function startGlobalHomeNavObserver(){
   injectGlobalHomeButton();
 }
 
+/* ─── MODAL SYSTEM (#7) ───────────────────────────────────────────────────── */
+/**
+ * swgModal({ id, title, body, footer, maxWidth, onClose })
+ *  - id:       element id to assign the backdrop (e.g. 'createOrgOverlay')
+ *  - title:    header text (HTML allowed)
+ *  - body:     innerHTML for .swgModalBody
+ *  - footer:   innerHTML for .swgModalFooter (null = no footer)
+ *  - maxWidth: CSS width string, default '480px'
+ *  - onClose:  optional callback on close
+ * Returns the overlay element.
+ */
+function swgModal({ id, title = "", body = "", footer = null, maxWidth = "480px", onClose = null } = {}){
+  if(id) document.getElementById(id)?.remove();
+  const overlay = document.createElement("div");
+  if(id) overlay.id = id;
+  overlay.className = "swgModal";
+
+  const closeId = id ? `close_${id}` : `swgModalClose_${Date.now()}`;
+  const footerHTML = footer !== null
+    ? `<div class="swgModalFooter">${footer}</div>`
+    : "";
+
+  overlay.innerHTML = `
+    <div class="swgModalCard" style="max-width:${maxWidth};">
+      <div class="swgModalHeader">
+        <div class="swgModalTitle">${title}</div>
+        <button class="swgModalClose" id="${closeId}" aria-label="Close">&times;</button>
+      </div>
+      <div class="swgModalBody">${body}</div>
+      ${footerHTML}
+    </div>
+  `;
+
+  // Close on backdrop click
+  overlay.addEventListener("click", e => {
+    if(e.target === overlay){ overlay.remove(); if(onClose) onClose(); }
+  });
+  // Close button
+  overlay.querySelector(`#${closeId}`)?.addEventListener("click", () => {
+    overlay.remove(); if(onClose) onClose();
+  });
+
+  document.body.appendChild(overlay);
+  // Trigger animation (MutationObserver picks it up automatically via existing #9 code)
+  return overlay;
+}
+
 /* ─── BOTTOM NAV (#4) ─────────────────────────────────────────────────────── */
 function renderBottomNav(){
   const t = getTryout();
@@ -11903,18 +12015,72 @@ function toggleDarkMode(){
   });
 }
 
-function showSkeleton(rows = 3, title = ""){
-  const cards = Array.from({length: rows}, ()=>`
-    <div class="skeletonCard">
-      <div class="skeletonLine w60"></div>
-      <div class="skeletonLine w80"></div>
-      <div class="skeletonLine w40"></div>
-    </div>
-  `).join("");
-  app.innerHTML = `
-    ${title ? `<div style="padding:8px 0 4px;font-weight:800;font-size:17px;color:var(--muted);">${escapeHTML(title)}</div>` : ""}
-    ${cards}
-  `;
+/* ── Skeleton Loading (#6) ────────────────────────────────────────────────── */
+function showSkeleton(rows = 3, title = "", type = "cards"){
+  let inner = "";
+  const titleHTML = title
+    ? `<div style="padding:8px 0 6px;font-weight:800;font-size:17px;color:var(--muted);">${escapeHTML(title)}</div>`
+    : "";
+
+  if(type === "tiles"){
+    // Mimics the roster player-tile grid
+    const tiles = Array.from({length: rows||8}, (_, i) => `
+      <div class="skTile" style="animation-delay:${(i%8)*0.08}s;"></div>
+    `).join("");
+    inner = `<div class="tileGrid" style="margin-top:10px;">${tiles}</div>`;
+
+  } else if(type === "table"){
+    // Mimics the results table
+    const headerCols = `<div style="display:flex;gap:10px;margin-bottom:8px;">
+      <div class="skBlock" style="height:18px;width:36px;"></div>
+      <div class="skBlock" style="height:18px;flex:2;"></div>
+      <div class="skBlock" style="height:18px;flex:1;"></div>
+      <div class="skBlock" style="height:18px;flex:1;"></div>
+      <div class="skBlock" style="height:18px;flex:1;"></div>
+      <div class="skBlock" style="height:18px;flex:1;"></div>
+    </div>`;
+    const tableRows = Array.from({length: rows||10}, (_, i) => `
+      <div class="skRow" style="animation-delay:${i*0.06}s;"></div>
+    `).join("");
+    inner = `<div class="skeletonCard">${headerCols}${tableRows}</div>`;
+
+  } else if(type === "player"){
+    // Mimics the player hub — header ring + stat tiles + eval cards
+    inner = `
+      <div class="skeletonCard">
+        <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px;">
+          <div class="skCircle" style="width:72px;height:72px;"></div>
+          <div style="flex:1;">
+            <div class="skeletonLine w60" style="height:20px;margin-bottom:8px;"></div>
+            <div class="skeletonLine w40" style="height:14px;"></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div class="skBlock" style="height:58px;"></div>
+          <div class="skBlock" style="height:58px;"></div>
+          <div class="skBlock" style="height:58px;"></div>
+        </div>
+      </div>
+      ${Array.from({length:Math.max(1,rows-1)}, ()=>`
+        <div class="skeletonCard">
+          <div class="skeletonLine w40" style="margin-bottom:10px;"></div>
+          <div class="skeletonLine w80"></div>
+          <div class="skeletonLine w60"></div>
+        </div>
+      `).join("")}`;
+
+  } else {
+    // Default card skeleton (original behaviour)
+    inner = Array.from({length: rows}, ()=>`
+      <div class="skeletonCard">
+        <div class="skeletonLine w60"></div>
+        <div class="skeletonLine w80"></div>
+        <div class="skeletonLine w40"></div>
+      </div>
+    `).join("");
+  }
+
+  app.innerHTML = titleHTML + inner;
 }
 
 /** -------------------------
@@ -17158,6 +17324,12 @@ async function importFromSeasonRoster(options = {}){
 function renderRoster(){
   const t = getTryout();
   if(!t) return goHome();
+  // Show tile skeleton while cloud sync is in-flight on first visit
+  if(isCloudEnabled(t) && cloudSyncInFlight && (t.roster||[]).length === 0){
+    showSkeleton(8, t.name || "Player List", "tiles");
+    pullCloudTryout(t);
+    return;
+  }
   // Trigger an immediate cloud pull when viewing the roster so QR registrations
   // show up without waiting for the next sync tick.
   if(isCloudEnabled(t) && !cloudSyncInFlight){
