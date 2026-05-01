@@ -6357,97 +6357,570 @@ function confirmDeleteOrg(orgId){
   showActionBanner("Organization deleted", "success");
 }
 
+// ── Executive Organization Dashboard ─────────────────────────────────────
+// State for which panel is currently shown
+let _execDashPanel = "overview";
+let _execDashOrgId = "";
+
 function openOrgDashboard(orgId){
   const org = getOrgById(orgId);
   if(!org){ showActionBanner("Organization not found.", "error"); return; }
-
-  const allSeasons = Object.values(DB.seasons || {}).filter(s => !s?.deleted && !s?.tombstone);
-  const seasonTeamIds = new Set(allSeasons.map(s => s.teamId).filter(Boolean));
-  const orphanedTeams = getTeams().filter(t => !seasonTeamIds.has(t.id) && !t.deleted && !t.tombstone);
-  const allActiveAssessments = Object.values(DB.tryouts || {}).filter(t => !isArchivedTryout(t));
-  const totalTeams   = allSeasons.length + orphanedTeams.length;
-  const totalPlayers = allSeasons.reduce((s, x) => s + (x.roster||[]).length, 0);
-  const totalAssessments = allActiveAssessments.length;
-
-  // Build season cards for this org dashboard
-  const seasonCardsHTML = allSeasons.length === 0 && orphanedTeams.length === 0
-    ? `<div style="text-align:center;padding:32px 16px;color:#94a3b8;font-size:14px;">No teams yet — create your first team to get started.</div>`
-    : allSeasons.map(season => {
-        const playerCount = (season.roster||[]).length;
-        const scoredPlayers = (season.roster||[]).filter(p => p.overall != null && Number(p.overall) > 0);
-        const evaluatedCount = scoredPlayers.length;
-        const evalPct = playerCount > 0 ? Math.round((evaluatedCount/playerCount)*100) : 0;
-        const healthColor = evalPct >= 70 ? '#10b981' : evalPct >= 30 ? '#f59e0b' : playerCount === 0 ? '#94a3b8' : '#ef4444';
-        return (
-          '<div onclick="document.getElementById(\'orgDashOverlay\')?.remove();openSeason(\'' + escapeJS(season.id) + '\')" style="background:#fff;border:1.5px solid #e2e8f0;border-left:4px solid ' + healthColor + ';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:box-shadow 0.15s;" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
-            '<div style="flex:1;min-width:0;">' +
-              '<div style="font-size:14px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHTML(season.teamName||season.name) + '</div>' +
-              '<div style="font-size:11px;color:#94a3b8;margin-top:2px;">' + escapeHTML(season.sport||'') + (season.year?' · '+escapeHTML(season.year):'') + ' · ' + playerCount + ' players</div>' +
-            '</div>' +
-            '<div style="font-size:11px;font-weight:700;color:' + healthColor + ';white-space:nowrap;">' + evalPct + '%</div>' +
-            '<div style="flex-shrink:0;color:#cbd5e1;font-size:16px;">›</div>' +
-          '</div>'
-        );
-      }).join('') + orphanedTeams.map(team => (
-        '<div onclick="document.getElementById(\'orgDashOverlay\')?.remove();setupOrphanedTeam(\'' + escapeJS(team.id) + '\')" style="background:#fff;border:1.5px solid #e2e8f0;border-left:4px solid #f59e0b;border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
-          '<div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:800;color:#0f172a;">' + escapeHTML(team.name) + '</div><div style="font-size:11px;color:#94a3b8;margin-top:2px;">Tap to finish setup</div></div>' +
-          '<div style="flex-shrink:0;color:#cbd5e1;font-size:16px;">›</div>' +
-        '</div>'
-      )).join('');
-
-  const meta = [
-    org.sport && org.sport !== "Multi-Sport" ? escapeHTML(org.sport) : "Multi-Sport",
-    org.year  ? escapeHTML(org.year)  : null,
-    org.city  ? escapeHTML(org.city)  : null,
-  ].filter(Boolean).join(" · ");
+  _execDashOrgId = orgId;
+  _execDashPanel = "overview";
 
   const ov = document.createElement("div");
   ov.id = "orgDashOverlay";
-  ov.style.cssText = "position:fixed;inset:0;z-index:9000;background:rgba(7,13,26,0.72);display:flex;align-items:flex-start;justify-content:center;padding:0;overflow-y:auto;";
+  ov.style.cssText = "position:fixed;inset:0;z-index:9000;overflow:hidden;";
+
+  const orgInitial = escapeHTML((org.name||"O")[0].toUpperCase());
+  const orgName    = escapeHTML(org.name);
+  const metaParts  = [
+    org.sport && org.sport !== "Multi-Sport" ? org.sport : "Multi-Sport",
+    org.year || null,
+    org.city || null,
+  ].filter(Boolean).map(escapeHTML).join(" · ");
+
   ov.innerHTML = `
-    <div style="background:#f8fafc;width:100%;max-width:560px;min-height:100vh;display:flex;flex-direction:column;">
-      <!-- Header -->
-      <div style="background:linear-gradient(135deg,#14532d,#166534);padding:20px 18px 16px;display:flex;align-items:center;gap:14px;">
-        <div style="width:44px;height:44px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0;">${escapeHTML((org.name||"O")[0].toUpperCase())}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:18px;font-weight:900;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(org.name)}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">${meta}</div>
-        </div>
-        <button onclick="document.getElementById('orgDashOverlay')?.remove()" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">×</button>
-      </div>
+    <style>
+      /* ── Executive Dashboard — Forest Command Theme ──────────────────── */
+      #orgDashOverlay{
+        --ed-bg:#07120d;
+        --ed-panel:#0c1f15;
+        --ed-panel2:#102018;
+        --ed-border:#1a3828;
+        --ed-border2:#245238;
+        --ed-muted:#6aab85;
+        --ed-text:#d4f0de;
+        --ed-accent:#22c55e;
+        --ed-warn:#f59e0b;
+        --ed-danger:#ef4444;
+        --ed-side-bg:#060f0a;
+        --ed-side-active:rgba(34,197,94,0.12);
+      }
+      #orgDashOverlay *{ box-sizing:border-box; }
+      #orgDashOverlay{ background:var(--ed-bg); color:var(--ed-text);
+        font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+        font-size:14px; display:flex; flex-direction:column; }
 
-      <!-- Stats row -->
-      <div style="display:flex;gap:0;border-bottom:1.5px solid #e2e8f0;background:#fff;">
-        <div style="flex:1;text-align:center;padding:14px 8px;border-right:1px solid #e2e8f0;">
-          <div style="font-size:22px;font-weight:900;color:#0f172a;">${totalTeams}</div>
-          <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Team${totalTeams!==1?'s':''}</div>
-        </div>
-        <div style="flex:1;text-align:center;padding:14px 8px;border-right:1px solid #e2e8f0;">
-          <div style="font-size:22px;font-weight:900;color:#0f172a;">${totalPlayers}</div>
-          <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Player${totalPlayers!==1?'s':''}</div>
-        </div>
-        <div style="flex:1;text-align:center;padding:14px 8px;">
-          <div style="font-size:22px;font-weight:900;color:#0f172a;">${totalAssessments}</div>
-          <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-top:2px;">Assessment${totalAssessments!==1?'s':''}</div>
-        </div>
-      </div>
+      /* Shell */
+      .ed-shell{ display:flex; height:100vh; overflow:hidden; }
 
-      <!-- Action buttons -->
-      <div style="display:flex;gap:8px;padding:14px 16px;background:#fff;border-bottom:1.5px solid #e2e8f0;">
-        <button class="ok" style="flex:1;padding:10px;font-size:13px;font-weight:800;" onclick="document.getElementById('orgDashOverlay')?.remove();startCreateSeason()">+ New Team</button>
-        <button class="secondary" style="flex:1;padding:10px;font-size:13px;font-weight:800;" onclick="document.getElementById('orgDashOverlay')?.remove();openEditOrgModal('${escapeJS(orgId)}')">Edit Org</button>
-        <button class="danger" style="width:auto;padding:10px 14px;font-size:13px;" onclick="if(confirm('Delete \\'${escapeJS(org.name).replace(/'/g,"\\'")}\\' organization? Your teams and data are not affected.')){deleteOrg('${escapeJS(orgId)}');document.getElementById('orgDashOverlay')?.remove();renderHomeContent();showActionBanner('Organization deleted','success');}">Delete</button>
-      </div>
+      /* Sidebar */
+      .ed-side{
+        width:240px; flex-shrink:0;
+        background:var(--ed-side-bg);
+        border-right:1px solid var(--ed-border);
+        display:flex; flex-direction:column;
+        height:100vh; overflow-y:auto;
+      }
+      .ed-side-logo{
+        padding:18px 16px 14px;
+        border-bottom:1px solid var(--ed-border);
+        flex-shrink:0;
+      }
+      .ed-side-badge{
+        display:inline-flex; align-items:center; gap:5px;
+        background:linear-gradient(90deg,#22c55e,#16a34a);
+        color:#fff; font-size:9px; font-weight:900;
+        letter-spacing:0.12em; text-transform:uppercase;
+        padding:3px 8px; border-radius:999px; margin-bottom:7px;
+      }
+      .ed-side-name{ font-size:15px; font-weight:900; color:#fff; letter-spacing:-0.01em;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .ed-side-meta{ font-size:11px; color:var(--ed-muted); margin-top:3px;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .ed-nav-group{ padding:12px 10px 4px; }
+      .ed-nav-label{ font-size:10px; font-weight:900; letter-spacing:0.1em;
+        text-transform:uppercase; color:var(--ed-muted); padding:0 6px 6px; }
+      .ed-nav{ display:flex; flex-direction:column; gap:2px; }
+      .ed-nav button{
+        width:100%; text-align:left; border:none;
+        background:transparent; color:var(--ed-muted);
+        border-radius:8px; padding:9px 12px; font-weight:700;
+        cursor:pointer; font-size:13px;
+        display:flex; align-items:center; gap:9px;
+        transition:background 0.12s, color 0.12s;
+      }
+      .ed-nav button:hover{ background:rgba(34,197,94,0.07); color:var(--ed-text); }
+      .ed-nav button.ed-active{ background:var(--ed-side-active); color:var(--ed-accent); }
+      .ed-nav .ed-icon{ font-size:14px; flex-shrink:0; }
+      .ed-side-bottom{
+        margin-top:auto; border-top:1px solid var(--ed-border);
+        padding:10px; display:flex; flex-direction:column; gap:2px; flex-shrink:0;
+      }
+      .ed-side-bottom button{
+        width:100%; text-align:left; border:none; background:transparent;
+        color:var(--ed-muted); border-radius:8px; padding:9px 12px;
+        font-weight:700; cursor:pointer; font-size:13px;
+        display:flex; align-items:center; gap:9px;
+        transition:background 0.12s, color 0.12s;
+      }
+      .ed-side-bottom button:hover{ background:rgba(255,255,255,0.05); color:var(--ed-text); }
+      .ed-side-bottom .ed-danger{ color:var(--ed-danger) !important; }
 
-      <!-- Teams list -->
-      <div style="flex:1;padding:16px;">
-        <div style="font-size:12px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">Teams</div>
-        ${seasonCardsHTML}
-      </div>
+      /* Main */
+      .ed-main{ flex:1; background:var(--ed-bg); overflow-y:auto; padding:24px; min-height:0; }
+      .ed-page-title{ font-size:22px; font-weight:900; color:#fff;
+        margin:0 0 4px; letter-spacing:-0.02em; }
+      .ed-page-sub{ font-size:13px; color:var(--ed-muted); margin:0 0 20px; }
+
+      /* Stat grid */
+      .ed-stat-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+        gap:12px; margin-bottom:20px; }
+      .ed-stat{
+        padding:16px 18px; border:1px solid var(--ed-border);
+        border-radius:14px; background:var(--ed-panel);
+        transition:border-color 0.15s;
+      }
+      .ed-stat:hover{ border-color:var(--ed-border2); }
+      .ed-stat .ed-k{ font-size:10px; color:var(--ed-muted);
+        text-transform:uppercase; letter-spacing:0.07em; font-weight:700; }
+      .ed-stat .ed-v{ margin-top:7px; font-size:28px; font-weight:900; color:#fff; line-height:1; }
+      .ed-stat .ed-sub{ font-size:11px; color:var(--ed-muted); margin-top:4px; }
+
+      /* Section */
+      .ed-section{ border:1px solid var(--ed-border); border-radius:14px;
+        background:var(--ed-panel); margin-bottom:16px; overflow:hidden; }
+      .ed-section-hd{ padding:14px 16px; border-bottom:1px solid var(--ed-border);
+        font-size:12px; font-weight:900; color:var(--ed-accent);
+        text-transform:uppercase; letter-spacing:0.07em; }
+      .ed-section-body{ padding:14px 16px; }
+
+      /* Team / assessment cards */
+      .ed-team-card{
+        border:1px solid var(--ed-border); border-radius:10px;
+        padding:12px 14px; margin-bottom:8px; background:var(--ed-panel2);
+        display:flex; align-items:center; gap:12px;
+        cursor:pointer; transition:border-color 0.12s, background 0.12s;
+      }
+      .ed-team-card:hover{ border-color:var(--ed-border2); background:#152a20; }
+      .ed-team-card:last-child{ margin-bottom:0; }
+      .ed-assessment-card{
+        border:1px solid var(--ed-border); border-radius:10px;
+        padding:12px 14px; margin-bottom:8px; background:var(--ed-panel2);
+        display:flex; align-items:center; gap:12px;
+        cursor:pointer; transition:border-color 0.12s;
+      }
+      .ed-assessment-card:hover{ border-color:var(--ed-border2); }
+      .ed-assessment-card:last-child{ margin-bottom:0; }
+      .ed-empty{ text-align:center; padding:32px 16px; color:var(--ed-muted); font-size:13px; }
+
+      /* Health pill */
+      .ed-health{ font-size:11px; font-weight:800; padding:3px 9px;
+        border-radius:999px; white-space:nowrap; flex-shrink:0; }
+      .ed-health-ok{ background:rgba(16,185,129,0.15); color:#10b981; }
+      .ed-health-warn{ background:rgba(245,158,11,0.15); color:#f59e0b; }
+      .ed-health-bad{ background:rgba(239,68,68,0.15); color:#ef4444; }
+      .ed-health-grey{ background:rgba(148,163,184,0.15); color:#94a3b8; }
+
+      /* Action bar */
+      .ed-action-bar{ display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+      .ed-btn{
+        padding:9px 16px; border-radius:8px; border:none;
+        font-size:13px; font-weight:800; cursor:pointer;
+        transition:opacity 0.12s;
+      }
+      .ed-btn:hover{ opacity:0.85; }
+      .ed-btn-primary{ background:var(--ed-accent); color:#fff; }
+      .ed-btn-secondary{ background:var(--ed-panel); color:var(--ed-text);
+        border:1px solid var(--ed-border); }
+      .ed-btn-danger{ background:rgba(239,68,68,0.15); color:var(--ed-danger);
+        border:1px solid rgba(239,68,68,0.3); }
+
+      /* Progress bar */
+      .ed-prog-bg{ height:5px; background:var(--ed-border); border-radius:999px;
+        overflow:hidden; margin-top:6px; }
+      .ed-prog-fill{ height:100%; border-radius:999px; transition:width 0.3s; }
+
+      /* Mobile sidebar toggle */
+      @media(max-width:640px){
+        .ed-side{ position:fixed; left:0; top:0; bottom:0; z-index:10; transform:translateX(-100%); transition:transform 0.25s; }
+        .ed-side.ed-open{ transform:translateX(0); }
+        .ed-main{ padding:16px; }
+        .ed-page-title{ font-size:18px; }
+      }
+    </style>
+    <div class="ed-shell">
+
+      <!-- ── Sidebar ──────────────────────────────────────────────────── -->
+      <aside class="ed-side" id="execDashSide">
+        <div class="ed-side-logo">
+          <div class="ed-side-badge">🏢 Organization</div>
+          <div class="ed-side-name">${orgName}</div>
+          <div class="ed-side-meta">${metaParts}</div>
+        </div>
+
+        <div class="ed-nav-group">
+          <div class="ed-nav-label">Dashboard</div>
+          <div class="ed-nav">
+            <button data-ed-panel="overview" class="ed-active"><span class="ed-icon">📊</span>Overview</button>
+            <button data-ed-panel="teams"><span class="ed-icon">🏒</span>Teams</button>
+            <button data-ed-panel="assessments"><span class="ed-icon">📋</span>Assessments</button>
+            <button data-ed-panel="players"><span class="ed-icon">👥</span>Players</button>
+          </div>
+        </div>
+
+        <div class="ed-nav-group">
+          <div class="ed-nav-label">Settings</div>
+          <div class="ed-nav">
+            <button data-ed-panel="settings"><span class="ed-icon">⚙️</span>Organization</button>
+          </div>
+        </div>
+
+        <div class="ed-side-bottom">
+          <button id="execDashBackBtn"><span class="ed-icon">←</span>Back to App</button>
+          <button id="execDashDeleteBtn" class="ed-danger"><span class="ed-icon">🗑</span>Delete Org</button>
+        </div>
+      </aside>
+
+      <!-- ── Main content ─────────────────────────────────────────────── -->
+      <main class="ed-main">
+        <!-- Mobile top bar -->
+        <div style="display:none;align-items:center;gap:12px;margin-bottom:16px;" id="execMobileBar">
+          <button onclick="document.getElementById('execDashSide').classList.toggle('ed-open')"
+            style="background:var(--ed-panel);border:1px solid var(--ed-border);color:var(--ed-text);padding:8px 12px;border-radius:8px;font-size:16px;cursor:pointer;">☰</button>
+          <div style="font-weight:900;font-size:16px;color:#fff;">${orgName}</div>
+        </div>
+        <div id="execPanelContent"></div>
+      </main>
     </div>
   `;
-  ov.addEventListener("click", e => { if(e.target === ov) ov.remove(); });
+
   document.body.appendChild(ov);
+
+  // Wire sidebar nav
+  ov.querySelectorAll("[data-ed-panel]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const panel = btn.getAttribute("data-ed-panel");
+      ov.querySelectorAll("[data-ed-panel]").forEach(b => b.classList.remove("ed-active"));
+      btn.classList.add("ed-active");
+      _execDashPanel = panel;
+      _renderExecPanel(orgId, panel);
+    });
+  });
+
+  // Back to app
+  document.getElementById("execDashBackBtn")?.addEventListener("click", () => {
+    ov.remove();
+  });
+
+  // Delete org
+  document.getElementById("execDashDeleteBtn")?.addEventListener("click", () => {
+    const o = getOrgById(orgId);
+    if(!o) return;
+    if(!confirm(`Delete "${o.name}" organization? Your teams and assessments are not affected.`)) return;
+    deleteOrg(orgId);
+    ov.remove();
+    renderHomeContent();
+    showActionBanner("Organization deleted", "success");
+  });
+
+  // Mobile: close sidebar on overlay click
+  ov.querySelector(".ed-shell")?.addEventListener("click", e => {
+    const side = document.getElementById("execDashSide");
+    if(side?.classList.contains("ed-open") && !side.contains(e.target)){
+      side.classList.remove("ed-open");
+    }
+  });
+
+  // Responsive mobile bar
+  const mobileBar = document.getElementById("execMobileBar");
+  if(window.innerWidth <= 640 && mobileBar) mobileBar.style.display = "flex";
+
+  // Render initial panel
+  _renderExecPanel(orgId, "overview");
+}
+
+function _renderExecPanel(orgId, panel){
+  const host = document.getElementById("execPanelContent");
+  if(!host) return;
+  const org = getOrgById(orgId);
+  if(!org){ host.innerHTML = `<div class="ed-empty">Organization not found.</div>`; return; }
+
+  const allSeasons = Object.values(DB.seasons || {})
+    .filter(s => !s?.deleted && !s?.tombstone)
+    .sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+  const seasonTeamIds   = new Set(allSeasons.map(s => s.teamId).filter(Boolean));
+  const orphanedTeams   = getTeams().filter(t => !seasonTeamIds.has(t.id) && !t.deleted && !t.tombstone);
+  const allAssessments  = Object.values(DB.tryouts || {})
+    .sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+  const activeAssess    = allAssessments.filter(t => !isArchivedTryout(t));
+  const totalTeams      = allSeasons.length + orphanedTeams.length;
+  const totalPlayers    = allSeasons.reduce((s,x) => s + (x.roster||[]).length, 0);
+  const evaledPlayers   = allSeasons.reduce((s,x) =>
+    s + (x.roster||[]).filter(p => p.overall != null && Number(p.overall) > 0).length, 0);
+  const evalPct         = totalPlayers > 0 ? Math.round((evaledPlayers/totalPlayers)*100) : 0;
+
+  // ── Helper: season row card ──────────────────────────────────────────
+  function seasonCard(season, closeOnClick){
+    const pc   = (season.roster||[]).length;
+    const sc   = (season.roster||[]).filter(p => p.overall != null && Number(p.overall) > 0).length;
+    const pct  = pc > 0 ? Math.round((sc/pc)*100) : 0;
+    const col  = pct >= 70 ? '#10b981' : pct >= 30 ? '#f59e0b' : pc === 0 ? '#94a3b8' : '#ef4444';
+    const hlth = pct >= 70 ? 'ok' : pct >= 30 ? 'warn' : pc === 0 ? 'grey' : 'bad';
+    const lbl  = pct >= 70 ? 'Great Shape' : pct >= 30 ? 'In Progress' : pc === 0 ? 'Empty' : 'Needs Attention';
+    const avg  = sc > 0 ? (season.roster.filter(p=>p.overall!=null&&Number(p.overall)>0).reduce((a,p)=>a+Number(p.overall),0)/sc).toFixed(1) : null;
+    const onclick = closeOnClick
+      ? `document.getElementById('orgDashOverlay')?.remove();openSeason('${escapeJS(season.id)}')`
+      : `openSeason('${escapeJS(season.id)}')`;
+    return `
+      <div class="ed-team-card" onclick="${onclick}">
+        <div style="width:4px;align-self:stretch;border-radius:999px;background:${col};flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(season.teamName||season.name)}</div>
+          <div style="font-size:11px;color:var(--ed-muted);margin-top:2px;">${escapeHTML(season.sport||'')}${season.year?' · '+escapeHTML(season.year):''} · ${pc} players</div>
+          <div class="ed-prog-bg"><div class="ed-prog-fill" style="width:${pct}%;background:${col};"></div></div>
+          <div style="font-size:10px;color:var(--ed-muted);margin-top:3px;">${sc}/${pc} evaluated</div>
+        </div>
+        ${avg ? `<div style="font-size:16px;font-weight:900;color:${col};flex-shrink:0;">${avg}</div>` : ``}
+        <span class="ed-health ed-health-${hlth}">${lbl}</span>
+        <div style="color:var(--ed-muted);font-size:16px;flex-shrink:0;">›</div>
+      </div>`;
+  }
+
+  // ── OVERVIEW panel ───────────────────────────────────────────────────
+  if(panel === "overview"){
+    const avgScoreAll = (() => {
+      let sum = 0, cnt = 0;
+      allSeasons.forEach(s => (s.roster||[]).forEach(p => {
+        if(p.overall != null && Number(p.overall) > 0){ sum += Number(p.overall); cnt++; }
+      }));
+      return cnt > 0 ? (sum/cnt).toFixed(1) : "—";
+    })();
+
+    host.innerHTML = `
+      <div class="ed-page-title">${escapeHTML(org.name)}</div>
+      <div class="ed-page-sub">${[org.sport,org.year,org.city].filter(Boolean).map(escapeHTML).join(" · ")||"Organization Overview"}</div>
+
+      <div class="ed-action-bar">
+        <button class="ed-btn ed-btn-primary" onclick="document.getElementById('orgDashOverlay')?.remove();startCreateSeason()">+ New Team</button>
+        <button class="ed-btn ed-btn-secondary" onclick="_renderExecPanel('${escapeJS(orgId)}','settings')">Edit Organization</button>
+      </div>
+
+      <div class="ed-stat-grid">
+        <div class="ed-stat">
+          <div class="ed-k">Teams</div>
+          <div class="ed-v">${totalTeams}</div>
+          <div class="ed-sub">${allSeasons.length} season${allSeasons.length!==1?'s':''}, ${orphanedTeams.length} setup pending</div>
+        </div>
+        <div class="ed-stat">
+          <div class="ed-k">Players</div>
+          <div class="ed-v">${totalPlayers}</div>
+          <div class="ed-sub">${evalPct}% evaluated</div>
+        </div>
+        <div class="ed-stat">
+          <div class="ed-k">Assessments</div>
+          <div class="ed-v">${activeAssess.length}</div>
+          <div class="ed-sub">${allAssessments.filter(isArchivedTryout).length} archived</div>
+        </div>
+        <div class="ed-stat">
+          <div class="ed-k">Avg Score</div>
+          <div class="ed-v">${avgScoreAll}</div>
+          <div class="ed-sub">across all teams</div>
+        </div>
+      </div>
+
+      <div class="ed-section">
+        <div class="ed-section-hd">Team Health</div>
+        <div class="ed-section-body" style="padding:10px 14px;">
+          ${allSeasons.length === 0 && orphanedTeams.length === 0
+            ? `<div class="ed-empty">No teams yet. Create your first team to get started.</div>`
+            : allSeasons.slice(0,5).map(s => seasonCard(s, true)).join('') +
+              (allSeasons.length > 5 ? `<div style="text-align:center;padding:10px 0;"><button class="ed-btn ed-btn-secondary" style="font-size:12px;padding:7px 14px;" onclick="_renderExecPanel('${escapeJS(orgId)}','teams');document.querySelectorAll('[data-ed-panel]').forEach(b=>{b.classList.toggle('ed-active',b.getAttribute('data-ed-panel')==='teams')})">View all ${allSeasons.length} teams →</button></div>` : '')
+          }
+        </div>
+      </div>
+
+      ${activeAssess.length > 0 ? `
+      <div class="ed-section">
+        <div class="ed-section-hd">Recent Assessments</div>
+        <div class="ed-section-body" style="padding:10px 14px;">
+          ${activeAssess.slice(0,3).map(t => {
+            const pc2 = (t.roster||[]).length;
+            const ec2 = new Set((t.evals||[]).map(e=>e.playerId)).size;
+            const pct2 = pc2 > 0 ? Math.round((ec2/pc2)*100) : 0;
+            const col2 = pct2 >= 100 ? '#22c55e' : pct2 > 60 ? '#f59e0b' : pct2 > 30 ? '#6366f1' : '#ef4444';
+            return `<div class="ed-assessment-card" onclick="document.getElementById('orgDashOverlay')?.remove();openTryout('${escapeJS(t.id)}')">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:800;color:#fff;">${escapeHTML(t.name)}</div>
+                <div style="font-size:11px;color:var(--ed-muted);margin-top:2px;">${escapeHTML(t.eventType||'Tryout')}${t.tryoutDate?' · '+escapeHTML(t.tryoutDate):''} · ${pc2} players</div>
+              </div>
+              <div style="font-size:13px;font-weight:800;color:${col2};white-space:nowrap;">${pct2}%</div>
+              <div style="color:var(--ed-muted);font-size:16px;">›</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+    `;
+    return;
+  }
+
+  // ── TEAMS panel ──────────────────────────────────────────────────────
+  if(panel === "teams"){
+    host.innerHTML = `
+      <div class="ed-page-title">Teams</div>
+      <div class="ed-page-sub">${totalTeams} team${totalTeams!==1?'s':''} in this organization</div>
+      <div class="ed-action-bar">
+        <button class="ed-btn ed-btn-primary" onclick="document.getElementById('orgDashOverlay')?.remove();startCreateSeason()">+ New Team</button>
+      </div>
+      ${allSeasons.length === 0 && orphanedTeams.length === 0
+        ? `<div class="ed-empty">No teams yet. Tap "+ New Team" to create your first.</div>`
+        : `<div class="ed-section"><div class="ed-section-body" style="padding:10px 14px;">
+            ${allSeasons.map(s => seasonCard(s, true)).join('')}
+            ${orphanedTeams.map(t => `
+              <div class="ed-team-card" onclick="document.getElementById('orgDashOverlay')?.remove();setupOrphanedTeam('${escapeJS(t.id)}')">
+                <div style="width:4px;align-self:stretch;border-radius:999px;background:#f59e0b;flex-shrink:0;"></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:800;color:#fff;">${escapeHTML(t.name)}</div>
+                  <div style="font-size:11px;color:var(--ed-muted);margin-top:2px;">Setup incomplete — tap to finish</div>
+                </div>
+                <span class="ed-health ed-health-warn">Pending</span>
+                <div style="color:var(--ed-muted);font-size:16px;">›</div>
+              </div>`).join('')}
+          </div></div>`
+      }
+    `;
+    return;
+  }
+
+  // ── ASSESSMENTS panel ────────────────────────────────────────────────
+  if(panel === "assessments"){
+    const archived = allAssessments.filter(isArchivedTryout);
+    host.innerHTML = `
+      <div class="ed-page-title">Assessments</div>
+      <div class="ed-page-sub">${activeAssess.length} active · ${archived.length} archived</div>
+      ${activeAssess.length === 0 && archived.length === 0
+        ? `<div class="ed-empty">No assessments yet.</div>`
+        : `<div class="ed-section"><div class="ed-section-hd">Active</div>
+            <div class="ed-section-body" style="padding:10px 14px;">
+            ${activeAssess.length === 0 ? `<div class="ed-empty">All assessments archived.</div>` : activeAssess.map(t => {
+              const pc2 = (t.roster||[]).length;
+              const ec2 = new Set((t.evals||[]).map(e=>e.playerId)).size;
+              const pct2 = pc2 > 0 ? Math.round((ec2/pc2)*100) : 0;
+              const col2 = pct2 >= 100 ? '#22c55e' : pct2 > 60 ? '#f59e0b' : pct2 > 30 ? '#6366f1' : '#ef4444';
+              return `<div class="ed-assessment-card" onclick="document.getElementById('orgDashOverlay')?.remove();openTryout('${escapeJS(t.id)}')">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;font-weight:800;color:#fff;">${escapeHTML(t.name)}</div>
+                  <div style="font-size:11px;color:var(--ed-muted);margin-top:2px;">${escapeHTML(t.eventType||'Tryout')}${t.tryoutDate?' · '+escapeHTML(t.tryoutDate):''} · ${pc2} players</div>
+                  <div class="ed-prog-bg"><div class="ed-prog-fill" style="width:${pct2}%;background:${col2};"></div></div>
+                  <div style="font-size:10px;color:var(--ed-muted);margin-top:3px;">${ec2}/${pc2} evaluated (${pct2}%)</div>
+                </div>
+                <div style="color:var(--ed-muted);font-size:16px;flex-shrink:0;">›</div>
+              </div>`;
+            }).join('')}
+            </div>
+          </div>
+          ${archived.length > 0 ? `<div class="ed-section"><div class="ed-section-hd">Archived</div>
+            <div class="ed-section-body" style="padding:10px 14px;">
+            ${archived.map(t => `<div class="ed-assessment-card" onclick="document.getElementById('orgDashOverlay')?.remove();openTryout('${escapeJS(t.id)}')">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;font-weight:800;color:var(--ed-muted);">${escapeHTML(t.name)}</div>
+                <div style="font-size:11px;color:var(--ed-muted);margin-top:2px;">Archived · ${(t.roster||[]).length} players</div>
+              </div>
+              <div style="color:var(--ed-muted);font-size:16px;">›</div>
+            </div>`).join('')}
+            </div>
+          </div>` : ''}
+        `}
+    `;
+    return;
+  }
+
+  // ── PLAYERS panel ────────────────────────────────────────────────────
+  if(panel === "players"){
+    // Combine all rosters with their team name
+    const allPlayers = [];
+    allSeasons.forEach(s => {
+      (s.roster||[]).forEach(p => {
+        const fn = String(p.first||p.firstName||"").trim();
+        const ln = String(p.last||p.lastName||"").trim();
+        const fullName = [fn,ln].filter(Boolean).join(" ") || "Unknown Player";
+        const score = p.overall != null && Number(p.overall) > 0 ? Number(p.overall) : null;
+        allPlayers.push({ fullName, teamName: s.teamName||s.name, score, sport: s.sport||"" });
+      });
+    });
+    allPlayers.sort((a,b) => (b.score||0)-(a.score||0));
+
+    const scoreColor = s => s===null?'var(--ed-muted)':s>=4.5?'#22c55e':s>=3.8?'#10b981':s>=3.0?'#f59e0b':s>=2.0?'#f97316':'#ef4444';
+
+    host.innerHTML = `
+      <div class="ed-page-title">Players</div>
+      <div class="ed-page-sub">${totalPlayers} player${totalPlayers!==1?'s':''} · ${evalPct}% evaluated</div>
+      ${allPlayers.length === 0
+        ? `<div class="ed-empty">No players on any roster yet.</div>`
+        : `<div class="ed-section">
+            <div class="ed-section-body" style="padding:10px 14px;">
+              ${allPlayers.slice(0,50).map((p,i) => `
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--ed-border);">
+                  <div style="width:26px;text-align:right;font-size:12px;color:var(--ed-muted);font-weight:700;flex-shrink:0;">${i+1}</div>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:14px;font-weight:700;color:#fff;">${escapeHTML(p.fullName)}</div>
+                    <div style="font-size:11px;color:var(--ed-muted);">${escapeHTML(p.teamName)}</div>
+                  </div>
+                  ${p.score !== null
+                    ? `<div style="font-size:15px;font-weight:900;color:${scoreColor(p.score)};flex-shrink:0;">${p.score.toFixed(1)}</div>`
+                    : `<div style="font-size:11px;color:var(--ed-muted);flex-shrink:0;">—</div>`}
+                </div>`).join('')}
+              ${allPlayers.length > 50 ? `<div style="text-align:center;padding:12px 0;font-size:12px;color:var(--ed-muted);">Showing top 50 of ${allPlayers.length} players</div>` : ''}
+            </div>
+          </div>`}
+    `;
+    return;
+  }
+
+  // ── SETTINGS panel ───────────────────────────────────────────────────
+  if(panel === "settings"){
+    const sportOpts = (typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS : ["Hockey","Soccer","Football","Baseball","Basketball","Ringette"])
+      .map(s => `<option value="${escapeAttr(s)}"${org.sport===s?" selected":""}>${escapeHTML(s)}</option>`).join("");
+    host.innerHTML = `
+      <div class="ed-page-title">Organization Settings</div>
+      <div class="ed-page-sub">Update your organization details</div>
+      <div class="ed-section">
+        <div class="ed-section-hd">Details</div>
+        <div class="ed-section-body">
+          <div style="margin-bottom:14px;">
+            <label style="font-size:11px;font-weight:700;color:var(--ed-muted);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Organization Name *</label>
+            <input id="execOrgName" value="${escapeAttr(org.name)}"
+              style="width:100%;background:var(--ed-panel2);color:var(--ed-text);border:1px solid var(--ed-border);border-radius:8px;padding:9px 11px;font-size:14px;outline:none;">
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="font-size:11px;font-weight:700;color:var(--ed-muted);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Primary Sport</label>
+            <select id="execOrgSport"
+              style="width:100%;background:var(--ed-panel2);color:var(--ed-text);border:1px solid var(--ed-border);border-radius:8px;padding:9px 11px;font-size:14px;outline:none;">
+              <option value="Multi-Sport"${org.sport==="Multi-Sport"?" selected":""}>Multi-Sport</option>
+              ${sportOpts}
+            </select>
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="font-size:11px;font-weight:700;color:var(--ed-muted);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">Year</label>
+            <input id="execOrgYear" value="${escapeAttr(org.year||"")}" placeholder="e.g., 2026"
+              style="width:100%;background:var(--ed-panel2);color:var(--ed-text);border:1px solid var(--ed-border);border-radius:8px;padding:9px 11px;font-size:14px;outline:none;">
+          </div>
+          <div style="margin-bottom:20px;">
+            <label style="font-size:11px;font-weight:700;color:var(--ed-muted);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">City / Region</label>
+            <input id="execOrgCity" value="${escapeAttr(org.city||"")}" placeholder="e.g., Toronto"
+              style="width:100%;background:var(--ed-panel2);color:var(--ed-text);border:1px solid var(--ed-border);border-radius:8px;padding:9px 11px;font-size:14px;outline:none;">
+          </div>
+          <button class="ed-btn ed-btn-primary" style="width:100%;" onclick="
+            const nm=document.getElementById('execOrgName')?.value.trim();
+            if(!nm){showActionBanner('Name is required','error');return;}
+            updateOrg('${escapeJS(orgId)}',{
+              name:nm,
+              sport:document.getElementById('execOrgSport')?.value||'Multi-Sport',
+              year:document.getElementById('execOrgYear')?.value.trim()||'',
+              city:document.getElementById('execOrgCity')?.value.trim()||''
+            });
+            renderHomeContent();
+            showActionBanner('Organization updated','success');
+            _renderExecPanel('${escapeJS(orgId)}','settings');
+          ">Save Changes</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  host.innerHTML = `<div class="ed-empty">Panel not found.</div>`;
 }
 
 // ── Organization Demo Generator ───────────────────────────────────────────
@@ -9555,17 +10028,12 @@ function updateOfflineBanner(){
   const banner = document.getElementById("offlineBanner");
   if(!banner) return;
   const isOffline = !navigator.onLine;
-  const isSyncing = dbSyncState.syncing;
-  const hasError = !!dbSyncState.lastError;
-  const lastSync = dbSyncState.lastSync;
+  const hasError  = !!dbSyncState.lastError;
+  // Only surface problems — never show green syncing/synced banners
   if(isOffline){
     showBanner("offline", "⚡ Working offline — changes saved locally");
   } else if(hasError){
     showBanner("error", "⚠ Sync error — " + (dbSyncState.lastError || "retry in progress"));
-  } else if(isSyncing){
-    showBanner("syncing", "↑ Syncing...");
-  } else if(lastSync){
-    showBannerTemporary("synced", "✓ Synced " + new Date(lastSync).toLocaleTimeString());
   } else {
     hideBanner();
   }
