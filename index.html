@@ -1436,10 +1436,41 @@
     .ptAvatar.pos-other{ background: #6366f1; }
     [data-theme="dark"] .ptJerseyWatermark{ opacity: 0.08; }
     .playerTile:hover{
-      border-color:rgba(255,107,43,0.18);
-      box-shadow:0 10px 18px rgba(10,30,61,0.12);
-      transform:translateY(-2px);
+      border-color:rgba(255,107,43,0.28);
+      box-shadow:0 12px 24px rgba(10,30,61,0.14);
+      transform:translateY(-3px);
     }
+    @keyframes ptSlideUp{
+      from{opacity:0;transform:translateY(16px) scale(0.96);}
+      to{opacity:1;transform:translateY(0) scale(1);}
+    }
+    .ptAnimIn{animation:ptSlideUp 0.38s cubic-bezier(0.34,1.1,0.64,1) both;}
+    /* Rank crown badge */
+    .ptRankBadge{
+      position:absolute;top:-5px;left:-5px;
+      width:24px;height:24px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:12px;z-index:6;
+      box-shadow:0 2px 8px rgba(0,0,0,0.22);
+    }
+    .ptRankBadge.rank1{background:linear-gradient(135deg,#fbbf24,#f59e0b);}
+    .ptRankBadge.rank2{background:linear-gradient(135deg,#d1d5db,#9ca3af);}
+    .ptRankBadge.rank3{background:linear-gradient(135deg,#d97706,#92400e);}
+    /* Trend pill */
+    .ptTrend{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:900;padding:1px 6px;border-radius:999px;}
+    .ptTrend.up{background:#dcfce7;color:#16a34a;}
+    .ptTrend.down{background:#fee2e2;color:#dc2626;}
+    .ptTrend.flat{background:#f1f5f9;color:#64748b;}
+    .ptTrend.newp{background:#ede9fe;color:#7c3aed;}
+    /* Mini category bars */
+    .ptCatBars{margin-top:7px;display:flex;flex-direction:column;gap:3px;}
+    .ptCatRow{display:flex;align-items:center;gap:5px;}
+    .ptCatLbl{font-size:8.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.04em;width:26px;flex-shrink:0;}
+    .ptCatTrack{flex:1;height:4px;border-radius:999px;background:var(--border);overflow:hidden;}
+    .ptCatFill{height:100%;border-radius:999px;transition:width 0.5s cubic-bezier(0.34,1.1,0.64,1);}
+    .ptCatVal{font-size:8.5px;font-weight:800;color:var(--ink);width:22px;text-align:right;flex-shrink:0;}
+    /* Position accent strip at top of tile */
+    .ptAccentStrip{position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0;z-index:2;}
     .ptTop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;min-width:0;}
     .ptTop > div:first-child{min-width:0;}
     .ptName{
@@ -21919,6 +21950,16 @@ function renderRosterTiles(){
   const _rbGoAll  = getGoalieAll(t);
   const _rbCuAll  = getCustomRubrics();
 
+  // Pre-compute ranks for medal badges (computed once, not per-player)
+  const _rankSkater = rankInGroup(weightedOverall, "S");
+  const _rankGoalie = rankInGroup(weightedOverall, "G");
+  // Category labels/order for mini bars
+  const _catOrderSk = getSportSkCatOrder(_rbSport);
+  const _catLblsSk  = getSportSkCatLabels(_rbSport);
+  const _catOrderGo = getSportGoCatOrder(_rbSport);
+  const _catLblsGo  = getSportGoCatLabels(_rbSport);
+  const _catBarColors = ["#ff6b2b","#6366f1","#0d9488","#f59e0b"];
+
   host.innerHTML = `
     ${assessorIdentityBannerHTML()}
     ${selectBar}
@@ -21967,13 +22008,10 @@ function renderRosterTiles(){
         }
         const avatarClass = getPositionAvatarClass(p.pos, getSportFromTryout(t));
         const avatarInitials = getPositionInitials(p.pos);
-        // Score ring: map position class → fill colour, compute arc length (scale 0-5, r=18 → circ≈113)
         const _ptAvatarBgMap = {'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#F97316','pos-other':'#6366f1'};
         const _ptAvatarBg  = _ptAvatarBgMap[avatarClass] || '#6366f1';
-        // Larger ring: r=27, circ=2π×27≈169.6
         const _ptCirc      = 169.6;
         const _ptRingFill  = (overall!==null && overall>0) ? Math.min((overall/5)*_ptCirc,_ptCirc).toFixed(1) : "0";
-        // Arc colour = score quality tier (picks up dark-mode token automatically)
         const _ptArcColor  = overall===null ? 'var(--border)'
                            : overall>=4.5  ? 'var(--score-great-ink)'
                            : overall>=3.8  ? 'var(--score-good-ink)'
@@ -21986,7 +22024,6 @@ function renderRosterTiles(){
         const friendBar = fc ? `<div class="friendPkgBar" style="background:${fc.bar};"></div>` : "";
         const friendBadge = fc ? `<span class="friendPkg" style="background:${fc.bg};color:${fc.text};">&#128101; Friends</span>` : "";
         const isSelected = rosterSelectSet.has(p.id);
-        // In select mode: clicking tile toggles selection; otherwise opens player hub
         const tileClick = rosterSelectMode
           ? `toggleRosterPlayerSelect('${p.id}', event)`
           : `openPlayerHub('${p.id}')`;
@@ -21997,41 +22034,79 @@ function renderRosterTiles(){
             </div>
           </div>
         ` : "";
+
+        // ── Rank badge (top 3 in position group) ─────────────────────────
+        const _playerRank = _isGoalie ? (_rankGoalie.ranks[p.id]||null) : (_rankSkater.ranks[p.id]||null);
+        const _rankMedal = _playerRank===1?"🥇":_playerRank===2?"🥈":_playerRank===3?"🥉":"";
+        const _rankClass = _playerRank===1?"rank1":_playerRank===2?"rank2":_playerRank===3?"rank3":"";
+        const rankBadge = (!rosterSelectMode && _rankMedal && overall > 0) ? `<div class="ptRankBadge ${_rankClass}" title="Ranked #${_playerRank} in group">${_rankMedal}</div>` : "";
+
+        // ── Trend arrow (compare oldest vs latest eval score) ─────────────
+        const _sortedEvals = playerEvals.slice().sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+        const _firstScore = _sortedEvals.length ? Number(_sortedEvals[0].overall||0) : null;
+        const _lastScore  = _sortedEvals.length ? Number(_sortedEvals[_sortedEvals.length-1].overall||0) : null;
+        let trendHTML = "";
+        if(!rosterSelectMode){
+          if(_sortedEvals.length === 0){
+            trendHTML = `<span class="ptTrend newp">NEW</span>`;
+          } else if(_sortedEvals.length === 1){
+            trendHTML = `<span class="ptTrend flat">1 eval</span>`;
+          } else {
+            const _delta = (_lastScore||0) - (_firstScore||0);
+            if(_delta >= 0.15)       trendHTML = `<span class="ptTrend up">↑ +${_delta.toFixed(1)}</span>`;
+            else if(_delta <= -0.15) trendHTML = `<span class="ptTrend down">↓ ${_delta.toFixed(1)}</span>`;
+            else                     trendHTML = `<span class="ptTrend flat">→ Stable</span>`;
+          }
+        }
+
+        // ── Mini category bars ─────────────────────────────────────────────
+        const _catOrder = _isGoalie ? _catOrderGo : _catOrderSk;
+        const _catLbls  = _isGoalie ? _catLblsGo  : _catLblsSk;
+        const _cats     = categoryAverages(p.id) || {};
+        const _catBarsHTML = _catOrder.slice(0,4).map((key,idx)=>{
+          const raw = _cats[key];
+          if(raw == null || raw === 0) return "";
+          const val = raw > 5 ? raw/2 : raw;
+          const pct = Math.min(100,(val/5)*100).toFixed(0);
+          const lbl = (_catLbls[key]||key).substring(0,3).toUpperCase();
+          return `<div class="ptCatRow"><div class="ptCatLbl">${escapeHTML(lbl)}</div><div class="ptCatTrack"><div class="ptCatFill" style="width:${pct}%;background:${_catBarColors[idx%4]};"></div></div><div class="ptCatVal">${val.toFixed(1)}</div></div>`;
+        }).filter(Boolean).join("");
+
+        // Stagger animation delay (capped at 500ms for large rosters)
+        const _tileIdx = roster.indexOf(p);
+        const _animDelay = Math.min(_tileIdx * 28, 500);
+
         return `
-          <div class="playerTile" style="position:relative;border-left:4px solid ${rosterSelectMode?(isSelected?"#dc2626":"#94a3b8"):scoreStripe};${rosterSelectMode && isSelected?"outline:2px solid #dc2626;outline-offset:-2px;background:#fff5f5;":""}${!rosterSelectMode && fc ? `outline:2px solid ${fc.bar};outline-offset:-2px;` : ""}" onclick="${tileClick}">
+          <div class="playerTile ptAnimIn" style="position:relative;border-left:4px solid ${rosterSelectMode?(isSelected?"#dc2626":"#94a3b8"):scoreStripe};animation-delay:${_animDelay}ms;${rosterSelectMode && isSelected?"outline:2px solid #dc2626;outline-offset:-2px;background:#fff5f5;":""}${!rosterSelectMode && fc ? `outline:2px solid ${fc.bar};outline-offset:-2px;` : ""}" onclick="${tileClick}">
+            <div class="ptAccentStrip" style="background:linear-gradient(90deg,${_ptAvatarBg},${_ptAvatarBg}44);"></div>
+            ${rankBadge}
             ${selectOverlay}
             ${friendBar}
             <span class="ptJerseyWatermark" aria-hidden="true">${escapeHTML(jerseyDisplay)}</span>
-            <div class="ptContent">
+            <div class="ptContent" style="padding-top:5px;">
               <div class="ptTop">
                 <div style="min-width:0;flex:1;">
                   <div class="ptName">${escapeHTML(playerDisplayName(p))} ${createdBadge} ${anonBadge}${friendBadge}</div>
                   <div class="ptSub">#${escapeHTML(p.jersey||"—")} • ${escapeHTML(p.pos||"—")}${p.athleteId ? ` • <span style="font-family:monospace;font-size:10px;color:#94a3b8;letter-spacing:0.04em;">ID ${escapeHTML(p.athleteId)}</span>` : ""}</div>
-                  <div class="ptSub">Assigned: <b style="color:var(--black-font-replacement)">${escapeHTML(assigned)}</b></div>
                 </div>
                 <div class="ptScoreRing" aria-label="Score ${_ptScoreTxt} out of 5">
                   <svg width="68" height="68" viewBox="0 0 68 68">
-                    <!-- track -->
                     <circle class="ptScoreRingBg" cx="34" cy="34" r="27" stroke-width="4" fill="none"/>
-                    <!-- arc: colour = score tier -->
                     <circle class="ptScoreRingFill" cx="34" cy="34" r="27" stroke-width="4" fill="none"
                       stroke="${_ptArcColor}" stroke-dasharray="${_ptRingFill} ${_ptCirc}"
                       transform="rotate(-90 34 34)"/>
-                    <!-- position colour inner disc -->
                     <circle cx="34" cy="34" r="20" fill="${_ptAvatarBg}" opacity="0.92"/>
-                    <!-- score number -->
                     <text x="34" y="32" class="ptScoreNum" font-size="${_ptScoreTxt==="—"?15:overall>=10?12:13}"
                       fill="#fff">${escapeHTML(_ptScoreTxt)}</text>
-                    <!-- "/ 5" label -->
                     <text x="34" y="44" class="ptScoreLabel" font-size="8" fill="#fff">/ 5</text>
                   </svg>
                 </div>
               </div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
                 <div class="ptPill">${evCount} eval${evCount!==1?"s":""}</div>
-                <div class="ptPill" style="font-size:10px;color:var(--muted);">out of 5.00</div>
+                ${trendHTML}
               </div>
-              ${_rbBar}
+              ${_catBarsHTML ? `<div class="ptCatBars">${_catBarsHTML}</div>` : _rbBar}
               <div class="ptScoreState ${scoreStateClass}">
                 <span class="ptScoreDot"></span>
                 <span>${scoreStateLabel}</span>
