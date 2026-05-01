@@ -9423,33 +9423,101 @@ function showErrorBanner(msg="Action failed"){
   showActionBanner(msg, "error");
 }
 
+// ── Toast stack — each showActionBanner call spawns its own element ──────────
+let _toastStack = [];
+let _toastWrap  = null;
+
+function _getToastWrap(){
+  if(_toastWrap && document.body.contains(_toastWrap)) return _toastWrap;
+  _toastWrap = document.createElement("div");
+  _toastWrap.id = "toastWrap";
+  _toastWrap.style.cssText = [
+    "position:fixed",
+    "bottom:16px",
+    "left:50%",
+    "transform:translateX(-50%)",
+    "z-index:19000",
+    "display:flex",
+    "flex-direction:column-reverse",
+    "align-items:center",
+    "gap:8px",
+    "pointer-events:none",
+    "width:min(calc(100vw - 32px), 480px)"
+  ].join(";");
+  document.body.appendChild(_toastWrap);
+  return _toastWrap;
+}
+
+function _dismissToast(el){
+  if(!el || !document.body.contains(el)) return;
+  el.style.opacity    = "0";
+  el.style.transform  = "translateY(12px) scale(0.96)";
+  setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 280);
+}
+
 function showActionBanner(message, tone = "info"){
-  createOfflineBanner();
-  const el = document.getElementById("offlineBanner");
-  if(!el) return;
+  const wrap  = _getToastWrap();
   const toneKey = String(tone || "info").trim().toLowerCase();
-  const toneClass = toneKey === "success" ? "synced" : toneKey === "error" ? "error" : "syncing";
-  const icon = toneKey === "success" ? "✓" : toneKey === "error" ? "✕" : "ℹ";
-  const iconClass = toneKey === "error" ? "offlineDot" : "onlineDot";
-  const text = String(message || "").trim() || (toneKey === "error" ? "Action failed" : "Saved");
-  clearTimeout(offlineBannerTimer);
-  el.className = `${toneClass} visible`;
-  el.innerHTML = `
-    <div class="offlineBannerLeft">
-      <div class="${iconClass}">${icon}</div>
-      <span>${escapeHTML(text)}</span>
-    </div>
-  `;
-  document.body.classList.remove("offline-banner-visible");
-  offlineBannerTimer = setTimeout(()=>{
-    el.classList.remove("visible");
-    setTimeout(()=>{
-      if(!el.classList.contains("visible")){
-        el.className = "";
-        el.innerHTML = "";
-      }
-    }, 260);
-  }, 2500);
+  const bg    = toneKey === "success" ? "#047857"
+              : toneKey === "error"   ? "#b91c1c"
+              :                         "#0f766e";
+  const icon  = toneKey === "success" ? "✓"
+              : toneKey === "error"   ? "✕"
+              :                         "ℹ";
+  const text  = String(message || "").trim() || (toneKey === "error" ? "Action failed" : "Done");
+
+  const el = document.createElement("div");
+  el.style.cssText = [
+    `background:${bg}`,
+    "color:#fff",
+    "padding:10px 18px",
+    "border-radius:12px",
+    "font-size:14px",
+    "font-weight:700",
+    "display:flex",
+    "align-items:center",
+    "gap:10px",
+    "pointer-events:auto",
+    "opacity:0",
+    "transform:translateY(16px) scale(0.96)",
+    "transition:opacity 0.22s ease,transform 0.22s cubic-bezier(0.34,1.15,0.64,1)",
+    "box-shadow:0 4px 20px rgba(0,0,0,0.32)",
+    "max-width:100%",
+    "cursor:pointer",
+    "user-select:none"
+  ].join(";");
+  el.innerHTML = `<span style="font-size:15px;flex-shrink:0;">${icon}</span><span style="white-space:pre-wrap;word-break:break-word;">${escapeHTML(text)}</span>`;
+  el.title = "Click to dismiss";
+  el.addEventListener("click", ()=>{
+    clearTimeout(el._timer);
+    _dismissToast(el);
+    const i = _toastStack.indexOf(el);
+    if(i >= 0) _toastStack.splice(i, 1);
+  });
+
+  wrap.appendChild(el);
+  _toastStack.push(el);
+
+  // Animate in on next frame
+  requestAnimationFrame(()=>{
+    el.style.opacity   = "1";
+    el.style.transform = "translateY(0) scale(1)";
+  });
+
+  // Cap stack at 4 visible — evict the oldest
+  while(_toastStack.length > 4){
+    const oldest = _toastStack.shift();
+    clearTimeout(oldest._timer);
+    _dismissToast(oldest);
+  }
+
+  // Auto-dismiss after 3 s (errors linger 5 s)
+  const ms = toneKey === "error" ? 5000 : 3000;
+  el._timer = setTimeout(()=>{
+    _dismissToast(el);
+    const i = _toastStack.indexOf(el);
+    if(i >= 0) _toastStack.splice(i, 1);
+  }, ms);
 }
 
 function showSyncingBanner(){
@@ -15974,6 +16042,111 @@ function runDemoRegistrationGenerator(){
   generateDemoRegistrations(count, { minYear, maxYear, payMode, withSortOut });
 }
 
+// ── Registration Hub: Generate Dummy Data modal (up to 2500) ────────────────
+
+function openGenDemoModal(){
+  document.getElementById("genDemoModal")?.remove();
+  const yr = new Date().getFullYear();
+  const modal = document.createElement("div");
+  modal.id = "genDemoModal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;z-index:11000;padding:20px;box-sizing:border-box;";
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--radius-xl);padding:28px 24px;max-width:500px;width:100%;border:1px solid var(--border);max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--ink);">⚡ Generate Dummy Registrations</h3>
+        <button onclick="document.getElementById('genDemoModal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">&times;</button>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 18px;">Creates realistic fake registration records for load testing and UI development. All records are tagged <code style="background:var(--field-bg);padding:1px 5px;border-radius:4px;">source:demo</code> and can be cleared in bulk.</p>
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Number of Registrations</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <input id="gdmCount" type="number" min="1" max="2500" value="100"
+          oninput="document.getElementById('gdmCountDisplay').textContent=Math.max(1,Math.min(2500,parseInt(this.value)||1))"
+          style="width:110px;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--field-bg);color:var(--ink);font-size:16px;font-weight:900;">
+        <span id="gdmCountDisplay" style="font-weight:700;font-size:14px;color:var(--btn);">100</span>
+        <span style="color:var(--muted);font-size:12px;">/ 2500 max</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+        ${[25,100,250,500,1000,2500].map(n=>`<button class="secondary small" style="width:auto;padding:4px 12px;" onclick="document.getElementById('gdmCount').value=${n};document.getElementById('gdmCountDisplay').textContent=${n};">${n.toLocaleString()}</button>`).join("")}
+      </div>
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Birth Year Range</label>
+      <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
+        <input id="gdmMinYear" type="number" min="2000" max="2025" value="${yr-18}" placeholder="From"
+          style="width:90px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border);background:var(--field-bg);color:var(--ink);font-size:14px;">
+        <span style="color:var(--muted);">to</span>
+        <input id="gdmMaxYear" type="number" min="2000" max="2025" value="${yr-7}" placeholder="To"
+          style="width:90px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border);background:var(--field-bg);color:var(--ink);font-size:14px;">
+      </div>
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:8px;">Payment Simulation</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+        <label style="display:flex;align-items:center;gap:6px;border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--ink);background:var(--field-bg);">
+          <input type="radio" name="gdmPay" value="realistic" checked> Realistic mix
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--ink);background:var(--field-bg);">
+          <input type="radio" name="gdmPay" value="all_paid"> All paid
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;border:1.5px solid var(--border);border-radius:10px;padding:8px 12px;cursor:pointer;font-size:13px;color:var(--ink);background:var(--field-bg);">
+          <input type="radio" name="gdmPay" value="none"> No payments
+        </label>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:20px;color:var(--ink);">
+        <input type="checkbox" id="gdmSortOut"> Include Sort Out flags (~12%)
+      </label>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="secondary small" onclick="document.getElementById('genDemoModal').remove()">Cancel</button>
+        <button class="ok small" style="background:#6366f1;border-color:#6366f1;width:auto;padding:10px 24px;" onclick="runGenDemoModal()">⚡ Generate</button>
+      </div>
+    </div>
+  `;
+  modal.addEventListener("click", e=>{ if(e.target===modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function runGenDemoModal(){
+  const count   = Math.max(1, Math.min(2500, parseInt(document.getElementById("gdmCount")?.value||"100",10)));
+  const minYear = parseInt(document.getElementById("gdmMinYear")?.value||"2008",10);
+  const maxYear = parseInt(document.getElementById("gdmMaxYear")?.value||"2016",10);
+  const payMode = document.querySelector('input[name="gdmPay"]:checked')?.value || "realistic";
+  const withSortOut = document.getElementById("gdmSortOut")?.checked || false;
+  document.getElementById("genDemoModal")?.remove();
+  // For large counts, use chunked async generation to avoid blocking the UI
+  if(count <= 200){
+    generateDemoRegistrations(count, { minYear, maxYear, payMode, withSortOut });
+    return;
+  }
+  showActionBanner(`Generating ${count.toLocaleString()} registrations…`, "info");
+  const CHUNK = 250;
+  let done = 0;
+  function nextChunk(){
+    const batch = Math.min(CHUNK, count - done);
+    if(batch <= 0){
+      renderRegistrationHub();
+      showActionBanner(`✅ ${count.toLocaleString()} demo registrations generated`, "success");
+      return;
+    }
+    generateDemoRegistrations(batch, { minYear, maxYear, payMode, withSortOut, silent: true });
+    done += batch;
+    setTimeout(nextChunk, 0); // yield to browser between chunks
+  }
+  nextChunk();
+}
+
+function clearAllDemoRegistrations(){
+  const t = getTryout();
+  if(!t) return;
+  const before = (registrationsCache||[]).length;
+  registrationsCache = (registrationsCache||[]).filter(r => r.source !== "demo");
+  t.registrations = (t.registrations||[]).filter(r => r.source !== "demo");
+  saveDB();
+  const cleared = before - registrationsCache.length;
+  showActionBanner(`Cleared ${cleared} demo registration${cleared!==1?"s":""} ✓`, "success");
+  renderRegistrationHub();
+}
+
 function generateDemoRegistrations(count, opts = {}){
   const t = getTryout();
   if(!t){ showActionBanner("No active assessment.", "error"); return; }
@@ -16155,8 +16328,10 @@ function generateDemoRegistrations(count, opts = {}){
   t.registrations = [...(t.registrations || []), ...newRegs];
   saveDB();
 
-  renderDemoRegistrationsView();
-  showActionBanner(`✅ ${newRegs.length} demo registration${newRegs.length === 1 ? "" : "s"} added`, "success");
+  if(!opts.silent){
+    renderDemoRegistrationsView();
+    showActionBanner(`✅ ${newRegs.length} demo registration${newRegs.length === 1 ? "" : "s"} added`, "success");
+  }
 }
 
 function renderDemoRegistrationsView(){
@@ -16770,23 +16945,30 @@ var _regHubTempGroups = null; // working copy for settings tab
 
 // ── Age-group helpers ─────────────────────────────────────────────────────
 
-/** Return age groups saved on tryout, or sensible sport-aware defaults */
+/** Return age groups saved on tryout. Library starts empty — admin must create groups. */
 function getAgeGroups(t){
-  if(Array.isArray(t?.ageGroups) && t.ageGroups.length) return t.ageGroups;
-  const yr = new Date().getFullYear();
-  return [
-    { key:"u9",  label:"U9",       minYob: yr-9,  maxYob: yr-8,  color:"#22c55e", capacity:0 },
-    { key:"u11", label:"U11",      minYob: yr-11, maxYob: yr-10, color:"#0d9488", capacity:0 },
-    { key:"u13", label:"U13",      minYob: yr-13, maxYob: yr-12, color:"#6366f1", capacity:0 },
-    { key:"u15", label:"U15",      minYob: yr-15, maxYob: yr-14, color:"#ff6b2b", capacity:0 },
-    { key:"u17", label:"U17",      minYob: yr-17, maxYob: yr-16, color:"#f59e0b", capacity:0 },
-    { key:"u18", label:"U18/Midget",minYob:yr-19, maxYob: yr-18, color:"#ec4899", capacity:0 },
-  ];
+  if(Array.isArray(t?.ageGroups)) return t.ageGroups;
+  return [];
+}
+
+/** Generate a unique 8-character age-group registration code (unambiguous chars only) */
+function genAgeGroupCode(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
+  let code = "";
+  for(let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
 }
 
 /** Return the age group key for a registration (or "" if unassigned) */
 function assignAgeGroup(reg, groups){
-  const yob = parseInt(reg.yearOfBirth || "", 10);
+  // Fast path: player carries the age group code from an imported template
+  const code = String(reg.ageGroupCode || "").trim().toUpperCase();
+  if(code){
+    const byCode = groups.find(g => String(g.code || "").toUpperCase() === code);
+    if(byCode) return byCode.key;
+  }
+  // Fall back to year-of-birth range matching
+  const yob = parseInt(reg.yearOfBirth || reg.yearofbirth || "", 10);
   if(isNaN(yob)) return "";
   for(const g of groups){
     const lo = parseInt(g.minYob, 10), hi = parseInt(g.maxYob, 10);
@@ -16969,6 +17151,20 @@ function _regHubOverviewHTML(t, pending, allRegs, groups, grouped, cloudId){
         <button class="ok small" onclick="regHubTab='report';renderRegistrationHub();">View Full Report</button>
       </div>
     </div>
+
+    <div class="card" style="border-color:rgba(99,102,241,0.35);">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0 0 3px;">🧪 Generate Test Data</h3>
+          <div class="muted" style="font-size:12px;">Create fake registrations for development and testing purposes.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button class="secondary small" style="background:rgba(99,102,241,0.12);border-color:rgba(99,102,241,0.45);color:#6366f1;width:auto;"
+          onclick="openGenDemoModal()">⚡ Generate Dummy Registrations</button>
+        ${total > 0 ? `<button class="danger small" style="width:auto;" onclick="clearAllDemoRegistrations()">🗑 Clear Demo Data</button>` : ""}
+      </div>
+    </div>
   `;
 }
 
@@ -17008,14 +17204,23 @@ function _regHubGroupsHTML(t, pending, groups, grouped){
             ${isFull ? `<span style="background:#ef4444;color:#fff;font-size:9px;font-weight:900;padding:1px 7px;border-radius:999px;margin-left:6px;">FULL</span>` : ""}
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${g.code ? `
+            <code style="font-family:monospace;font-size:11px;font-weight:900;letter-spacing:0.10em;color:var(--btn);background:var(--field-bg);padding:2px 8px;border-radius:6px;border:1px solid var(--border);">${escapeHTML(g.code)}</code>
+            <button class="secondary small" style="padding:3px 8px;font-size:11px;width:auto;" onclick="copyAgeGroupCode('${escapeJS(g.code)}',this)">📋</button>
+          ` : ""}
           ${regs.length ? `<button class="secondary small" onclick="exportRegGroupCsv('${escapeJS(g.key)}')">↓ CSV</button>` : ""}
+          <button class="secondary small" onclick="downloadAgeGroupTemplate('${escapeJS(g.key)}')">↓ Template</button>
+          ${regs.length ? `<button class="secondary small" onclick="exportAgeGroupXLSX('${escapeJS(g.key)}')">↓ Excel</button>` : ""}
           <button class="ok small" onclick="createTryoutFromAgeGroup('${escapeJS(g.key)}')">+ Create ${escapeHTML(g.label)} Tryout</button>
         </div>
       </div>
       ${regs.length
         ? `<div class="regHub-player-list">${rows}</div>`
-        : `<div class="muted" style="font-size:12px;padding:6px 0;">No registrations in this group yet.</div>`}
+        : `<div style="padding:16px;text-align:center;border:1px dashed var(--border);border-radius:var(--radius-md);">
+            <div class="muted" style="font-size:13px;margin-bottom:8px;">No registrations in this group yet.</div>
+            <button class="secondary small" onclick="downloadAgeGroupTemplate('${escapeJS(g.key)}')">↓ Download Coach Template</button>
+          </div>`}
     </div>`;
   }).join("");
 
@@ -17039,10 +17244,18 @@ function _regHubGroupsHTML(t, pending, groups, grouped){
       </div>
     </div>` : "";
 
-  return groupCards + unassignedCard + `
+  const noGroupsCard = !groups.length ? `
+    <div class="card" style="text-align:center;padding:32px 20px;">
+      <div style="font-size:40px;margin-bottom:10px;">📋</div>
+      <div style="font-weight:700;font-size:16px;color:var(--ink);margin-bottom:6px;">No age groups created yet</div>
+      <div class="muted" style="font-size:13px;margin-bottom:16px;">Create age groups in the ⚙ Age Groups tab to organise registrations by year of birth.</div>
+      <button class="ok small" style="width:auto;" onclick="regHubTab='settings';renderRegistrationHub();">⚙ Create Age Groups</button>
+    </div>` : "";
+
+  return noGroupsCard + groupCards + unassignedCard + (!groups.length ? "" : `
     <div class="card">
       <div class="muted" style="font-size:13px;">Tip: Configure age group ranges in the <button class="secondary small" style="width:auto;display:inline-block;padding:4px 10px;font-size:12px;" onclick="regHubTab='settings';renderRegistrationHub();">⚙ Age Groups</button> tab.</div>
-    </div>`;
+    </div>`);
 }
 
 // ── ALL REGISTRATIONS tab ─────────────────────────────────────────────────
@@ -17151,59 +17364,38 @@ function _regHubSettingsHTML(t, groups){
             oninput="updateAgeGroupField(${idx},'capacity',parseInt(this.value)||0)"
             style="width:78px;padding:8px;border-radius:10px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;">
         </div>
-        <button class="danger small" style="width:auto;margin-left:auto;" onclick="deleteAgeGroupRow(${idx})">✕</button>
+        <button class="danger small" style="width:auto;" onclick="deleteAgeGroupRow(${idx})">✕</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--muted);font-weight:600;">Code:</span>
+        <code style="font-family:monospace;font-size:13px;font-weight:900;letter-spacing:0.12em;color:var(--btn);background:var(--field-bg);padding:3px 10px;border-radius:8px;border:1px solid var(--border);">${escapeHTML(g.code||"—")}</code>
+        ${g.code ? `<button class="secondary small" style="padding:3px 10px;font-size:11px;width:auto;" onclick="copyAgeGroupCode('${escapeJS(g.code)}',this)">📋 Copy</button>` : `<button class="secondary small" style="padding:3px 10px;font-size:11px;width:auto;" onclick="regenerateAgeGroupCode(${idx})">⟳ Generate Code</button>`}
+        <span style="font-size:11px;color:var(--muted);">Share this code with coaches to identify this age group on imports.</span>
       </div>
     </div>`).join("");
 
-  const hockeyPreset = JSON.stringify([
-    {key:"u9",label:"U9",minYob:yr-9,maxYob:yr-8,color:"#22c55e",capacity:0},
-    {key:"u11",label:"U11",minYob:yr-11,maxYob:yr-10,color:"#0d9488",capacity:0},
-    {key:"u13",label:"U13",minYob:yr-13,maxYob:yr-12,color:"#6366f1",capacity:0},
-    {key:"u15",label:"U15",minYob:yr-15,maxYob:yr-14,color:"#ff6b2b",capacity:0},
-    {key:"u17",label:"U17",minYob:yr-17,maxYob:yr-16,color:"#f59e0b",capacity:0},
-    {key:"u18",label:"U18/Midget",minYob:yr-19,maxYob:yr-18,color:"#ec4899",capacity:0},
-  ]);
-  const soccerPreset = JSON.stringify([
-    {key:"u8",label:"U8",minYob:yr-8,maxYob:yr-7,color:"#22c55e",capacity:0},
-    {key:"u10",label:"U10",minYob:yr-10,maxYob:yr-9,color:"#0d9488",capacity:0},
-    {key:"u12",label:"U12",minYob:yr-12,maxYob:yr-11,color:"#6366f1",capacity:0},
-    {key:"u14",label:"U14",minYob:yr-14,maxYob:yr-13,color:"#ff6b2b",capacity:0},
-    {key:"u16",label:"U16",minYob:yr-16,maxYob:yr-15,color:"#f59e0b",capacity:0},
-    {key:"u18",label:"U18",minYob:yr-18,maxYob:yr-17,color:"#ec4899",capacity:0},
-  ]);
-  const basketPreset = JSON.stringify([
-    {key:"u10",label:"U10",minYob:yr-10,maxYob:yr-9,color:"#22c55e",capacity:0},
-    {key:"u12",label:"U12",minYob:yr-12,maxYob:yr-11,color:"#0d9488",capacity:0},
-    {key:"u14",label:"U14",minYob:yr-14,maxYob:yr-13,color:"#6366f1",capacity:0},
-    {key:"u16",label:"U16",minYob:yr-16,maxYob:yr-15,color:"#ff6b2b",capacity:0},
-    {key:"u18",label:"U18",minYob:yr-18,maxYob:yr-17,color:"#f59e0b",capacity:0},
-  ]);
-
   return `<div class="card">
-    <h3 style="margin-bottom:4px;">Age Group Configuration</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
+      <h3 style="margin:0;">Age Group Library</h3>
+      <button class="ok small" style="width:auto;" onclick="addNewAgeGroupRow()">＋ Create Age Group</button>
+    </div>
     <div class="muted" style="font-size:12px;margin-bottom:16px;">
-      Define groups by year of birth (YOB). Players are auto-assigned when you view "By Age Group".
-      Cap = max registrations per group (0 = unlimited).
+      Groups are defined by <strong style="color:var(--ink);">year of birth (YOB)</strong> range. Each group gets a unique 8-digit code coaches can use to identify registrations. Cap = max per group (0 = unlimited).
     </div>
 
-    <div style="margin-bottom:16px;">
-      <div class="muted" style="font-size:12px;margin-bottom:8px;font-weight:700;">Quick Presets:</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="secondary small" onclick="applyAgeGroupPreset(${escapeAttr(JSON.stringify(hockeyPreset))})">🏒 Hockey (Minor)</button>
-        <button class="secondary small" onclick="applyAgeGroupPreset(${escapeAttr(JSON.stringify(soccerPreset))})">⚽ Soccer (Youth)</button>
-        <button class="secondary small" onclick="applyAgeGroupPreset(${escapeAttr(JSON.stringify(basketPreset))})">🏀 Basketball</button>
-      </div>
+    <div id="regHubAgRows" style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+      ${rows || `<div style="padding:24px;text-align:center;border:2px dashed var(--border);border-radius:var(--radius-md);">
+        <div style="font-size:32px;margin-bottom:8px;">📋</div>
+        <div style="font-weight:700;color:var(--ink);margin-bottom:4px;">No age groups yet</div>
+        <div class="muted" style="font-size:13px;margin-bottom:12px;">Create your first age group to start organizing registrations by birth year.</div>
+        <button class="ok small" style="width:auto;" onclick="addNewAgeGroupRow()">＋ Create First Age Group</button>
+      </div>`}
     </div>
 
-    <div id="regHubAgRows" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-      ${rows || `<div class="muted" style="padding:12px 0;">No age groups defined. Add one below.</div>`}
-    </div>
-
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="secondary small" onclick="addNewAgeGroupRow()">+ Add Group</button>
+    ${groups.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="ok small" onclick="saveAgeGroupSettings()">✓ Save Age Groups</button>
       <button class="secondary small" onclick="_regHubTempGroups=null;regHubTab='overview';renderRegistrationHub();">Cancel</button>
-    </div>
+    </div>` : ""}
   </div>`;
 }
 
@@ -17377,7 +17569,15 @@ function addNewAgeGroupRow(){
   if(!t) return;
   if(!_regHubTempGroups) _regHubTempGroups = JSON.parse(JSON.stringify(getAgeGroups(t)));
   const yr = new Date().getFullYear();
-  _regHubTempGroups.push({ key:"grp_"+Date.now(), label:"New Group", minYob:yr-12, maxYob:yr-11, color:"#94a3b8", capacity:0 });
+  _regHubTempGroups.push({
+    key:   "grp_" + Date.now(),
+    label: "New Group",
+    minYob: yr - 12,
+    maxYob: yr - 11,
+    color:  "#94a3b8",
+    capacity: 0,
+    code: genAgeGroupCode()
+  });
   regHubTab = "settings";
   renderRegistrationHub();
 }
@@ -17397,10 +17597,43 @@ function applyAgeGroupPreset(jsonStrStr){
   try {
     // double-encoded because of escapeAttr in the template
     const jsonStr = JSON.parse(jsonStrStr);
-    _regHubTempGroups = JSON.parse(jsonStr);
+    const parsed = JSON.parse(jsonStr);
+    // Assign unique codes to any preset group that lacks one
+    parsed.forEach(g => { if(!g.code) g.code = genAgeGroupCode(); });
+    _regHubTempGroups = parsed;
     regHubTab = "settings";
     renderRegistrationHub();
   } catch(e){ console.error("preset parse error", e); }
+}
+
+function copyAgeGroupCode(code, btn){
+  if(!code) return;
+  navigator.clipboard.writeText(code).then(()=>{
+    const orig = btn.textContent;
+    btn.textContent = "✓ Copied!";
+    setTimeout(()=>{ btn.textContent = orig; }, 1800);
+  }).catch(()=>{
+    // Fallback for non-HTTPS or old browsers
+    const ta = document.createElement("textarea");
+    ta.value = code;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    const orig = btn.textContent;
+    btn.textContent = "✓ Copied!";
+    setTimeout(()=>{ btn.textContent = orig; }, 1800);
+  });
+}
+
+function regenerateAgeGroupCode(idx){
+  const t = getTryout();
+  if(!t) return;
+  if(!_regHubTempGroups) _regHubTempGroups = JSON.parse(JSON.stringify(getAgeGroups(t)));
+  if(_regHubTempGroups[idx]) _regHubTempGroups[idx].code = genAgeGroupCode();
+  regHubTab = "settings";
+  renderRegistrationHub();
 }
 
 function saveAgeGroupSettings(){
@@ -17412,6 +17645,8 @@ function saveAgeGroupSettings(){
     const lo = parseInt(g.minYob, 10), hi = parseInt(g.maxYob, 10);
     if(isNaN(lo)||isNaN(hi)) return showActionBanner("All groups must have valid YOB values.", "error");
     if(lo > hi) return showActionBanner(`${g.label}: Min YOB must be ≤ Max YOB.`, "error");
+    // Ensure every group has a code — generate one if missing (e.g. older data)
+    if(!g.code) g.code = genAgeGroupCode();
   }
   t.ageGroups = groups;
   _regHubTempGroups = null;
@@ -17612,6 +17847,134 @@ function exportRegSortOutsCsv(){
   const base = (t.name||"Event").replace(/[^a-zA-Z0-9_\- ]/g,"_");
   downloadBlob(`${base}_sort_outs.csv`, new Blob([csv],{type:"text/csv;charset=utf-8;"}), "text/csv");
   showActionBanner("Sort outs exported ✓", "success");
+}
+
+// ── Age Group Excel / template export ─────────────────────────────────────
+
+/**
+ * Export the registrations for one age group as an .xlsx file using SheetJS.
+ * The file can be dropped back into the import modal to register players.
+ */
+function exportAgeGroupXLSX(groupKey){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const g = groups.find(gr => gr.key === groupKey);
+  if(!g) return;
+
+  // Columns match what parseRowsToPlayers() + the registration importer recognise
+  const HEADERS = [
+    "Age Group Code",   // g.code — auto-matched on import
+    "First Name",
+    "Last Name",
+    "Year of Birth",
+    "Position",
+    "Current Team",
+    "Current Level",
+    "Guardian Name",
+    "Guardian Email",
+    "Guardian Phone",
+    "Friend Request 1",
+    "Friend Request 2",
+    "About Child",
+    "Medical Info"
+  ];
+
+  const regs = pendingRegistrations().filter(r => assignAgeGroup(r, groups) === groupKey);
+  const dataRows = regs.map(r => [
+    g.code || "",
+    r.firstName || "",
+    r.lastName || "",
+    r.yearOfBirth || "",
+    r.positionTryingOutFor || "",
+    r.currentTeam || "",
+    r.currentLevel || "",
+    r.guardianName || "",
+    r.guardianEmail || "",
+    r.guardianPhone || "",
+    r.friendRequest1 || r.friend1Name || "",
+    r.friendRequest2 || r.friend2Name || "",
+    (r.aboutPlayer || r.aboutChild || "").replace(/[\r\n]+/g, " "),
+    (r.medicalInfo || "").replace(/[\r\n]+/g, " ")
+  ]);
+
+  const label = String(g.label || groupKey).replace(/[^a-zA-Z0-9_\- ]/g, "_");
+  const eventName = (t.name || "Event").replace(/[^a-zA-Z0-9_\- ]/g, "_");
+  const filename = `${eventName}_${label}_registrations.xlsx`;
+
+  function buildAndDownload(){
+    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...dataRows]);
+    // Style column widths
+    ws["!cols"] = HEADERS.map((h, i) => ({ wch: i === 0 ? 14 : i <= 3 ? 14 : i <= 6 ? 20 : 24 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31));
+    XLSX.writeFile(wb, filename);
+    showActionBanner(`Exported ${regs.length} registration${regs.length!==1?"s":""} for ${g.label} ✓`, "success");
+  }
+
+  if(typeof XLSX !== "undefined"){ buildAndDownload(); return; }
+  if(typeof _xlsxLoading !== "undefined" && _xlsxLoading){ return showActionBanner("Still loading Excel library — try again in a moment.", "info"); }
+  showActionBanner("Loading Excel library…", "info");
+  const s = document.createElement("script");
+  s.src = (typeof SHEETJS_CDN !== "undefined" ? SHEETJS_CDN : "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
+  s.onload = buildAndDownload;
+  s.onerror = () => showActionBanner("Could not load Excel library — check your connection.", "error");
+  document.head.appendChild(s);
+}
+
+/**
+ * Download an empty roster template Excel for a specific age group.
+ * Coaches fill in this sheet and drop it back to register players.
+ */
+function downloadAgeGroupTemplate(groupKey){
+  const t = getTryout();
+  if(!t) return;
+  const groups = getAgeGroups(t);
+  const g = groups.find(gr => gr.key === groupKey);
+  if(!g) return;
+
+  const HEADERS = [
+    "Age Group Code",
+    "First Name",
+    "Last Name",
+    "Year of Birth",
+    "Position",
+    "Current Team",
+    "Current Level",
+    "Guardian Name",
+    "Guardian Email",
+    "Guardian Phone",
+    "Friend Request 1",
+    "Friend Request 2",
+    "About Child",
+    "Medical Info"
+  ];
+  // Two example rows so coaches understand the expected format
+  const EXAMPLES = [
+    [g.code||"", "Jane",  "Smith", String(g.minYob||""), "Forward", "Example FC", "House League", "Mary Smith",  "mary@example.com",   "(555) 123-4567", "John Doe", "",         "Loves the game",   ""],
+    [g.code||"", "Lucas", "Brown", String(g.minYob||""), "Defense", "City Hawks", "Rep",          "David Brown", "david@example.com",  "(555) 987-6543", "",         "Amy Green", "Two years rep experience.", "Peanut allergy — carries EpiPen."]
+  ];
+
+  const label = String(g.label || groupKey).replace(/[^a-zA-Z0-9_\- ]/g, "_");
+  const eventName = (t.name || "Event").replace(/[^a-zA-Z0-9_\- ]/g, "_");
+  const filename = `${eventName}_${label}_TEMPLATE.xlsx`;
+
+  function buildAndDownload(){
+    const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...EXAMPLES]);
+    ws["!cols"] = HEADERS.map((h, i) => ({ wch: i === 0 ? 14 : i <= 3 ? 14 : i <= 6 ? 20 : 24 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31));
+    XLSX.writeFile(wb, filename);
+    showActionBanner(`Template downloaded for ${g.label} ✓`, "success");
+  }
+
+  if(typeof XLSX !== "undefined"){ buildAndDownload(); return; }
+  showActionBanner("Loading Excel library…", "info");
+  const s = document.createElement("script");
+  s.src = (typeof SHEETJS_CDN !== "undefined" ? SHEETJS_CDN : "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js");
+  s.onload = buildAndDownload;
+  s.onerror = () => showActionBanner("Could not load Excel library — check your connection.", "error");
+  document.head.appendChild(s);
 }
 
 /* ── End of Registration Hub ── */
@@ -20518,6 +20881,13 @@ function parseRowsToPlayers(rows){
       friendRequest2: getCol(row,
         "friendrequest2","friend request 2","friend2","friend 2",
         "teammate2","teammate 2","request2","playwith2","play with 2"
+      ) || "",
+      // Age group code — present when coach uses the exported template
+      ageGroupCode: getCol(row,
+        "agegroupcode","age group code","groupcode","group code","agecode","age code"
+      ) || "",
+      medicalInfo: getCol(row,
+        "medicalinfo","medical info","medical","health","healthnotes","health notes","allergies"
       ) || "",
       waiverAcceptedAt: Date.now(),
       registrationSource: "csv",
