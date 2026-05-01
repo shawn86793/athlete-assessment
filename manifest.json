@@ -1,0 +1,29 @@
+{
+  "name": "Athlete Assessment Systems",
+  "short_name": "AAS Tryout",
+  "description": "The all-in-one platform for athlete tryouts and player evaluation — QR registration, custom rubrics, team builder, and cloud sync.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070d1a",
+  "theme_color": "#ff6b2b",
+  "lang": "en",
+  "categories": ["sports", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/assets/tryout_t_icon-128.webp",
+      "sizes": "128x128",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/tryout_t_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

@@ -16,6 +16,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" type="image/webp" href="assets/tryout_t_icon-128.webp" />
   <link rel="apple-touch-icon" href="assets/tryout_t_icon-128.webp" />
+  <link rel="manifest" href="/manifest.json" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- dns-prefetch for SheetJS CDN (loaded on-demand, not at startup) -->
@@ -1385,9 +1386,6 @@
       transition:transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
       content-visibility: auto;
       contain-intrinsic-size: 1px 140px;
-      will-change: transform;
-      transform: translateZ(0);
-      backface-visibility: hidden;
     }
     .playerTile{
       position: relative;
@@ -2971,9 +2969,6 @@
       margin-bottom:8px;
       content-visibility: auto;
       contain-intrinsic-size: 1px 100px;
-      will-change: transform;
-      transform: translateZ(0);
-      backface-visibility: hidden;
     }
     .teamCard:hover{
       transform:translateY(-2px);
@@ -3313,8 +3308,6 @@
       gap:10px;
       position:relative;
       transition:border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-      will-change: transform;
-      transform: translateZ(0);
     }
     .planCard:hover{
       transform:translateY(-3px);
@@ -5833,6 +5826,7 @@
         loading="lazy"
         fetchpriority="low"
         decoding="async"
+        importance="low"
         onerror="this.onerror=null;this.src='assets/tryout-logo.png';"
         style="max-width:min(1100px,96vw);width:100%;height:auto;display:block;margin:0 auto 12px;object-fit:contain;image-rendering:-webkit-optimize-contrast;backface-visibility:hidden;transform:translateZ(0);filter:drop-shadow(0 5px 14px rgba(0,0,0,0.45)) contrast(1.08) saturate(1.02);">
     </div>
@@ -37607,6 +37601,30 @@ if("requestIdleCallback" in window){
   window.requestIdleCallback(bootApp, { timeout: 250 });
 } else {
   setTimeout(bootApp, 0);
+}
+
+// ── Service Worker registration ───────────────────────────────────────────────
+// Registered after app boot so it never competes with first-load resources.
+if("serviceWorker" in navigator){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("/sw.js", { scope: "/" })
+      .then(function(reg){
+        // Background update check — surfaces new deploy on next page open
+        reg.addEventListener("updatefound", function(){
+          var newSW = reg.installing;
+          if(!newSW) return;
+          newSW.addEventListener("statechange", function(){
+            if(newSW.state === "installed" && navigator.serviceWorker.controller){
+              // A new version is ready; show a quiet banner if the function exists
+              if(typeof showActionBanner === "function"){
+                showActionBanner("Update available — reload to get the latest version.", "info");
+              }
+            }
+          });
+        });
+      })
+      .catch(function(err){ console.warn("Service worker registration failed:", err); });
+  });
 }
 </script>
 </body>
