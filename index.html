@@ -6358,21 +6358,24 @@ function confirmDeleteOrg(orgId){
 }
 
 // ── Executive Organization Dashboard ─────────────────────────────────────
-// Self-contained org-scoped overlay. Shows ONLY data tagged with orgId.
-// New org = no tagged data = clean slate.
+// Full-featured, mobile-responsive, org-scoped overlay.
+// Shows ONLY data tagged with orgId — new org = clean slate.
 
-window._currentOrgDashId = "";
+window._currentOrgDashId   = "";
+window._pendingNewTryoutOrgId  = window._pendingNewTryoutOrgId  || "";
+window._pendingNewSeasonOrgId  = window._pendingNewSeasonOrgId  || "";
 
 function openOrgDashboard(orgId){
-  const org = getOrgById(orgId);
+  var org = getOrgById(orgId);
   if(!org){ showActionBanner("Organization not found.", "error"); return; }
   window._currentOrgDashId = orgId;
-  _renderOrgDashboard(orgId, "overview");
+  _renderOrgDashboard(orgId, "overview", {});
 }
 
+// ── Data helpers ──────────────────────────────────────────────────────────
 function _getOrgData(orgId){
-  const tryouts = Object.values(DB.tryouts || {}).filter(function(t){ return t.orgId === orgId; });
-  const seasons  = Object.values(DB.seasons  || {}).filter(function(s){ return s.orgId === orgId; });
+  var tryouts = Object.values(DB.tryouts || {}).filter(function(t){ return t.orgId === orgId; });
+  var seasons  = Object.values(DB.seasons  || {}).filter(function(s){ return s.orgId === orgId; });
   var regs = [];
   tryouts.forEach(function(t){
     if(Array.isArray(t.registrations)){
@@ -6384,239 +6387,770 @@ function _getOrgData(orgId){
   return { tryouts: tryouts, seasons: seasons, regs: regs };
 }
 
-function _renderOrgDashboard(orgId, panel){
+var _AGE_ORDER = ["U7","U9","U11","U13","U15","U18","U21","Adult+","Unknown"];
+
+function _odAgeGroup(yearOfBirth){
+  var y = parseInt(yearOfBirth, 10);
+  if(!y || isNaN(y)) return "Unknown";
+  var age = new Date().getFullYear() - y;
+  if(age <= 5)  return "U7";
+  if(age <= 7)  return "U9";
+  if(age <= 9)  return "U11";
+  if(age <= 11) return "U13";
+  if(age <= 13) return "U15";
+  if(age <= 17) return "U18";
+  if(age <= 20) return "U21";
+  return "Adult+";
+}
+
+function _odGroupRegsByAge(regs){
+  var groups = {};
+  regs.forEach(function(r){
+    var g = _odAgeGroup(r.yearOfBirth || r.birthYear || "");
+    if(!groups[g]) groups[g] = [];
+    groups[g].push(r);
+  });
+  Object.keys(groups).forEach(function(k){
+    groups[k].sort(function(a,b){ return (a.lastName||"").localeCompare(b.lastName||""); });
+  });
+  return _AGE_ORDER.filter(function(g){ return !!groups[g]; }).map(function(g){ return { group: g, regs: groups[g] }; });
+}
+
+// ── Main overlay renderer ─────────────────────────────────────────────────
+function _renderOrgDashboard(orgId, panel, opts){
+  opts = opts || {};
   document.getElementById("orgDashOverlay")?.remove();
-  const org = getOrgById(orgId);
+  var org = getOrgById(orgId);
   if(!org) return;
   window._currentOrgDashId = orgId;
-  const d = _getOrgData(orgId);
+  var d = _getOrgData(orgId);
+  var isMobile = window.innerWidth < 680;
 
-  const navItems = [
-    { key:"overview",      icon:"🏠", label:"Overview"      },
-    { key:"assessments",   icon:"📋", label:"Assessments"   },
-    { key:"registrations", icon:"📝", label:"Registrations" },
-    { key:"reports",       icon:"📊", label:"Reports"       },
-    { key:"settings",      icon:"⚙️",  label:"Settings"      },
+  var navItems = [
+    { key:"overview",      icon:"🏠", label:"Overview"       },
+    { key:"assessments",   icon:"📋", label:"Assessments"    },
+    { key:"registrations", icon:"📝", label:"Registrations"  },
+    { key:"reports",       icon:"📊", label:"Reports"        },
+    { key:"settings",      icon:"⚙️",  label:"Settings"       },
   ];
 
-  const navHTML = navItems.map(function(n){
-    const a = n.key === panel;
-    return "<button onclick=\"_renderOrgDashboard('" + orgId + "','" + n.key + "')\" "
-      + "style=\"width:100%;text-align:left;background:" + (a ? "rgba(56,189,248,0.15)" : "transparent") + ";"
-      + "border:none;border-left:3px solid " + (a ? "#38bdf8" : "transparent") + ";"
-      + "padding:11px 20px;color:" + (a ? "#fff" : "#94b8d4") + ";"
-      + "font-size:13px;font-weight:" + (a ? "700" : "500") + ";"
-      + "cursor:pointer;display:flex;align-items:center;gap:10px;box-sizing:border-box;\">"
-      + "<span>" + n.icon + "</span><span>" + n.label + "</span></button>";
-  }).join("");
+  var panelHTML = "";
+  if(panel === "overview")           panelHTML = _odPanelOverview(orgId, org, d.tryouts, d.regs);
+  else if(panel === "assessments")   panelHTML = _odPanelAssessments(orgId, org, d.tryouts);
+  else if(panel === "registrations") panelHTML = _odPanelRegistrations(orgId, org, d.regs, d.tryouts, opts);
+  else if(panel === "reports")       panelHTML = _odPanelReports(orgId, org, d.tryouts, d.regs);
+  else if(panel === "settings")      panelHTML = _odPanelSettings(orgId, org, d.tryouts, d.regs);
 
-  let panelHTML = "";
-  if     (panel === "overview")       panelHTML = _odPanelOverview(orgId, org, d.tryouts, d.regs);
-  else if(panel === "assessments")    panelHTML = _odPanelAssessments(orgId, org, d.tryouts);
-  else if(panel === "registrations")  panelHTML = _odPanelRegistrations(orgId, org, d.regs);
-  else if(panel === "reports")        panelHTML = _odPanelReports(orgId, org, d.tryouts, d.regs);
-  else if(panel === "settings")       panelHTML = _odPanelSettings(orgId, org);
-
-  const overlay = document.createElement("div");
+  var overlay = document.createElement("div");
   overlay.id = "orgDashOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;z-index:9000;display:flex;background:#0f1c2e;font-family:var(--font,system-ui,sans-serif);overflow:hidden;";
-  overlay.innerHTML =
-    "<div style=\"width:220px;min-width:220px;background:#162236;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);\">"
-    + "<div style=\"padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);\">"
-      + "<div style=\"font-size:10px;color:#6b9dc7;text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:6px;\">Organization</div>"
-      + "<div style=\"font-size:15px;font-weight:800;color:#fff;line-height:1.3;\">" + escapeHTML(org.name) + "</div>"
-      + (org.sport ? "<div style=\"font-size:11px;color:#6b9dc7;margin-top:4px;\">" + escapeHTML(org.sport) + "</div>" : "")
-    + "</div>"
-    + "<nav style=\"flex:1;padding:10px 0;overflow-y:auto;\">" + navHTML + "</nav>"
-    + "<div style=\"padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);\">"
-      + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove()\" style=\"width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#94b8d4;font-size:12px;padding:9px 12px;cursor:pointer;font-weight:600;box-sizing:border-box;\">← Back to App</button>"
-    + "</div>"
-  + "</div>"
-  + "<div id=\"orgDashBody\" style=\"flex:1;overflow-y:auto;padding:32px 36px;background:#0f1c2e;\">" + panelHTML + "</div>";
+
+  if(isMobile){
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;background:#0f1c2e;font-family:var(--font,system-ui,sans-serif);overflow:hidden;";
+    var tabs = navItems.map(function(n){
+      var a = n.key === panel;
+      return "<button onclick=\"_renderOrgDashboard('" + escapeJS(orgId) + "','" + n.key + "',{})\" "
+        + "style=\"flex:1;background:" + (a?"rgba(56,189,248,0.12)":"transparent") + ";"
+        + "border:none;border-top:2px solid " + (a?"#38bdf8":"transparent") + ";"
+        + "padding:10px 2px 8px;color:" + (a?"#fff":"#6b9dc7") + ";"
+        + "font-size:9px;font-weight:" + (a?"700":"500") + ";"
+        + "cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;\">"
+        + "<span style=\"font-size:17px;\">" + n.icon + "</span>"
+        + "<span style=\"white-space:nowrap;\">" + n.label + "</span></button>";
+    }).join("");
+    overlay.innerHTML =
+      "<div style=\"background:#162236;border-bottom:1px solid rgba(255,255,255,0.08);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;\">"
+        + "<div>"
+          + "<div style=\"font-size:14px;font-weight:800;color:#fff;\">" + escapeHTML(org.name) + "</div>"
+          + (org.sport ? "<div style=\"font-size:11px;color:#6b9dc7;\">" + escapeHTML(org.sport) + "</div>" : "")
+        + "</div>"
+        + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove()\" style=\"background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#94b8d4;font-size:12px;padding:7px 12px;cursor:pointer;font-weight:600;\">✕ Close</button>"
+      + "</div>"
+      + "<div id=\"orgDashBody\" style=\"flex:1;overflow-y:auto;padding:16px;background:#0f1c2e;\">" + panelHTML + "</div>"
+      + "<div style=\"background:#162236;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-shrink:0;\">" + tabs + "</div>";
+  } else {
+    overlay.style.cssText = "position:fixed;inset:0;z-index:9000;display:flex;background:#0f1c2e;font-family:var(--font,system-ui,sans-serif);overflow:hidden;";
+    var sidebarNav = navItems.map(function(n){
+      var a = n.key === panel;
+      return "<button onclick=\"_renderOrgDashboard('" + escapeJS(orgId) + "','" + n.key + "',{})\" "
+        + "style=\"width:100%;text-align:left;background:" + (a?"rgba(56,189,248,0.15)":"transparent") + ";"
+        + "border:none;border-left:3px solid " + (a?"#38bdf8":"transparent") + ";"
+        + "padding:11px 20px;color:" + (a?"#fff":"#94b8d4") + ";"
+        + "font-size:13px;font-weight:" + (a?"700":"500") + ";"
+        + "cursor:pointer;display:flex;align-items:center;gap:10px;box-sizing:border-box;transition:background .15s;\">"
+        + "<span>" + n.icon + "</span><span>" + n.label + "</span></button>";
+    }).join("");
+    overlay.innerHTML =
+      "<div style=\"width:220px;min-width:220px;background:#162236;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);\">"
+        + "<div style=\"padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);\">"
+          + "<div style=\"font-size:10px;color:#6b9dc7;text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:6px;\">Organization</div>"
+          + "<div style=\"font-size:15px;font-weight:800;color:#fff;line-height:1.3;\">" + escapeHTML(org.name) + "</div>"
+          + (org.sport ? "<div style=\"font-size:11px;color:#6b9dc7;margin-top:4px;\">" + escapeHTML(org.sport) + "</div>" : "")
+        + "</div>"
+        + "<nav style=\"flex:1;padding:10px 0;overflow-y:auto;\">" + sidebarNav + "</nav>"
+        + "<div style=\"padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);\">"
+          + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove()\" style=\"width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#94b8d4;font-size:12px;padding:9px 12px;cursor:pointer;font-weight:600;box-sizing:border-box;\">← Back to App</button>"
+        + "</div>"
+      + "</div>"
+      + "<div id=\"orgDashBody\" style=\"flex:1;overflow-y:auto;padding:32px 36px;background:#0f1c2e;\">" + panelHTML + "</div>";
+  }
+
   document.body.appendChild(overlay);
+  if(opts._scrollTop){
+    requestAnimationFrame(function(){
+      var b = document.getElementById("orgDashBody");
+      if(b) b.scrollTop = opts._scrollTop;
+    });
+  }
 }
 
-function _odStat(icon, val, label){
-  return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;flex:1;min-width:130px;\">"
-    + "<div style=\"font-size:28px;font-weight:900;color:#38bdf8;\">" + (typeof val === "number" ? val.toLocaleString() : val) + "</div>"
-    + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;\">" + icon + " " + label + "</div>"
-  + "</div>";
+// ── Age-group accordion toggle ────────────────────────────────────────────
+function _odToggleGroup(key){
+  var body    = document.getElementById("odGroupBody-" + key);
+  var chevron = document.getElementById("odChevron-" + key);
+  if(!body) return;
+  var collapsed = body.getAttribute("data-collapsed") === "1";
+  if(collapsed){
+    body.style.display = "";
+    body.setAttribute("data-collapsed","0");
+    if(chevron) chevron.textContent = "▾";
+  } else {
+    body.style.display = "none";
+    body.setAttribute("data-collapsed","1");
+    if(chevron) chevron.textContent = "▸";
+  }
 }
 
+// ── Client-side search/filter ─────────────────────────────────────────────
+function _odFilterRegs(){
+  var search = (document.getElementById("odRegSearch")?.value || "").toLowerCase().trim();
+  var filter = document.getElementById("odRegFilter")?.value || "all";
+  var groupCounts = {};
+  document.querySelectorAll(".od-reg-row").forEach(function(row){
+    var data    = (row.getAttribute("data-search")   || "").toLowerCase();
+    var paid    =  row.getAttribute("data-paid")     === "true";
+    var sortout =  row.getAttribute("data-sortout")  === "true";
+    var grp     =  row.getAttribute("data-agegroup") || "";
+    var matchS  = !search || data.includes(search);
+    var matchF  = filter === "all"
+      || (filter === "paid"    &&  paid)
+      || (filter === "unpaid"  && !paid)
+      || (filter === "sortout" &&  sortout);
+    var vis = matchS && matchF;
+    if(vis){ row.removeAttribute("hidden"); } else { row.setAttribute("hidden",""); }
+    if(!groupCounts[grp]) groupCounts[grp] = 0;
+    if(vis) groupCounts[grp]++;
+  });
+  document.querySelectorAll(".od-age-group").forEach(function(grpEl){
+    var key   = grpEl.getAttribute("data-group") || "";
+    var count = groupCounts[key] || 0;
+    var badge = grpEl.querySelector(".od-group-count");
+    if(badge) badge.textContent = count;
+    grpEl.style.display = count === 0 ? "none" : "";
+  });
+  var total = Object.values(groupCounts).reduce(function(a,b){ return a+b; }, 0);
+  var nr = document.getElementById("odNoResults");
+  if(nr) nr.style.display = total === 0 ? "" : "none";
+}
+
+// ── Overview panel ────────────────────────────────────────────────────────
 function _odPanelOverview(orgId, org, tryouts, regs){
-  const totalPlayers = tryouts.reduce(function(n,t){ return n+(t.roster||[]).length; }, 0);
-  const totalEvals   = tryouts.reduce(function(n,t){ return n+(t.evals||[]).length; }, 0);
-  const recentHTML = tryouts.length === 0 ? "" :
-    "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;flex:1;min-width:260px;\">"
-    + "<div style=\"font-size:13px;font-weight:800;color:#fff;margin-bottom:14px;\">Recent Assessments</div>"
-    + tryouts.slice().sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); }).slice(0,5).map(function(t){
-        return "<div style=\"padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);\">"
-          + "<div style=\"font-size:13px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(t.name) + "</div>"
-          + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:2px;\">" + (t.roster||[]).length + " players · " + (t.evals||[]).length + " evals</div>"
+  var totalPlayers = tryouts.reduce(function(n,t){ return n+(t.roster||[]).length; }, 0);
+  var totalEvals   = tryouts.reduce(function(n,t){ return n+(t.evals||[]).length;  }, 0);
+  var paidCount    = regs.filter(function(r){ return r.paymentStatus==="paid"||r.paid; }).length;
+
+  var statBox = function(icon, val, label, sub){
+    return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 20px;flex:1;min-width:120px;\">"
+      + "<div style=\"font-size:26px;font-weight:900;color:#38bdf8;\">" + (typeof val==="number"?val.toLocaleString():val) + "</div>"
+      + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;\">" + icon + " " + label + "</div>"
+      + (sub ? "<div style=\"font-size:10px;color:#4b7498;margin-top:3px;\">" + sub + "</div>" : "")
+    + "</div>";
+  };
+
+  var codesHTML = "";
+  var codedTryouts = tryouts.filter(function(t){ return !!t.registrationCode; });
+  if(codedTryouts.length > 0){
+    codesHTML = "<div style=\"background:#162236;border:1px solid rgba(56,189,248,0.2);border-radius:10px;padding:18px 20px;margin-bottom:20px;\">"
+      + "<div style=\"font-size:11px;font-weight:800;color:#38bdf8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;\">🔗 Registration Links</div>"
+      + codedTryouts.map(function(t){
+          return "<div style=\"display:flex;align-items:center;gap:10px;margin-bottom:8px;\">"
+            + "<div style=\"font-size:13px;color:#94b8d4;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\">" + escapeHTML(t.name) + "</div>"
+            + "<button onclick=\"_odCopyRegLink('" + escapeJS(t.registrationCode) + "')\" style=\"background:#0e7fc0;border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;flex-shrink:0;\">📋 Copy Link</button>"
+          + "</div>";
+        }).join("")
+    + "</div>";
+  }
+
+  var recentRegs = regs.slice().sort(function(a,b){ return new Date(b.registeredAt||0)-new Date(a.registeredAt||0); }).slice(0,6);
+  var recentHTML = regs.length === 0 ? "" :
+    "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 20px;margin-top:20px;\">"
+    + "<div style=\"font-size:12px;font-weight:800;color:#fff;margin-bottom:12px;\">Recent Registrations</div>"
+    + recentRegs.map(function(r){
+        var name = ((r.firstName||"")+" "+(r.lastName||"")).trim()||"Unknown";
+        var paid = r.paymentStatus==="paid"||r.paid;
+        return "<div style=\"display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);\">"
+          + "<div>"
+            + "<div style=\"font-size:13px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(name) + "</div>"
+            + "<div style=\"font-size:11px;color:#6b9dc7;\">" + _odAgeGroup(r.yearOfBirth||r.birthYear||"") + " · " + escapeHTML(r._tryoutName||"") + "</div>"
+          + "</div>"
+          + "<span style=\"font-size:12px;color:" + (paid?"#4ade80":"#f87171") + ";font-weight:700;\">" + (paid?"✓ Paid":"✗ Unpaid") + "</span>"
         + "</div>";
       }).join("")
-  + "</div>";
+    + (regs.length > 6
+        ? "<div style=\"margin-top:10px;text-align:center;\"><button onclick=\"_renderOrgDashboard('" + escapeJS(orgId) + "','registrations',{})\" style=\"background:transparent;border:1px solid rgba(56,189,248,0.3);border-radius:6px;color:#38bdf8;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;\">View all " + regs.length.toLocaleString() + " registrations →</button></div>"
+        : "")
+    + "</div>";
+
+  var recentAssessments = tryouts.length === 0 ? "" :
+    "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 20px;flex:1;min-width:200px;\">"
+    + "<div style=\"font-size:12px;font-weight:800;color:#fff;margin-bottom:12px;\">Recent Assessments</div>"
+    + tryouts.slice().sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); }).slice(0,4).map(function(t){
+        return "<div style=\"padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;\" onclick=\"document.getElementById('orgDashOverlay')?.remove();currentTryoutId='" + t.id + "';go('tryout')\">"
+          + "<div style=\"font-size:13px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(t.name) + "</div>"
+          + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:2px;\">" + (t.roster||[]).length + " players · " + (t.registrations||[]).length + " regs</div>"
+        + "</div>";
+      }).join("")
+    + "</div>";
+
   return "<div>"
-    + "<div style=\"margin-bottom:28px;\">"
+    + "<div style=\"margin-bottom:22px;\">"
       + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">" + escapeHTML(org.name) + "</h1>"
       + "<div style=\"color:#6b9dc7;font-size:13px;\">Organization Overview</div>"
     + "</div>"
-    + "<div style=\"display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px;\">"
-      + _odStat("📋", tryouts.length, "Assessments")
-      + _odStat("👥", totalPlayers, "Players")
-      + _odStat("📊", totalEvals, "Evaluations")
-      + _odStat("📝", regs.length, "Registrations")
+    + "<div style=\"display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;\">"
+      + statBox("📋", tryouts.length, "Assessments", "")
+      + statBox("👥", totalPlayers,   "Players", "")
+      + statBox("📝", regs.length,    "Registrations", paidCount + " paid")
+      + statBox("📊", totalEvals,     "Evaluations", "")
     + "</div>"
-    + "<div style=\"display:flex;gap:16px;flex-wrap:wrap;\">"
-      + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;min-width:240px;\">"
-        + "<div style=\"font-size:13px;font-weight:800;color:#fff;margin-bottom:14px;\">Quick Actions</div>"
-        + "<div style=\"display:flex;flex-direction:column;gap:10px;\">"
-          + "<button onclick=\"_odCreateAssessment('" + orgId + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:12px 16px;cursor:pointer;text-align:left;width:100%;\">📋 New Assessment Event</button>"
-          + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:12px 16px;cursor:pointer;text-align:left;width:100%;\">🎭 Generate Demo Data</button>"
+    + codesHTML
+    + "<div style=\"display:flex;gap:14px;flex-wrap:wrap;\">"
+      + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 20px;min-width:200px;\">"
+        + "<div style=\"font-size:12px;font-weight:800;color:#fff;margin-bottom:12px;\">Quick Actions</div>"
+        + "<div style=\"display:flex;flex-direction:column;gap:8px;\">"
+          + "<button onclick=\"_odCreateAssessment('" + escapeJS(orgId) + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:11px 14px;cursor:pointer;text-align:left;width:100%;\">📋 New Assessment Event</button>"
+          + "<button onclick=\"_renderOrgDashboard('" + escapeJS(orgId) + "','registrations',{})\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.2);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 14px;cursor:pointer;text-align:left;width:100%;\">📝 View Registrations</button>"
+          + "<button onclick=\"_odOpenDemoGenerator('" + escapeJS(orgId) + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.2);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 14px;cursor:pointer;text-align:left;width:100%;\">🎭 Generate Demo Data</button>"
         + "</div>"
       + "</div>"
-      + recentHTML
+      + recentAssessments
     + "</div>"
+    + recentHTML
   + "</div>";
 }
 
+// ── Assessments panel ─────────────────────────────────────────────────────
 function _odPanelAssessments(orgId, org, tryouts){
-  const sorted = tryouts.slice().sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
-  const empty =
-    "<div style=\"text-align:center;padding:64px 20px;color:#6b9dc7;\">"
-    + "<div style=\"font-size:42px;margin-bottom:12px;\">📋</div>"
-    + "<div style=\"font-size:16px;font-weight:700;color:#94b8d4;margin-bottom:8px;\">No assessments yet</div>"
-    + "<div style=\"font-size:13px;margin-bottom:22px;\">Create a new assessment event or generate demo data to get started.</div>"
-    + "<button onclick=\"_odCreateAssessment('" + orgId + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:11px 20px;cursor:pointer;margin-right:10px;\">📋 New Assessment</button>"
-    + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 20px;cursor:pointer;\">🎭 Demo Data</button>"
+  var sorted = tryouts.slice().sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  var empty =
+    "<div style=\"text-align:center;padding:60px 20px;color:#6b9dc7;\">"
+    + "<div style=\"font-size:40px;margin-bottom:12px;\">📋</div>"
+    + "<div style=\"font-size:15px;font-weight:700;color:#94b8d4;margin-bottom:8px;\">No assessments yet</div>"
+    + "<div style=\"font-size:13px;margin-bottom:22px;\">Create an assessment event or generate demo data to explore features.</div>"
+    + "<button onclick=\"_odCreateAssessment('" + escapeJS(orgId) + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:11px 20px;cursor:pointer;margin-right:10px;\">📋 New Assessment</button>"
+    + "<button onclick=\"_odOpenDemoGenerator('" + escapeJS(orgId) + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 20px;cursor:pointer;\">🎭 Demo Data</button>"
   + "</div>";
-  const list = sorted.map(function(t){
-    return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px 20px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;\">"
-      + "<div>"
-        + "<div style=\"font-size:14px;font-weight:700;color:#e2eaf2;\">" + escapeHTML(t.name) + "</div>"
-        + "<div style=\"font-size:12px;color:#6b9dc7;margin-top:4px;\">"
-          + escapeHTML(t.sport||"Hockey") + " · " + (t.roster||[]).length + " players · " + (t.evals||[]).length + " evaluations"
-          + (t.tryoutDate ? " · " + escapeHTML(t.tryoutDate) : "")
-          + ((t.registrations||[]).length ? " · " + (t.registrations||[]).length + " registrations" : "")
+
+  var cards = sorted.map(function(t){
+    var regCount = (t.registrations||[]).length;
+    var code     = t.registrationCode || "";
+    var regLinkBtn = code
+      ? "<button onclick=\"_odCopyRegLink('" + escapeJS(code) + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:6px;color:#38bdf8;font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;\">🔗 Copy Reg Link</button>"
+      : "<button onclick=\"_odGenRegCode('" + escapeJS(orgId) + "','" + t.id + "')\" style=\"background:transparent;border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#6b9dc7;font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer;\">Generate Reg Code</button>";
+    return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 20px;margin-bottom:10px;\">"
+      + "<div style=\"display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;\">"
+        + "<div style=\"flex:1;min-width:0;\">"
+          + "<div style=\"font-size:15px;font-weight:700;color:#e2eaf2;\">" + escapeHTML(t.name) + "</div>"
+          + "<div style=\"font-size:12px;color:#6b9dc7;margin-top:4px;\">"
+            + escapeHTML(t.sport||"Hockey") + " · " + (t.roster||[]).length + " players · " + (t.evals||[]).length + " evals · " + regCount + " registrations"
+            + (t.tryoutDate ? " · " + escapeHTML(t.tryoutDate) : "")
+          + "</div>"
         + "</div>"
+        + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();currentTryoutId='" + t.id + "';go('tryout')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:700;padding:9px 16px;cursor:pointer;flex-shrink:0;\">Open →</button>"
       + "</div>"
-      + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();currentTryoutId='" + t.id + "';go('tryout')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:700;padding:9px 18px;cursor:pointer;flex-shrink:0;\">Open →</button>"
+      + "<div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap;\">"
+        + regLinkBtn
+        + (regCount > 0 ? "<button onclick=\"_renderOrgDashboard('" + escapeJS(orgId) + "','registrations',{})\" style=\"background:transparent;border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#94b8d4;font-size:11px;font-weight:600;padding:6px 12px;cursor:pointer;\">📝 " + regCount + " Registrations</button>" : "")
+      + "</div>"
     + "</div>";
   }).join("");
+
   return "<div>"
-    + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;\">"
+    + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:12px;flex-wrap:wrap;\">"
       + "<div>"
         + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Assessments</h1>"
         + "<div style=\"color:#6b9dc7;font-size:13px;\">" + tryouts.length + " event" + (tryouts.length!==1?"s":"") + " · " + escapeHTML(org.name) + "</div>"
       + "</div>"
-      + "<button onclick=\"_odCreateAssessment('" + orgId + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:10px 18px;cursor:pointer;\">+ New Event</button>"
+      + "<button onclick=\"_odCreateAssessment('" + escapeJS(orgId) + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:10px 16px;cursor:pointer;\">+ New Event</button>"
     + "</div>"
-    + (sorted.length === 0 ? empty : list)
+    + (sorted.length === 0 ? empty : cards)
   + "</div>";
 }
 
-function _odPanelRegistrations(orgId, org, regs){
+// ── Registrations panel ───────────────────────────────────────────────────
+function _odPanelRegistrations(orgId, org, regs, tryouts, opts){
+  opts = opts || {};
   if(regs.length === 0){
     return "<div>"
       + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;\">"
-        + "<div><h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Registrations</h1>"
-        + "<div style=\"color:#6b9dc7;font-size:13px;\">0 records · " + escapeHTML(org.name) + "</div></div>"
-        + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;\">🎭 Generate Demo</button>"
+        + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0;\">Registrations</h1>"
+        + "<button onclick=\"_odOpenDemoGenerator('" + escapeJS(orgId) + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:10px 16px;cursor:pointer;\">🎭 Generate Demo</button>"
       + "</div>"
-      + "<div style=\"text-align:center;padding:64px 20px;color:#6b9dc7;\">"
-        + "<div style=\"font-size:42px;margin-bottom:12px;\">📝</div>"
-        + "<div style=\"font-size:16px;font-weight:700;color:#94b8d4;margin-bottom:8px;\">No registrations yet</div>"
-        + "<div style=\"font-size:13px;margin-bottom:22px;\">Use the demo generator to populate registration data.</div>"
-        + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 20px;cursor:pointer;\">🎭 Generate Demo Data</button>"
+      + "<div style=\"text-align:center;padding:60px 20px;color:#6b9dc7;\">"
+        + "<div style=\"font-size:40px;margin-bottom:12px;\">📝</div>"
+        + "<div style=\"font-size:15px;font-weight:700;color:#94b8d4;margin-bottom:8px;\">No registrations yet</div>"
+        + "<div style=\"font-size:13px;margin-bottom:22px;\">Share a registration link from an assessment event, or generate demo data to explore the features.</div>"
+        + "<button onclick=\"_odOpenDemoGenerator('" + escapeJS(orgId) + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 20px;cursor:pointer;\">🎭 Generate Demo Data</button>"
       + "</div>"
     + "</div>";
   }
-  const paidCount = regs.filter(function(r){ return r.paymentStatus === "paid" || r.paid; }).length;
-  const display = regs.slice(0, 200);
-  const rows = display.map(function(r){
-    const name = ((r.firstName||"") + " " + (r.lastName||"")).trim() || "—";
-    const paid = r.paymentStatus === "paid" || r.paid;
-    return "<tr style=\"border-bottom:1px solid rgba(255,255,255,0.04);\">"
-      + "<td style=\"padding:9px 14px;font-size:13px;color:#e2eaf2;\">" + escapeHTML(name) + "</td>"
-      + "<td style=\"padding:9px 14px;font-size:13px;color:#94b8d4;\">" + (r.yearOfBirth||r.birthYear||"—") + "</td>"
-      + "<td style=\"padding:9px 14px;font-size:13px;color:#94b8d4;\">" + escapeHTML(r._tryoutName||"—") + "</td>"
-      + "<td style=\"padding:9px 14px;font-size:13px;color:" + (paid?"#4ade80":"#f87171") + ";\">" + (paid?"✓ Paid":"✗ Unpaid") + "</td>"
-      + "<td style=\"padding:9px 14px;font-size:12px;color:#6b9dc7;\">" + escapeHTML(r.status||r.paymentStatus||"") + "</td>"
-    + "</tr>";
-  }).join("");
-  const th = function(l){ return "<th style=\"padding:10px 14px;font-size:11px;font-weight:700;color:#6b9dc7;text-transform:uppercase;letter-spacing:.5px;text-align:left;\">" + l + "</th>"; };
-  return "<div>"
-    + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;\">"
-      + "<div>"
-        + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Registrations</h1>"
-        + "<div style=\"color:#6b9dc7;font-size:13px;\">" + regs.length.toLocaleString() + " records · " + paidCount.toLocaleString() + " paid · " + escapeHTML(org.name) + "</div>"
+
+  var paidCount = regs.filter(function(r){ return r.paymentStatus==="paid"||r.paid; }).length;
+  var grouped   = _odGroupRegsByAge(regs);
+
+  var groupsHTML = grouped.map(function(grpObj){
+    var key = grpObj.group.replace(/[^a-z0-9]/gi,"_");
+    var gPaid = grpObj.regs.filter(function(r){ return r.paymentStatus==="paid"||r.paid; }).length;
+
+    var rowsHTML = grpObj.regs.map(function(r){
+      var name    = ((r.firstName||"")+" "+(r.lastName||"")).trim()||"Unknown";
+      var paid    = r.paymentStatus==="paid"||!!r.paid;
+      var sortout = !!r.sortOut;
+      var ageGrp  = _odAgeGroup(r.yearOfBirth||r.birthYear||"");
+      var search  = [name,r.guardianEmail||"",r.currentTeam||"",r.positionTryingOutFor||"",r.currentLevel||"",r._tryoutName||""].join(" ").toLowerCase();
+      return "<div class=\"od-reg-row\""
+        + " data-search=\"" + escapeAttr(search) + "\""
+        + " data-paid=\"" + paid + "\""
+        + " data-sortout=\"" + sortout + "\""
+        + " data-agegroup=\"" + escapeAttr(ageGrp) + "\""
+        + " onclick=\"_odOpenRegDetail('" + escapeJS(orgId) + "','" + escapeJS(r._tryoutId) + "','" + escapeJS(r.registrationId) + "')\""
+        + " style=\"display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background .1s;\""
+        + " onmouseover=\"this.style.background='rgba(56,189,248,0.05)'\" onmouseout=\"this.style.background='transparent'\">"
+        + "<div style=\"flex:1;min-width:0;\">"
+          + "<div style=\"font-size:13px;font-weight:700;color:#e2eaf2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">"
+            + escapeHTML(name)
+            + (sortout ? " <span style=\"background:#f59e0b;color:#000;font-size:9px;font-weight:900;padding:2px 5px;border-radius:3px;margin-left:5px;\">SORT OUT</span>" : "")
+          + "</div>"
+          + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">"
+            + (r.yearOfBirth||r.birthYear||"?") + " · " + escapeHTML(r.positionTryingOutFor||"—") + (r.currentTeam ? " · " + escapeHTML(r.currentTeam) : "") + " · " + escapeHTML(r._tryoutName||"")
+          + "</div>"
+        + "</div>"
+        + "<span style=\"font-size:12px;font-weight:700;color:" + (paid?"#4ade80":"#f87171") + ";flex-shrink:0;\">" + (paid?"✓ Paid":"✗ Unpaid") + "</span>"
+      + "</div>";
+    }).join("");
+
+    return "<div class=\"od-age-group\" data-group=\"" + escapeAttr(grpObj.group) + "\" id=\"odAgeGroup-" + key + "\" style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;margin-bottom:10px;overflow:hidden;\">"
+      + "<div onclick=\"_odToggleGroup('" + key + "')\" style=\"display:flex;align-items:center;justify-content:space-between;padding:13px 16px;cursor:pointer;user-select:none;\">"
+        + "<div style=\"display:flex;align-items:center;gap:10px;\">"
+          + "<span style=\"font-size:14px;font-weight:900;color:#fff;\">" + escapeHTML(grpObj.group) + "</span>"
+          + "<span class=\"od-group-count\" style=\"background:rgba(56,189,248,0.2);color:#38bdf8;font-size:11px;font-weight:800;padding:2px 9px;border-radius:10px;\">" + grpObj.regs.length + "</span>"
+          + "<span style=\"font-size:11px;color:#6b9dc7;\">" + gPaid + " paid</span>"
+        + "</div>"
+        + "<span id=\"odChevron-" + key + "\" style=\"color:#6b9dc7;font-size:13px;\">▾</span>"
       + "</div>"
-      + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;\">🎭 Add Demo Data</button>"
+      + "<div id=\"odGroupBody-" + key + "\" data-collapsed=\"0\">" + rowsHTML + "</div>"
+    + "</div>";
+  }).join("");
+
+  return "<div>"
+    + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;\">"
+      + "<div>"
+        + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 3px;\">Registrations</h1>"
+        + "<div style=\"color:#6b9dc7;font-size:13px;\">" + regs.length.toLocaleString() + " total · " + paidCount.toLocaleString() + " paid · " + escapeHTML(org.name) + "</div>"
+      + "</div>"
+      + "<div style=\"display:flex;gap:8px;flex-wrap:wrap;\">"
+        + "<button onclick=\"_odExportCSV('" + escapeJS(orgId) + "')\" style=\"background:#0d2e1a;border:1px solid rgba(74,222,128,0.3);border-radius:7px;color:#4ade80;font-size:12px;font-weight:700;padding:9px 14px;cursor:pointer;\">⬇ Export CSV</button>"
+        + "<button onclick=\"_odOpenDemoGenerator('" + escapeJS(orgId) + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.2);border-radius:7px;color:#94b8d4;font-size:12px;font-weight:600;padding:9px 14px;cursor:pointer;\">🎭 Add Demo</button>"
+      + "</div>"
     + "</div>"
-    + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:auto;\">"
-      + "<table style=\"width:100%;border-collapse:collapse;\">"
-        + "<thead><tr style=\"border-bottom:2px solid rgba(255,255,255,0.1);\">"
-          + th("Player") + th("Birth Year") + th("Assessment") + th("Payment") + th("Status")
-        + "</tr></thead>"
-        + "<tbody>" + rows + "</tbody>"
-      + "</table>"
-      + (regs.length > 200 ? "<div style=\"padding:12px 16px;font-size:12px;color:#6b9dc7;text-align:center;\">Showing first 200 of " + regs.length.toLocaleString() + " records</div>" : "")
+    + "<div style=\"display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;\">"
+      + "<input id=\"odRegSearch\" type=\"text\" placeholder=\"Search name, team, position, email…\" oninput=\"_odFilterRegs()\" style=\"flex:1;min-width:160px;background:#162236;border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#e2eaf2;font-size:13px;padding:9px 13px;outline:none;box-sizing:border-box;\">"
+      + "<select id=\"odRegFilter\" onchange=\"_odFilterRegs()\" style=\"background:#162236;border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#94b8d4;font-size:13px;padding:9px 12px;cursor:pointer;\">"
+        + "<option value=\"all\">All</option>"
+        + "<option value=\"paid\">Paid</option>"
+        + "<option value=\"unpaid\">Unpaid</option>"
+        + "<option value=\"sortout\">Sort Out</option>"
+      + "</select>"
     + "</div>"
+    + "<div id=\"odNoResults\" style=\"display:none;text-align:center;padding:40px;color:#6b9dc7;font-size:14px;\">No registrations match your search.</div>"
+    + groupsHTML
   + "</div>";
 }
 
+// ── Individual registration detail modal ──────────────────────────────────
+function _odOpenRegDetail(orgId, tryoutId, regId){
+  var tryout = DB.tryouts[tryoutId];
+  if(!tryout){ showActionBanner("Assessment not found.", "error"); return; }
+  var reg = (tryout.registrations||[]).find(function(r){ return r.registrationId===regId; });
+  if(!reg){ showActionBanner("Registration not found.", "error"); return; }
+
+  var name    = ((reg.firstName||"")+" "+(reg.lastName||"")).trim()||"Unknown Player";
+  var ageGrp  = _odAgeGroup(reg.yearOfBirth||reg.birthYear||"");
+  var paid    = reg.paymentStatus==="paid"||!!reg.paid;
+  var partial = reg.paymentStatus==="partial";
+  var sortout = !!reg.sortOut;
+  var regDate = reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}) : "—";
+  var payDate = reg.paymentDate  ? new Date(reg.paymentDate ).toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"}) : "—";
+
+  var fld = function(label,val){
+    if(!val&&val!==0) return "";
+    return "<div style=\"margin-bottom:10px;\">"
+      + "<div style=\"font-size:10px;color:#4b7498;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;\">" + label + "</div>"
+      + "<div style=\"font-size:13px;color:#e2eaf2;font-weight:500;\">" + escapeHTML(String(val)) + "</div>"
+    + "</div>";
+  };
+  var fldFull = function(label,val){
+    if(!val) return "";
+    return "<div style=\"margin-bottom:10px;grid-column:1/-1;\">"
+      + "<div style=\"font-size:10px;color:#4b7498;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;\">" + label + "</div>"
+      + "<div style=\"font-size:13px;color:#e2eaf2;line-height:1.5;\">" + escapeHTML(String(val)) + "</div>"
+    + "</div>";
+  };
+
+  var payStatusLabel = paid ? "Paid" : (partial ? "Partial" : "Unpaid");
+  var payStatusColor = paid ? "#4ade80" : (partial ? "#f59e0b" : "#f87171");
+
+  var bodyHTML =
+    "<div style=\"background:linear-gradient(135deg,#0e1f35,#162a40);padding:20px 22px 16px;border-radius:10px 10px 0 0;margin:-20px -20px 18px;\">"
+      + "<div style=\"font-size:19px;font-weight:900;color:#fff;margin-bottom:8px;\">" + escapeHTML(name) + "</div>"
+      + "<div style=\"display:flex;gap:7px;flex-wrap:wrap;\">"
+        + "<span style=\"background:rgba(56,189,248,0.2);color:#38bdf8;font-size:11px;font-weight:800;padding:3px 10px;border-radius:10px;\">" + ageGrp + "</span>"
+        + "<span style=\"background:rgba(255,255,255,0.08);color:#94b8d4;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;\">" + escapeHTML(tryout.name) + "</span>"
+        + "<span style=\"background:" + (paid?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)") + ";color:" + (paid?"#4ade80":"#f87171") + ";font-size:11px;font-weight:800;padding:3px 10px;border-radius:10px;\">" + (paid?"✓ Paid":"✗ " + payStatusLabel) + "</span>"
+        + (sortout?"<span style=\"background:rgba(245,158,11,0.2);color:#f59e0b;font-size:11px;font-weight:800;padding:3px 10px;border-radius:10px;\">⚡ Sort Out</span>":"")
+      + "</div>"
+    + "</div>"
+    + "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:0 20px;\">"
+      + "<div style=\"grid-column:1/-1;font-size:10px;color:#38bdf8;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);\">Player Information</div>"
+      + fld("First Name",   reg.firstName)
+      + fld("Last Name",    reg.lastName)
+      + fld("Birth Year",   reg.yearOfBirth||reg.birthYear)
+      + fld("Date of Birth",reg.dateOfBirth)
+      + fld("Position",     reg.positionTryingOutFor)
+      + fld("Current Team", reg.currentTeam)
+      + fld("Level",        reg.currentLevel)
+      + fld("Registered",   regDate)
+      + "<div style=\"grid-column:1/-1;font-size:10px;color:#38bdf8;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:10px 0 10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);\">Guardian</div>"
+      + fld("Name",  reg.guardianName)
+      + fld("Email", reg.guardianEmail)
+      + fld("Phone", reg.guardianPhone)
+      + "<div style=\"grid-column:1/-1;font-size:10px;color:#38bdf8;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:10px 0 10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);\">Payment</div>"
+      + fld("Status",       payStatusLabel)
+      + fld("Total Amount", reg.paymentAmount ? "$" + reg.paymentAmount : "")
+      + fld("Amount Paid",  reg.paymentPaid   ? "$" + reg.paymentPaid   : "")
+      + fld("Method",       reg.paymentMethod)
+      + fld("Date",         payDate)
+      + fld("Reference",    reg.paymentRef)
+      + ((reg.aboutChild||reg.medicalInfo||reg.friendRequest1)
+          ? "<div style=\"grid-column:1/-1;font-size:10px;color:#38bdf8;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:10px 0 10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06);\">Additional</div>"
+            + fldFull("About Child",     reg.aboutChild)
+            + fldFull("Medical Info",    reg.medicalInfo)
+            + fld("Friend Request 1",    reg.friendRequest1)
+            + fld("Friend Request 2",    reg.friendRequest2)
+          : "")
+    + "</div>";
+
+  swgModal({
+    id:    "odRegDetailOverlay",
+    title: "",
+    body:  bodyHTML,
+    footer:
+      "<div style=\"display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;\">"
+      + "<button onclick=\"_odTogglePaid('" + escapeJS(orgId) + "','" + tryoutId + "','" + escapeJS(regId) + "')\" "
+        + "style=\"background:" + (paid?"rgba(248,113,113,0.12)":"rgba(74,222,128,0.12)") + ";border:1px solid " + (paid?"#f87171":"#4ade80") + ";border-radius:7px;color:" + (paid?"#f87171":"#4ade80") + ";font-size:13px;font-weight:700;padding:9px 14px;cursor:pointer;\">"
+        + (paid?"✗ Mark Unpaid":"✓ Mark Paid") + "</button>"
+      + "<button onclick=\"_odToggleSortOut('" + escapeJS(orgId) + "','" + tryoutId + "','" + escapeJS(regId) + "')\" "
+        + "style=\"background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.4);border-radius:7px;color:#f59e0b;font-size:13px;font-weight:700;padding:9px 14px;cursor:pointer;\">"
+        + (sortout?"Remove Sort Out Flag":"⚡ Flag Sort Out") + "</button>"
+      + "<button onclick=\"_odAddToRoster('" + escapeJS(orgId) + "','" + tryoutId + "','" + escapeJS(regId) + "')\" "
+        + "style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:9px 14px;cursor:pointer;\">+ Add to Roster</button>"
+      + "<button onclick=\"document.getElementById('odRegDetailOverlay')?.remove()\" "
+        + "style=\"background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:9px 14px;cursor:pointer;\">Close</button>"
+    + "</div>",
+    maxWidth: "560px",
+  });
+}
+
+// ── Toggle paid ───────────────────────────────────────────────────────────
+function _odTogglePaid(orgId, tryoutId, regId){
+  var tryout = DB.tryouts[tryoutId];
+  if(!tryout||!Array.isArray(tryout.registrations)) return;
+  var reg = tryout.registrations.find(function(r){ return r.registrationId===regId; });
+  if(!reg) return;
+  var wasPaid = reg.paymentStatus==="paid"||!!reg.paid;
+  reg.paymentStatus = wasPaid ? "unpaid" : "paid";
+  reg.paid = !wasPaid;
+  if(!wasPaid) reg.paymentDate = new Date().toISOString().slice(0,10);
+  saveDB();
+  document.getElementById("odRegDetailOverlay")?.remove();
+  showActionBanner(wasPaid ? "Marked as unpaid" : "✓ Marked as paid", "success");
+  _renderOrgDashboard(orgId, "registrations", {});
+}
+
+// ── Toggle sort-out flag ──────────────────────────────────────────────────
+function _odToggleSortOut(orgId, tryoutId, regId){
+  var tryout = DB.tryouts[tryoutId];
+  if(!tryout||!Array.isArray(tryout.registrations)) return;
+  var reg = tryout.registrations.find(function(r){ return r.registrationId===regId; });
+  if(!reg) return;
+  reg.sortOut = !reg.sortOut;
+  saveDB();
+  document.getElementById("odRegDetailOverlay")?.remove();
+  showActionBanner(reg.sortOut ? "⚡ Flagged as sort out" : "Sort out flag removed", "success");
+  _renderOrgDashboard(orgId, "registrations", {});
+}
+
+// ── Add registration player to an assessment roster ───────────────────────
+function _odAddToRoster(orgId, tryoutId, regId){
+  var orgTryouts = Object.values(DB.tryouts||{}).filter(function(t){ return t.orgId===orgId; });
+  if(orgTryouts.length===0){ showActionBanner("No assessments in this organization yet.", "info"); return; }
+  var reg = null;
+  for(var i=0;i<orgTryouts.length;i++){
+    reg = (orgTryouts[i].registrations||[]).find(function(r){ return r.registrationId===regId; });
+    if(reg) break;
+  }
+  if(!reg){ showActionBanner("Registration not found.", "error"); return; }
+  var name = ((reg.firstName||"")+" "+(reg.lastName||"")).trim();
+  var opts = orgTryouts.map(function(t){
+    return "<option value=\"" + escapeAttr(t.id) + "\">" + escapeHTML(t.name) + " (" + (t.roster||[]).length + " players)</option>";
+  }).join("");
+  swgModal({
+    id: "odAddRosterOverlay", title: "Add to Assessment Roster",
+    body:
+      "<p style=\"color:var(--muted);font-size:13px;margin:0 0 14px;\">Select which assessment event to add <strong>" + escapeHTML(name) + "</strong> to:</p>"
+      + "<select id=\"odRosterTarget\" style=\"width:100%;background:var(--input-bg,#f8faff);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;\">" + opts + "</select>"
+      + "<p style=\"font-size:12px;color:var(--muted);margin-top:10px;\">Player is added with their position and birth year from the registration form.</p>",
+    footer:
+      "<button class=\"secondary\" onclick=\"document.getElementById('odAddRosterOverlay')?.remove()\">Cancel</button>"
+      + "<button class=\"intent-primary\" onclick=\"_odConfirmAddRoster('" + escapeJS(orgId) + "','" + escapeJS(regId) + "')\">Add to Roster</button>",
+    maxWidth: "440px",
+  });
+}
+
+function _odConfirmAddRoster(orgId, regId){
+  var targetId = document.getElementById("odRosterTarget")?.value;
+  if(!targetId) return;
+  var target = DB.tryouts[targetId];
+  if(!target){ showActionBanner("Assessment not found.", "error"); return; }
+  var orgTryouts = Object.values(DB.tryouts||{}).filter(function(t){ return t.orgId===orgId; });
+  var reg = null;
+  for(var i=0;i<orgTryouts.length;i++){
+    reg = (orgTryouts[i].registrations||[]).find(function(r){ return r.registrationId===regId; });
+    if(reg) break;
+  }
+  if(!reg){ showActionBanner("Registration not found.", "error"); return; }
+  var name = ((reg.firstName||"")+" "+(reg.lastName||"")).trim();
+  if((target.roster||[]).some(function(p){ return (p.name||"").toLowerCase()===name.toLowerCase(); })){
+    showActionBanner(name + " is already on this roster.", "info");
+    document.getElementById("odAddRosterOverlay")?.remove();
+    return;
+  }
+  if(!target.roster) target.roster = [];
+  target.roster.push({
+    id: (typeof uid==="function"?uid():String(Date.now())),
+    name: name, firstName: reg.firstName||"", lastName: reg.lastName||"",
+    birthYear: reg.yearOfBirth||reg.birthYear||"",
+    pos: reg.positionTryingOutFor||"", number: "",
+    goals:0, assists:0, points:0, gp:0, createdAt: Date.now(),
+  });
+  reg.movedToRoster = true;
+  saveDB();
+  document.getElementById("odAddRosterOverlay")?.remove();
+  document.getElementById("odRegDetailOverlay")?.remove();
+  showActionBanner(name + " added to " + escapeHTML(target.name), "success");
+  _renderOrgDashboard(orgId, "registrations", {});
+}
+
+// ── CSV export ────────────────────────────────────────────────────────────
+function _odExportCSV(orgId){
+  var d = _getOrgData(orgId);
+  var org = getOrgById(orgId);
+  if(!org) return;
+  var esc = function(v){
+    if(v==null) return "";
+    var s = String(v).replace(/\r?\n/g," ");
+    if(s.indexOf(",")>-1||s.indexOf('"')>-1) return '"'+s.replace(/"/g,'""')+'"';
+    return s;
+  };
+  var hdr = ["First Name","Last Name","Birth Year","Age Group","Date of Birth","Position","Current Team","Level","Assessment Event","Registered At","Payment Status","Amount ($)","Amount Paid ($)","Payment Method","Payment Date","Payment Ref","Guardian Name","Guardian Email","Guardian Phone","Medical Info","About Child","Friend Req 1","Friend Req 2","Sort Out","Moved to Roster"];
+  var rows = [hdr.join(",")];
+  d.regs.forEach(function(r){
+    var paid = r.paymentStatus==="paid"?"Paid":(r.paymentStatus==="partial"?"Partial":"Unpaid");
+    rows.push([
+      r.firstName||"", r.lastName||"",
+      r.yearOfBirth||r.birthYear||"", _odAgeGroup(r.yearOfBirth||r.birthYear||""),
+      r.dateOfBirth||"", r.positionTryingOutFor||"",
+      r.currentTeam||"", r.currentLevel||"", r._tryoutName||"",
+      r.registeredAt?new Date(r.registeredAt).toLocaleDateString():"",
+      paid, r.paymentAmount||"", r.paymentPaid||"",
+      r.paymentMethod||"",
+      r.paymentDate?new Date(r.paymentDate).toLocaleDateString():"",
+      r.paymentRef||"",
+      r.guardianName||"", r.guardianEmail||"", r.guardianPhone||"",
+      r.medicalInfo||"", r.aboutChild||"",
+      r.friendRequest1||"", r.friendRequest2||"",
+      r.sortOut?"Yes":"No", r.movedToRoster?"Yes":"No",
+    ].map(esc).join(","));
+  });
+  var csv  = rows.join("\r\n");
+  var blob = new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement("a");
+  a.href=url; a.download=(org.name||"org").replace(/[^a-z0-9]/gi,"_")+"_registrations.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showActionBanner("📥 " + d.regs.length.toLocaleString() + " registrations exported", "success");
+}
+
+// ── Copy registration link ────────────────────────────────────────────────
+function _odCopyRegLink(code){
+  var url = location.origin + "/register?code=" + encodeURIComponent(code);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ showActionBanner("📋 Registration link copied!", "success"); })
+      .catch(function(){ prompt("Copy this link:", url); });
+  } else { prompt("Copy this link:", url); }
+}
+
+// ── Generate registration code for an org assessment ──────────────────────
+function _odGenRegCode(orgId, tryoutId){
+  var tryout = DB.tryouts[tryoutId];
+  if(!tryout){ showActionBanner("Assessment not found.", "error"); return; }
+  if(typeof ensureAssessmentRegistrationCode === "function"){
+    ensureAssessmentRegistrationCode(tryout,{alertOnError:true}).then(function(){
+      showActionBanner("Registration code generated!", "success");
+      _renderOrgDashboard(orgId, "assessments", {});
+    }).catch(function(){ showActionBanner("Could not generate code — please try again.", "error"); });
+  } else { showActionBanner("Registration code generation not available.", "info"); }
+}
+
+// ── Reports panel ─────────────────────────────────────────────────────────
 function _odPanelReports(orgId, org, tryouts, regs){
-  const totalPlayers = tryouts.reduce(function(n,t){ return n+(t.roster||[]).length; }, 0);
-  const totalEvals   = tryouts.reduce(function(n,t){ return n+(t.evals||[]).length; }, 0);
-  const paidRegs     = regs.filter(function(r){ return r.paymentStatus === "paid" || r.paid; }).length;
-  const stats = [
-    { icon:"📋", val:tryouts.length,          label:"Assessment Events" },
-    { icon:"👥", val:totalPlayers,             label:"Players Assessed"  },
-    { icon:"📊", val:totalEvals,               label:"Total Evaluations" },
-    { icon:"📝", val:regs.length,              label:"Registrations"     },
-    { icon:"💳", val:paidRegs,                 label:"Paid"              },
-    { icon:"⏳", val:regs.length - paidRegs,   label:"Pending / Unpaid"  },
-  ];
+  var totalPlayers = tryouts.reduce(function(n,t){ return n+(t.roster||[]).length;},0);
+  var totalEvals   = tryouts.reduce(function(n,t){ return n+(t.evals||[]).length;},0);
+  var paidRegs     = regs.filter(function(r){ return r.paymentStatus==="paid"||r.paid;}).length;
+  var partialRegs  = regs.filter(function(r){ return r.paymentStatus==="partial";}).length;
+  var unpaidRegs   = regs.length - paidRegs - partialRegs;
+  var sortOuts     = regs.filter(function(r){ return r.sortOut;}).length;
+  var revenue      = regs.reduce(function(n,r){ return n+(parseFloat(r.paymentPaid)||0);},0);
+
+  var statCard = function(icon,val,label,clr){
+    return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 20px;\">"
+      + "<div style=\"font-size:24px;font-weight:900;color:" + (clr||"#38bdf8") + ";\">" + (typeof val==="number"?val.toLocaleString():val) + "</div>"
+      + "<div style=\"font-size:10px;color:#6b9dc7;margin-top:5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;\">" + icon + " " + label + "</div>"
+    + "</div>";
+  };
+
+  var grouped = _odGroupRegsByAge(regs);
+  var ageTable = grouped.length === 0 ? "" :
+    "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;margin-top:24px;\">"
+    + "<div style=\"padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.06);font-size:13px;font-weight:800;color:#fff;\">Age Group Breakdown</div>"
+    + "<table style=\"width:100%;border-collapse:collapse;\">"
+      + "<thead><tr style=\"border-bottom:1px solid rgba(255,255,255,0.08);\">"
+        + "<th style=\"padding:9px 18px;font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;text-align:left;\">Group</th>"
+        + "<th style=\"padding:9px 12px;font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;text-align:center;\">Total</th>"
+        + "<th style=\"padding:9px 12px;font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;text-align:center;\">Paid</th>"
+        + "<th style=\"padding:9px 12px;font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;text-align:center;\">Unpaid</th>"
+        + "<th style=\"padding:9px 12px;font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;text-align:center;\">Sort Outs</th>"
+        + "<th style=\"padding:9px 18px;font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;text-align:right;\">Revenue</th>"
+      + "</tr></thead>"
+      + "<tbody>" + grouped.map(function(g){
+          var gp = g.regs.filter(function(r){return r.paymentStatus==="paid"||r.paid;}).length;
+          var gu = g.regs.length - gp;
+          var gs = g.regs.filter(function(r){return r.sortOut;}).length;
+          var gr = g.regs.reduce(function(n,r){return n+(parseFloat(r.paymentPaid)||0);},0);
+          return "<tr style=\"border-bottom:1px solid rgba(255,255,255,0.04);\">"
+            + "<td style=\"padding:10px 18px;font-size:13px;font-weight:700;color:#e2eaf2;\">" + escapeHTML(g.group) + "</td>"
+            + "<td style=\"padding:10px 12px;font-size:13px;color:#94b8d4;text-align:center;\">" + g.regs.length + "</td>"
+            + "<td style=\"padding:10px 12px;font-size:13px;color:#4ade80;text-align:center;\">" + gp + "</td>"
+            + "<td style=\"padding:10px 12px;font-size:13px;color:#f87171;text-align:center;\">" + gu + "</td>"
+            + "<td style=\"padding:10px 12px;font-size:13px;color:#f59e0b;text-align:center;\">" + gs + "</td>"
+            + "<td style=\"padding:10px 18px;font-size:13px;color:#38bdf8;text-align:right;\">$" + gr.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + "</td>"
+          + "</tr>";
+        }).join("") + "</tbody>"
+    + "</table></div>";
+
   return "<div>"
     + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Reports</h1>"
-    + "<div style=\"color:#6b9dc7;font-size:13px;margin-bottom:28px;\">" + escapeHTML(org.name) + "</div>"
-    + "<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-bottom:28px;\">"
-      + stats.map(function(s){
-          return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;\">"
-            + "<div style=\"font-size:28px;font-weight:900;color:#38bdf8;\">" + s.val.toLocaleString() + "</div>"
-            + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;\">" + s.icon + " " + s.label + "</div>"
-          + "</div>";
-        }).join("")
+    + "<div style=\"color:#6b9dc7;font-size:13px;margin-bottom:22px;\">" + escapeHTML(org.name) + "</div>"
+    + "<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;\">"
+      + statCard("📋", tryouts.length,  "Assessments")
+      + statCard("👥", totalPlayers,    "Players")
+      + statCard("📊", totalEvals,      "Evaluations")
+      + statCard("📝", regs.length,     "Registrations")
+      + statCard("💳", paidRegs,        "Paid",     "#4ade80")
+      + statCard("⏳", unpaidRegs,      "Unpaid",   "#f87171")
+      + statCard("⚡", sortOuts,        "Sort Outs","#f59e0b")
+      + statCard("💰", "$"+revenue.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}), "Revenue", "#4ade80")
     + "</div>"
-    + (tryouts.length === 0 && regs.length === 0
-        ? "<div style=\"text-align:center;padding:40px 20px;color:#6b9dc7;background:#162236;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-size:13px;\">Generate demo data from the Overview panel to populate reports.</div>"
+    + ageTable
+    + (regs.length===0?"<div style=\"text-align:center;padding:40px;color:#6b9dc7;font-size:13px;margin-top:24px;background:#162236;border-radius:10px;border:1px solid rgba(255,255,255,0.08);\">No data yet — generate demo data from the Overview panel.</div>":"")
+  + "</div>";
+}
+
+// ── Settings panel ────────────────────────────────────────────────────────
+function _odPanelSettings(orgId, org, tryouts, regs){
+  var demoCount = tryouts.filter(function(t){return t.demoGenerated;}).length;
+  var fldRow = function(label,val){
+    if(!val) return "";
+    return "<div>"
+      + "<div style=\"font-size:10px;color:#4b7498;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;\">" + label + "</div>"
+      + "<div style=\"font-size:14px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(String(val)) + "</div>"
+    + "</div>";
+  };
+  return "<div>"
+    + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Settings</h1>"
+    + "<div style=\"color:#6b9dc7;font-size:13px;margin-bottom:22px;\">" + escapeHTML(org.name) + "</div>"
+    + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:22px;max-width:520px;margin-bottom:14px;\">"
+      + "<div style=\"font-size:13px;font-weight:800;color:#fff;margin-bottom:16px;\">Organization Details</div>"
+      + "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:14px;\">"
+        + fldRow("Name",  org.name)
+        + fldRow("Sport", org.sport)
+        + fldRow("City",  org.city)
+        + fldRow("Year",  org.year)
+      + "</div>"
+      + "<div style=\"margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);\">"
+        + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();editOrg('" + escapeJS(orgId) + "')\" style=\"background:transparent;border:1px solid rgba(56,189,248,0.3);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;\">✏️ Edit Organization</button>"
+      + "</div>"
+    + "</div>"
+    + (demoCount > 0
+        ? "<div style=\"background:#0d2018;border:1px solid rgba(74,222,128,0.15);border-radius:10px;padding:18px 22px;max-width:520px;margin-bottom:14px;\">"
+            + "<div style=\"font-size:13px;font-weight:800;color:#4ade80;margin-bottom:6px;\">🎭 Demo Data</div>"
+            + "<div style=\"font-size:13px;color:#6b9dc7;margin-bottom:12px;\">" + demoCount + " demo-generated assessment" + (demoCount!==1?"s":"") + " in this organization. Clear them to start fresh with real data.</div>"
+            + "<button onclick=\"_odDeleteDemoData('" + escapeJS(orgId) + "')\" style=\"background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:7px;color:#f87171;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;\">🗑 Clear Demo Data</button>"
+          + "</div>"
         : "")
   + "</div>";
 }
 
-function _odPanelSettings(orgId, org){
-  return "<div>"
-    + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Settings</h1>"
-    + "<div style=\"color:#6b9dc7;font-size:13px;margin-bottom:28px;\">" + escapeHTML(org.name) + "</div>"
-    + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:24px;max-width:520px;\">"
-      + "<div style=\"font-size:14px;font-weight:800;color:#fff;margin-bottom:20px;\">Organization Details</div>"
-      + "<div style=\"margin-bottom:14px;\">"
-        + "<div style=\"font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;\">Name</div>"
-        + "<div style=\"font-size:14px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(org.name) + "</div>"
-      + "</div>"
-      + (org.sport ? "<div style=\"margin-bottom:14px;\"><div style=\"font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;\">Sport</div><div style=\"font-size:14px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(org.sport) + "</div></div>" : "")
-      + "<div style=\"margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.08);\">"
-        + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();editOrg('" + orgId + "')\" style=\"background:transparent;border:1px solid rgba(56,189,248,0.3);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;\">Edit Organization</button>"
-      + "</div>"
-    + "</div>"
-  + "</div>";
+// ── Delete demo data (Task 9) ─────────────────────────────────────────────
+function _odDeleteDemoData(orgId){
+  if(!confirm("Delete all demo-generated assessments and their registrations for this organization? This cannot be undone.")) return;
+  var count = 0;
+  Object.keys(DB.tryouts||{}).forEach(function(id){
+    var t = DB.tryouts[id];
+    if(t && t.orgId===orgId && t.demoGenerated){ delete DB.tryouts[id]; count++; }
+  });
+  saveDB();
+  showActionBanner("🗑 " + count + " demo assessment" + (count!==1?"s":"") + " cleared", "success");
+  _renderOrgDashboard(orgId, "settings", {});
 }
 
+// ── Create assessment from org context (Task 5) ───────────────────────────
 function _odCreateAssessment(orgId){
-  window._pendingNewTryoutOrgId = orgId;
+  var org = getOrgById(orgId);
+  window._pendingNewTryoutOrgId   = orgId;
+  window._pendingNewTryoutSport   = (org && org.sport && org.sport !== "Multi-Sport") ? org.sport : "";
   document.getElementById("orgDashOverlay")?.remove();
-  if(typeof openNewTryoutForm === "function") openNewTryoutForm();
-  else go("newTryout");
+
+  // Try to navigate to the Team Hub "Add Event" form for the first org season
+  // so the sport is visually pre-selected and the context is correct.
+  var orgSeasons = Object.values(DB.seasons||{}).filter(function(s){ return s && s.orgId === orgId; });
+  if(orgSeasons.length > 0){
+    currentSeasonId = orgSeasons[0].id;
+    go("addEvent");
+    return;
+  }
+  // No org seasons yet — send to Season List so they can create one first
+  go("seasonList");
 }
 
 function _odOpenDemoGenerator(orgId){
@@ -6625,187 +7159,132 @@ function _odOpenDemoGenerator(orgId){
 }
 
 // ── Organization Demo Generator ───────────────────────────────────────────
-
 function openOrgDemoGenerator(orgId){
-  const targetOrgId = orgId || window._currentOrgDashId || "";
-  const org = targetOrgId ? getOrgById(targetOrgId) : getPrimaryOrg();
+  var targetOrgId = orgId || window._currentOrgDashId || "";
+  var org = targetOrgId ? getOrgById(targetOrgId) : getPrimaryOrg();
   swgModal({
     id: "orgDemoOverlay",
     title: "🎭 Generate Demo Data",
     body: `
-      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;line-height:1.55;">Instantly populate${org ? ` ${escapeHTML(org.name)} ` : " "}with realistic test data to explore all features.</p>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 20px;line-height:1.55;">Instantly populate${org ? ` <strong>${escapeHTML(org.name)}</strong>` : ""} with realistic test data.</p>
       <div style="display:flex;flex-direction:column;gap:14px;">
         <div style="border:1.5px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;">
           <div style="font-size:13px;font-weight:900;color:var(--ink);margin-bottom:10px;">📋 Assessment Events</div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;width:auto;">
-            <input type="checkbox" id="demoGenAssessments" checked> Generate assessment events with scored players
-          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;width:auto;"><input type="checkbox" id="demoGenAssessments" checked> Generate assessment events with scored players</label>
           <div style="display:flex;gap:10px;">
-            <div style="flex:1;"><label class="muted" style="font-size:11px;">Events</label>
-              <input id="demoGenEventCount" type="number" min="1" max="6" value="2"></div>
-            <div style="flex:1;"><label class="muted" style="font-size:11px;">Players/Event</label>
-              <input id="demoGenPlayerCount" type="number" min="5" max="40" value="20"></div>
-            <div style="flex:1;"><label class="muted" style="font-size:11px;">Assessments</label>
-              <input id="demoGenEvalCount" type="number" min="1" max="5" value="3"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Events</label><input id="demoGenEventCount" type="number" min="1" max="6" value="2"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Players/Event</label><input id="demoGenPlayerCount" type="number" min="5" max="40" value="20"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Evals/Player</label><input id="demoGenEvalCount" type="number" min="1" max="5" value="3"></div>
           </div>
         </div>
         <div style="border:1.5px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;">
           <div style="font-size:13px;font-weight:900;color:var(--ink);margin-bottom:10px;">📝 Registrations</div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;width:auto;">
-            <input type="checkbox" id="demoGenRegs" checked> Generate registration records with payment data
-          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;width:auto;"><input type="checkbox" id="demoGenRegs" checked> Generate registrations with payment data</label>
           <div style="display:flex;gap:10px;margin-bottom:8px;">
-            <div style="flex:1;"><label class="muted" style="font-size:11px;">Count (max 2500)</label>
-              <input id="demoGenRegCount" type="number" min="5" max="2500" value="30"
-                style="width:100%;box-sizing:border-box;"></div>
-            <div style="flex:1;"><label class="muted" style="font-size:11px;">Birth Years</label>
-              <input id="demoGenRegYears" value="2008–2016" placeholder="2008–2016"
-                style="width:100%;box-sizing:border-box;"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Count (max 2500)</label><input id="demoGenRegCount" type="number" min="5" max="2500" value="30" style="width:100%;box-sizing:border-box;"></div>
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Birth Years</label><input id="demoGenRegYears" value="2008–2016" placeholder="2008–2016" style="width:100%;box-sizing:border-box;"></div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <span class="muted" style="font-size:11px;line-height:26px;">Quick:</span>
-            ${[50,250,500,1000,2500].map(n=>`<button type="button" class="secondary small" style="width:auto;padding:3px 10px;font-size:11px;"
-              onclick="document.getElementById('demoGenRegCount').value=${n}">${n.toLocaleString()}</button>`).join("")}
+            ${[50,250,500,1000,2500].map(n=>`<button type="button" class="secondary small" style="width:auto;padding:3px 10px;font-size:11px;" onclick="document.getElementById('demoGenRegCount').value=${n}">${n.toLocaleString()}</button>`).join("")}
           </div>
         </div>
       </div>
     `,
-    footer: `
-      <button class="secondary" onclick="document.getElementById('orgDemoOverlay')?.remove()">Cancel</button>
-      <button class="intent-primary" onclick="runOrgDemoGenerator()">🎭 Generate</button>
-    `,
+    footer: `<button class="secondary" onclick="document.getElementById('orgDemoOverlay')?.remove()">Cancel</button><button class="intent-primary" onclick="runOrgDemoGenerator()">🎭 Generate</button>`,
     maxWidth: "500px"
   });
 }
 
 function runOrgDemoGenerator(){
-  const targetOrgId = window._currentOrgDashId || "";
-  const doAssessments = document.getElementById("demoGenAssessments")?.checked;
-  const doRegs        = document.getElementById("demoGenRegs")?.checked;
-  const eventCount    = Math.max(1, Math.min(6,    parseInt(document.getElementById("demoGenEventCount")?.value   || "2",  10)));
-  const playerCount   = Math.max(5, Math.min(40,   parseInt(document.getElementById("demoGenPlayerCount")?.value  || "20", 10)));
-  const evalCount     = Math.max(1, Math.min(5,    parseInt(document.getElementById("demoGenEvalCount")?.value    || "3",  10)));
-  const regCount      = Math.max(1, Math.min(2500, parseInt(document.getElementById("demoGenRegCount")?.value     || "30", 10)));
-  const regYearsRaw   = (document.getElementById("demoGenRegYears")?.value || "2008-2016").replace(/[–—]/g, "-");
-  const [minYearStr, maxYearStr] = regYearsRaw.split("-");
-  const minYear = parseInt(minYearStr, 10) || 2008;
-  const maxYear = parseInt(maxYearStr, 10) || 2016;
+  var targetOrgId  = window._currentOrgDashId || "";
+  var doAssess     = document.getElementById("demoGenAssessments")?.checked;
+  var doRegs       = document.getElementById("demoGenRegs")?.checked;
+  var eventCount   = Math.max(1,Math.min(6,   parseInt(document.getElementById("demoGenEventCount")?.value  ||"2",10)));
+  var playerCount  = Math.max(5,Math.min(40,  parseInt(document.getElementById("demoGenPlayerCount")?.value ||"20",10)));
+  var evalCount    = Math.max(1,Math.min(5,   parseInt(document.getElementById("demoGenEvalCount")?.value   ||"3",10)));
+  var regCount     = Math.max(1,Math.min(2500,parseInt(document.getElementById("demoGenRegCount")?.value    ||"30",10)));
+  var regYearsRaw  = (document.getElementById("demoGenRegYears")?.value||"2008-2016").replace(/[–—]/g,"-");
+  var parts        = regYearsRaw.split("-");
+  var minYear      = parseInt(parts[0],10)||2008;
+  var maxYear      = parseInt(parts[1],10)||2016;
 
   document.getElementById("orgDemoOverlay")?.remove();
 
-  const org     = targetOrgId ? getOrgById(targetOrgId) : getPrimaryOrg();
-  const orgName = org?.name || "Demo";
-  const sport   = org?.sport === "Multi-Sport"
-    ? (typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS[0] : "Hockey")
-    : (org?.sport || "Hockey");
+  var org     = targetOrgId ? getOrgById(targetOrgId) : getPrimaryOrg();
+  var orgName = org?.name || "Demo";
+  var sport   = org?.sport==="Multi-Sport"
+    ? (typeof SPORT_OPTIONS!=="undefined"?SPORT_OPTIONS[0]:"Hockey")
+    : (org?.sport||"Hockey");
 
-  let bannermsg = [];
-  let firstGeneratedTryoutId = "";
+  var bannermsg = [];
+  var firstId   = "";
 
-  // ── Generate assessment events (stamped with orgId) ───────────────────
-  if(doAssessments){
-    const ageLabels     = ["U9","U11","U13","U15","U18"];
-    const eventSuffixes = ["Tryout #1","Tryout #2","Skills Camp","Development Camp","Final Cuts","Spring Evaluation"];
-    for(let i = 0; i < eventCount; i++){
-      const label   = eventSuffixes[i % eventSuffixes.length];
-      const agLabel = ageLabels[i % ageLabels.length];
-      const tryout  = {
-        id:          uid(),
-        name:        `${orgName} ${agLabel} ${label}`,
-        sport,
-        createdAt:   Date.now() - (eventCount - i) * 7 * 86400000,
-        updatedAt:   Date.now(),
-        roster:      [],
-        evals:       [],
-        assessors:   [],
-        settings:    { skaterWeights:{}, goalieWeights:{}, customRubrics:[] },
-        defaultPosition: "",
-        demoGenerated: true,
+  if(doAssess){
+    var ageLabels    = ["U9","U11","U13","U15","U18"];
+    var suffixes     = ["Tryout #1","Tryout #2","Skills Camp","Development Camp","Final Cuts","Spring Evaluation"];
+    for(var i=0;i<eventCount;i++){
+      var tryout = {
+        id: uid(), name: orgName+" "+ageLabels[i%ageLabels.length]+" "+suffixes[i%suffixes.length],
+        sport, createdAt: Date.now()-(eventCount-i)*7*86400000, updatedAt: Date.now(),
+        roster:[], evals:[], assessors:[], settings:{skaterWeights:{},goalieWeights:{},customRubrics:[]},
+        defaultPosition:"", demoGenerated:true,
       };
-      // Stamp org context so this assessment belongs to this org only
       if(targetOrgId) tryout.orgId = targetOrgId;
-      if(!tryout.settings.skaterWeights && typeof DEFAULT_SK_WEIGHTS !== "undefined")
-        tryout.settings.skaterWeights = {...DEFAULT_SK_WEIGHTS};
-      if(!tryout.settings.goalieWeights && typeof DEFAULT_GO_WEIGHTS !== "undefined")
-        tryout.settings.goalieWeights = {...DEFAULT_GO_WEIGHTS};
-      if(typeof ensureRubricSettings === "function") ensureRubricSettings(tryout);
-      DB.tryouts[tryout.id] = tryout;
-      if(!firstGeneratedTryoutId) firstGeneratedTryoutId = tryout.id;
-      if(typeof generateRandomAssessments === "function"){
-        generateRandomAssessments({
-          tryout,
-          skaterCount: playerCount,
-          goalieCount: Math.max(1, Math.round(playerCount * 0.1)),
-          assessmentsPerPlayer: evalCount,
-          requireManage: false,
-          silent: true,
-        });
+      if(typeof DEFAULT_SK_WEIGHTS!=="undefined") tryout.settings.skaterWeights=Object.assign({},DEFAULT_SK_WEIGHTS);
+      if(typeof DEFAULT_GO_WEIGHTS!=="undefined") tryout.settings.goalieWeights=Object.assign({},DEFAULT_GO_WEIGHTS);
+      if(typeof ensureRubricSettings==="function") ensureRubricSettings(tryout);
+      DB.tryouts[tryout.id]=tryout;
+      if(!firstId) firstId=tryout.id;
+      if(typeof generateRandomAssessments==="function"){
+        generateRandomAssessments({tryout,skaterCount:playerCount,goalieCount:Math.max(1,Math.round(playerCount*0.1)),assessmentsPerPlayer:evalCount,requireManage:false,silent:true});
       }
     }
     saveDB();
-    bannermsg.push(`${eventCount} assessment event${eventCount===1?"":"s"}`);
+    bannermsg.push(eventCount+" assessment event"+(eventCount===1?"":"s"));
   } else if(doRegs && targetOrgId){
-    // No assessments requested — create a lightweight container so regs have a home
-    const container = {
-      id:            uid(),
-      name:          `${orgName} Registrations`,
-      sport,
-      createdAt:     Date.now(),
-      updatedAt:     Date.now(),
-      roster:        [],
-      evals:         [],
-      assessors:     [],
-      settings:      { skaterWeights:{}, goalieWeights:{}, customRubrics:[] },
-      defaultPosition: "",
-      demoGenerated: true,
-      orgId:         targetOrgId,
+    var container = {
+      id:uid(), name:orgName+" Registrations", sport,
+      createdAt:Date.now(), updatedAt:Date.now(),
+      roster:[], evals:[], assessors:[], settings:{skaterWeights:{},goalieWeights:{},customRubrics:[]},
+      defaultPosition:"", demoGenerated:true, orgId:targetOrgId,
     };
-    if(typeof ensureRubricSettings === "function") ensureRubricSettings(container);
-    DB.tryouts[container.id] = container;
-    firstGeneratedTryoutId = container.id;
+    if(typeof ensureRubricSettings==="function") ensureRubricSettings(container);
+    DB.tryouts[container.id]=container;
+    firstId=container.id;
     saveDB();
   }
 
-  // ── Generate registrations into the first org assessment ─────────────
-  if(doRegs && firstGeneratedTryoutId){
-    const prevTryoutId = currentTryoutId;
-    currentTryoutId = firstGeneratedTryoutId;
-    if(regCount <= 200){
-      generateDemoRegistrations(regCount, { minYear, maxYear, payMode: "realistic", withSortOut: true });
-      bannermsg.push(`${regCount} registration${regCount===1?"":"s"}`);
+  if(doRegs && firstId){
+    var prevId = currentTryoutId;
+    currentTryoutId = firstId;
+    if(regCount<=200){
+      generateDemoRegistrations(regCount,{minYear,maxYear,payMode:"realistic",withSortOut:true});
+      bannermsg.push(regCount+" registration"+(regCount===1?"":"s"));
+      currentTryoutId = prevId;
     } else {
-      showActionBanner(`Generating ${regCount.toLocaleString()} registrations…`, "info");
-      if(bannermsg.length) showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")}`, "success");
-      const CHUNK = 250;
-      let done = 0;
-      function nextChunk(){
-        const batch = Math.min(CHUNK, regCount - done);
-        if(batch <= 0){
-          showActionBanner(`✅ ${regCount.toLocaleString()} registrations generated`, "success");
-          currentTryoutId = prevTryoutId;
-          if(targetOrgId) _renderOrgDashboard(targetOrgId, "registrations");
+      showActionBanner("Generating "+regCount.toLocaleString()+" registrations…","info");
+      if(bannermsg.length) showActionBanner("🎭 Generated: "+bannermsg.join(" + "),"success");
+      var CHUNK=250,done=0;
+      var nextChunk=function(){
+        var batch=Math.min(CHUNK,regCount-done);
+        if(batch<=0){
+          showActionBanner("✅ "+regCount.toLocaleString()+" registrations generated","success");
+          currentTryoutId=prevId;
+          if(targetOrgId) _renderOrgDashboard(targetOrgId,"registrations",{});
           else renderHomeContent();
           return;
         }
-        generateDemoRegistrations(batch, { minYear, maxYear, payMode: "realistic", withSortOut: true, silent: true });
-        done += batch;
-        setTimeout(nextChunk, 0);
-      }
-      nextChunk();
-      return;
+        generateDemoRegistrations(batch,{minYear,maxYear,payMode:"realistic",withSortOut:true,silent:true});
+        done+=batch; setTimeout(nextChunk,0);
+      };
+      nextChunk(); return;
     }
-    currentTryoutId = prevTryoutId;
   }
 
-  if(bannermsg.length){
-    showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")}`, "success");
-  }
-
-  if(targetOrgId){
-    _renderOrgDashboard(targetOrgId, "assessments");
-  } else {
-    renderHomeContent();
-  }
+  if(bannermsg.length) showActionBanner("🎭 Generated: "+bannermsg.join(" + "),"success");
+  if(targetOrgId) _renderOrgDashboard(targetOrgId,"assessments",{});
+  else renderHomeContent();
 }
 
 
@@ -14203,6 +14682,14 @@ function renderHomeContent(){
     </div>
   `;
 
+  // Org-scoped assessment + registration counts for the banner badge
+  const _orgAssessCount = primaryOrg
+    ? Object.values(DB.tryouts||{}).filter(t => t.orgId === primaryOrg.id && !isArchivedTryout(t)).length
+    : 0;
+  const _orgRegCount = primaryOrg
+    ? Object.values(DB.tryouts||{}).filter(t => t.orgId === primaryOrg.id).reduce((n, t) => n + (t.registrations||[]).length, 0)
+    : 0;
+
   const orgBannerHTML = primaryOrg ? `
     <div onclick="openOrgDashboard('${escapeJS(primaryOrg.id)}')"
       style="background:#f0fdf4;border:1.5px solid #86efac;border-left:4px solid #22c55e;border-radius:12px;padding:11px 14px;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:box-shadow 0.15s;"
@@ -14210,9 +14697,12 @@ function renderHomeContent(){
       <div style="width:34px;height:34px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:#fff;flex-shrink:0;">${escapeHTML((primaryOrg.name||"O")[0].toUpperCase())}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:900;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(primaryOrg.name)}</div>
-        <div style="font-size:11px;color:#16a34a;margin-top:1px;">${escapeHTML(primaryOrg.sport||"Multi-Sport")}${primaryOrg.year?" · "+escapeHTML(primaryOrg.year):""}${primaryOrg.city?" · "+escapeHTML(primaryOrg.city):""} · ${allTeamCount} team${allTeamCount!==1?"s":""} · ${allPlayerCount} player${allPlayerCount!==1?"s":""}</div>
+        <div style="font-size:11px;color:#16a34a;margin-top:1px;">${escapeHTML(primaryOrg.sport||"Multi-Sport")}${primaryOrg.year?" · "+escapeHTML(primaryOrg.year):""}${primaryOrg.city?" · "+escapeHTML(primaryOrg.city):""} · ${allTeamCount} team${allTeamCount!==1?"s":""} · ${allPlayerCount} player${allPlayerCount!==1?"s":""} · ${_orgAssessCount} assessment${_orgAssessCount!==1?"s":""} · ${_orgRegCount} reg${_orgRegCount!==1?"s":""}</div>
       </div>
-      <div style="flex-shrink:0;color:#22c55e;font-size:18px;">›</div>
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;">
+        ${_orgRegCount > 0 ? `<span style="background:#22c55e;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;">${_orgRegCount} reg${_orgRegCount!==1?"s":""}</span>` : ""}
+        <span style="color:#22c55e;font-size:18px;">›</span>
+      </div>
     </div>
   ` : ``;
 
@@ -15106,6 +15596,11 @@ async function createTryout(){
   const eventType = infoFromSource ? (source?.eventType || "Tryout") : eventTypeInput;
   let sport = infoFromSource ? (source?.sport || "Hockey") : (document.getElementById("tSport")?.value || "Hockey");
   let sportOther = infoFromSource ? (source?.sportOther || "") : (document.getElementById("tSportOther")?.value.trim() || "");
+  // Override sport from org context if set (Task 5: org-aware assessment creation)
+  if(!infoFromSource && window._pendingNewTryoutSport){
+    sport = window._pendingNewTryoutSport;
+    window._pendingNewTryoutSport = "";
+  }
   if(sport !== "Other") sportOther = "";
   const defaultPosition = infoFromSource
     ? getValidPositionForSport(source?.defaultPosition || source?.roster?.[0]?.pos || "", sport)
@@ -30138,7 +30633,9 @@ function buildTeamHubAssessmentCreateForm(season, seasonTryouts){
   const readOnly = isAssessorReadOnly();
   const roAttr = readOnly ? "readonly" : "";
   const disAttr = readOnly ? "disabled" : "";
-  const sportOptions = SPORT_OPTIONS.map(s=>`<option value="${escapeAttr(s)}" ${String(s).toLowerCase() === String(season?.sport || "").toLowerCase() ? "selected" : ""}>${escapeHTML(s)}</option>`).join("");
+  // Pre-fill sport from org context if set, then from season, else no pre-select
+  const _preSport = window._pendingNewTryoutSport || season?.sport || "";
+  const sportOptions = SPORT_OPTIONS.map(s=>`<option value="${escapeAttr(s)}" ${String(s).toLowerCase() === String(_preSport).toLowerCase() ? "selected" : ""}>${escapeHTML(s)}</option>`).join("");
   const leadAssessorDefault = authState.user?.user_metadata?.full_name || authState.user?.email || "";
   return `
     <input id="tName" placeholder="Assessment name (e.g., U15A Tryout Day 1)" ${roAttr} />
@@ -34800,25 +35297,14 @@ function renderAdminDashboard(panel = "overview"){
   adminPanelState.panel = panel;
   const email = getCurrentUserEmail() || "admin";
 
-  // Detect if launched from an org dashboard
-  let _execOrgId   = ""; let _execOrgName = "";
-  try {
-    _execOrgId   = sessionStorage.getItem("EXEC_DASH_ORG_ID")   || "";
-    _execOrgName = sessionStorage.getItem("EXEC_DASH_ORG_NAME") || "";
-  } catch(e) {}
-  const _fromOrg = !!_execOrgId && !!_execOrgName;
-
   renderAdminPortalRoot(`
     <div class="admin-shell">
       <aside class="admin-side">
 
         <!-- Branding header -->
         <div class="admin-side-logo">
-          ${_fromOrg
-            ? `<div class="admin-side-logo-badge">🏢 Organization</div>
-               <div class="admin-side-appname">${escapeHTML(_execOrgName)}</div>`
-            : `<div class="admin-side-logo-badge">⚡ Super Admin</div>
-               <div class="admin-side-appname">Back Office</div>`}
+          <div class="admin-side-logo-badge">⚡ Super Admin</div>
+          <div class="admin-side-appname">Back Office</div>
           <div class="admin-side-user">${escapeHTML(email)}</div>
         </div>
 
@@ -34883,8 +35369,6 @@ function renderAdminDashboard(panel = "overview"){
     btn.addEventListener("click", ()=>{
       const target = String(btn.getAttribute("data-admin-nav") || "");
       if(target === "backApp"){
-        // Clear org context so the next direct Super Admin open starts fresh
-        try { sessionStorage.removeItem("EXEC_DASH_ORG_ID"); sessionStorage.removeItem("EXEC_DASH_ORG_NAME"); } catch(e){}
         window.location.href = "/";
         return;
       }
