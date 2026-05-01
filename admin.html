@@ -3,253 +3,579 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Tryout Enterprise</title>
+<title>SWG Admin · Enterprise Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <style>
+/* ─── Reset & Base ──────────────────────────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --navy:#0a1e3d;
-  --orange:#f97316;
-  --orange-light:rgba(249,115,22,0.1);
-  --bg:#f1f5f9;
-  --card:#fff;
-  --border:#e2e8f0;
-  --ink:#0f172a;
-  --muted:#64748b;
-  --green:#16a34a;
-  --green-bg:rgba(22,163,74,0.1);
-  --red:#dc2626;
-  --red-bg:rgba(220,38,38,0.1);
-  --amber:#d97706;
-  --amber-bg:rgba(217,119,6,0.1);
-  --blue:#0057b8;
-  --blue-bg:rgba(0,87,184,0.1);
-  --sidebar-w:220px;
-  --topnav-h:56px;
-  --radius:10px;
-  --shadow:0 1px 4px rgba(0,0,0,0.08);
-}
-[data-theme="dark"]{
-  --bg:#0f172a;
-  --card:#1e293b;
-  --border:#334155;
-  --ink:#f1f5f9;
-  --muted:#94a3b8;
-}
-body{font-family:Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;min-height:100vh;}
 
-/* ── Top Nav ── */
+/* ─── Design Tokens ─────────────────────────────────────────────────────── */
+:root{
+  /* Brand */
+  --navy:       #0d1b2e;
+  --navy-mid:   #1a3050;
+  --navy-light: #243d5e;
+  --accent:     #4f46e5;   /* indigo — executive/premium */
+  --accent-h:   #4338ca;
+  --accent-bg:  rgba(79,70,229,0.09);
+  --accent-mid: rgba(79,70,229,0.18);
+  --orange:     #f97316;   /* kept for super-admin badge & alerts */
+  --orange-bg:  rgba(249,115,22,0.1);
+  --amber:      #f59e0b;
+  --amber-bg:   rgba(245,158,11,0.11);
+
+  /* Status */
+  --green:      #059669;
+  --green-bg:   rgba(5,150,105,0.1);
+  --red:        #dc2626;
+  --red-bg:     rgba(220,38,38,0.1);
+  --blue:       #2563eb;
+  --blue-bg:    rgba(37,99,235,0.1);
+  --purple:     #7c3aed;
+  --purple-bg:  rgba(124,58,237,0.1);
+
+  /* Surface */
+  --bg:         #f0f4f9;
+  --bg2:        #e6ecf5;
+  --card:       #ffffff;
+  --card-hover: #f8fafd;
+  --border:     #dae0ec;
+  --border-s:   #eef2f8;
+  --ink:        #0d1520;
+  --ink2:       #1e2d42;
+  --muted:      #5a7184;
+  --muted-l:    #8fa3b8;
+  --text:       var(--ink);
+
+  /* Layout */
+  --sidebar-w:  248px;
+  --topnav-h:   62px;
+
+  /* Shape */
+  --r-sm: 8px;
+  --r:    12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+
+  /* Shadow */
+  --sh-xs: 0 1px 2px rgba(0,0,0,0.06);
+  --sh-sm: 0 2px 6px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+  --sh:    0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
+  --sh-lg: 0 16px 48px rgba(0,0,0,0.14), 0 6px 16px rgba(0,0,0,0.08);
+  --sh-xl: 0 32px 80px rgba(0,0,0,0.2),  0 8px 24px rgba(0,0,0,0.1);
+
+  /* Transitions */
+  --t: all 0.18s cubic-bezier(0.4,0,0.2,1);
+
+  /* Legacy compat aliases */
+  --shadow: var(--sh);
+  --radius: var(--r);
+}
+
+/* ─── Dark Mode ──────────────────────────────────────────────────────────── */
+[data-theme="dark"]{
+  --bg:       #090f1c;
+  --bg2:      #0d1628;
+  --card:     #111d30;
+  --card-hover:#162039;
+  --border:   #1e2e45;
+  --border-s: #162035;
+  --ink:      #dce8f8;
+  --ink2:     #a8bdd4;
+  --muted:    #6a8aaa;
+  --muted-l:  #3d5a78;
+  --text:     var(--ink);
+  --sh:       0 4px 16px rgba(0,0,0,0.35);
+  --sh-lg:    0 16px 48px rgba(0,0,0,0.45);
+}
+
+/* ─── Typography ────────────────────────────────────────────────────────── */
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  background:var(--bg);color:var(--ink);font-size:14px;
+  line-height:1.5;min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ─── Top Nav ───────────────────────────────────────────────────────────── */
 #topnav{
   position:fixed;top:0;left:0;right:0;height:var(--topnav-h);
-  background:var(--navy);color:#fff;
-  display:flex;align-items:center;gap:12px;padding:0 16px;z-index:200;
-  border-bottom:2px solid var(--orange);
+  background:linear-gradient(90deg,var(--navy) 0%,var(--navy-mid) 100%);
+  color:#fff;display:flex;align-items:center;gap:14px;
+  padding:0 20px;z-index:200;
+  border-bottom:1.5px solid rgba(79,70,229,0.4);
+  box-shadow:0 2px 12px rgba(0,0,0,0.25);
 }
-#topnav .logo{font-size:16px;font-weight:900;white-space:nowrap;cursor:pointer;display:flex;align-items:center;gap:8px;}
-#topnav .logo span{font-size:10px;background:var(--orange);color:#fff;padding:2px 7px;border-radius:999px;font-weight:900;letter-spacing:0.05em;}
-#topnav .orgBadge{font-size:12px;opacity:0.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
-#globalSearch{flex:1;max-width:360px;margin:0 auto;position:relative;}
-#globalSearch input{width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:13px;outline:none;}
-#globalSearch input::placeholder{color:rgba(255,255,255,0.45);}
-#globalSearch .searchIcon{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:0.5;font-size:14px;}
-#topnav .navRight{display:flex;align-items:center;gap:10px;margin-left:auto;}
-.notifBtn{background:none;border:none;color:#fff;cursor:pointer;font-size:18px;position:relative;padding:4px;}
-.notifCount{position:absolute;top:0;right:0;background:var(--orange);color:#fff;font-size:9px;font-weight:900;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;}
-.avatarBtn{width:32px;height:32px;border-radius:50%;background:var(--orange);color:#fff;border:none;cursor:pointer;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center;}
-.avatarMenu{position:absolute;top:calc(var(--topnav-h) + 4px);right:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,0.12);min-width:200px;z-index:300;display:none;}
+#topnav .logo{
+  font-size:15px;font-weight:900;white-space:nowrap;cursor:pointer;
+  display:flex;align-items:center;gap:10px;letter-spacing:-0.01em;
+}
+#topnav .logo .logoIcon{
+  width:32px;height:32px;border-radius:9px;
+  background:linear-gradient(135deg,var(--accent),#818cf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:900;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(79,70,229,0.4);
+}
+#topnav .logo .logoText{display:flex;flex-direction:column;line-height:1.1;}
+#topnav .logo .logoText span{font-size:9px;font-weight:700;color:rgba(255,255,255,0.55);letter-spacing:0.12em;text-transform:uppercase;}
+#topnav .orgBadge{
+  font-size:12px;font-weight:600;color:rgba(255,255,255,0.65);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;
+}
+#globalSearch{flex:1;max-width:380px;margin:0 auto;position:relative;}
+#globalSearch input{
+  width:100%;padding:8px 14px 8px 36px;border-radius:10px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.07);color:#fff;font-size:13px;outline:none;
+  transition:var(--t);font-family:inherit;
+}
+#globalSearch input:focus{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.28);}
+#globalSearch input::placeholder{color:rgba(255,255,255,0.38);}
+#globalSearch .searchIcon{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:0.45;font-size:15px;}
+#topnav .navRight{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.notifBtn{
+  background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);
+  color:#fff;cursor:pointer;font-size:16px;position:relative;
+  padding:6px 10px;border-radius:9px;transition:var(--t);
+}
+.notifBtn:hover{background:rgba(255,255,255,0.14);}
+.notifCount{
+  position:absolute;top:-3px;right:-3px;
+  background:var(--orange);color:#fff;
+  font-size:9px;font-weight:900;border-radius:999px;
+  min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--navy);
+}
+.avatarBtn{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),#818cf8);
+  color:#fff;border:none;cursor:pointer;font-weight:800;font-size:13px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(79,70,229,0.35);transition:var(--t);
+}
+.avatarBtn:hover{transform:scale(1.05);}
+.avatarMenu{
+  position:absolute;top:calc(var(--topnav-h) + 6px);right:16px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r-lg);box-shadow:var(--sh-lg);
+  min-width:220px;z-index:300;display:none;overflow:hidden;
+}
 .avatarMenu.open{display:block;}
-.avatarMenu .menuItem{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);}
+.avatarMenu .menuHeader{
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);
+  color:#fff;
+}
+.avatarMenu .menuHeader .menuName{font-size:14px;font-weight:800;}
+.avatarMenu .menuHeader .menuEmail{font-size:11px;color:rgba(255,255,255,0.6);margin-top:1px;}
+.avatarMenu .menuItem{
+  display:flex;align-items:center;gap:10px;padding:11px 16px;
+  cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);
+  border-bottom:1px solid var(--border-s);transition:var(--t);
+}
 .avatarMenu .menuItem:last-child{border-bottom:none;}
-.avatarMenu .menuItem:hover{background:var(--bg);}
+.avatarMenu .menuItem:hover{background:var(--bg);color:var(--accent);}
+.avatarMenu .menuItem.danger{color:var(--red);}
+.avatarMenu .menuItem.danger:hover{background:var(--red-bg);}
 
-/* ── Sidebar ── */
+/* ─── Sidebar ───────────────────────────────────────────────────────────── */
 #sidebar{
   position:fixed;top:var(--topnav-h);left:0;bottom:0;width:var(--sidebar-w);
   background:var(--card);border-right:1px solid var(--border);
-  overflow-y:auto;z-index:100;transition:transform 0.2s;
+  overflow-y:auto;z-index:100;transition:transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  display:flex;flex-direction:column;
 }
+.sidebarLogo{
+  padding:16px;border-bottom:1px solid var(--border-s);
+  display:flex;align-items:center;gap:10px;
+}
+.sidebarLogo .slogoMark{
+  width:36px;height:36px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--navy),var(--navy-mid));
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+}
+.sidebarLogo .slogoText{font-size:13px;font-weight:800;color:var(--ink);line-height:1.2;}
+.sidebarLogo .slogoSub{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;}
 .sidebarItem{
-  display:flex;align-items:center;gap:10px;padding:10px 16px;
-  cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);
-  border-left:3px solid transparent;transition:all 0.15s;
+  display:flex;align-items:center;gap:10px;padding:9px 14px;
+  cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);
+  border-left:3px solid transparent;transition:var(--t);border-radius:0;
+  margin:1px 6px;border-radius:var(--r-sm);border-left:none;
+  position:relative;
 }
-.sidebarItem:hover{background:var(--bg);color:var(--ink);}
-.sidebarItem.active{color:var(--orange);border-left-color:var(--orange);background:var(--orange-light);}
-.sidebarItem .icon{font-size:16px;width:22px;text-align:center;flex-shrink:0;}
-.sidebarDivider{height:1px;background:var(--border);margin:6px 0;}
-.sidebarSection{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:12px 16px 4px;}
+.sidebarItem:hover{background:var(--bg);color:var(--ink2);}
+.sidebarItem.active{
+  color:var(--accent);background:var(--accent-bg);font-weight:700;
+}
+.sidebarItem.active::before{
+  content:'';position:absolute;left:0;top:20%;bottom:20%;
+  width:3px;border-radius:0 2px 2px 0;background:var(--accent);
+}
+.sidebarItem .icon{
+  font-size:15px;width:20px;text-align:center;flex-shrink:0;
+  opacity:0.8;
+}
+.sidebarItem.active .icon{opacity:1;}
+.sidebarDivider{height:1px;background:var(--border-s);margin:6px 14px;}
+.sidebarSection{
+  font-size:10px;font-weight:800;color:var(--muted-l);
+  text-transform:uppercase;letter-spacing:0.1em;padding:12px 20px 4px;
+}
 
-/* ── Main Content ── */
+/* Super Admin sidebar badge */
+.superAdminSideBar{
+  margin:10px 12px 4px;
+  background:linear-gradient(135deg,#4c1d95,#7c3aed);
+  border-radius:var(--r-sm);padding:8px 12px;
+  display:flex;align-items:center;gap:8px;
+}
+.superAdminSideBar .saStar{font-size:14px;}
+.superAdminSideBar .saLabel{font-size:11px;font-weight:900;color:#fff;letter-spacing:0.04em;}
+.superAdminSideBar .saEmail{font-size:10px;color:rgba(255,255,255,0.65);margin-top:1px;}
+
+/* ─── Main Content ──────────────────────────────────────────────────────── */
 #main{
-  margin-left:var(--sidebar-w);
-  margin-top:var(--topnav-h);
-  padding:24px;
-  min-height:calc(100vh - var(--topnav-h));
+  margin-left:var(--sidebar-w);margin-top:var(--topnav-h);
+  padding:26px;min-height:calc(100vh - var(--topnav-h));
 }
 
-/* ── Login Screen ── */
+/* ─── Login Screen ──────────────────────────────────────────────────────── */
 #loginScreen{
-  position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:1000;
+  position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--navy) 0%,#162952 50%,#1a1048 100%);
+  overflow:hidden;
 }
-.loginCard{background:var(--card);border-radius:16px;padding:36px 32px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+#loginScreen::before{
+  content:'';position:absolute;inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.loginCard{
+  background:var(--card);border-radius:var(--r-xl);
+  padding:38px 36px;width:100%;max-width:420px;
+  box-shadow:var(--sh-xl);position:relative;z-index:1;
+  border:1px solid rgba(255,255,255,0.08);
+}
+.loginBrand{display:flex;align-items:center;gap:12px;margin-bottom:24px;}
+.loginBrandIcon{
+  width:46px;height:46px;border-radius:14px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),#818cf8);
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  box-shadow:0 4px 16px rgba(79,70,229,0.35);
+}
+.loginBrandText .loginTitle{font-size:20px;font-weight:900;color:var(--ink);letter-spacing:-0.02em;}
+.loginBrandText .loginSub{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;}
 .loginCard h1{font-size:22px;font-weight:900;color:var(--navy);margin-bottom:4px;}
 .loginCard .subtitle{font-size:12px;color:var(--muted);margin-bottom:24px;}
-.loginBadge{display:inline-block;background:var(--orange);color:#fff;font-size:9px;font-weight:900;padding:2px 8px;border-radius:999px;letter-spacing:0.06em;margin-bottom:16px;}
+.loginBadge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:linear-gradient(135deg,var(--accent),#818cf8);
+  color:#fff;font-size:10px;font-weight:800;padding:3px 10px;
+  border-radius:999px;letter-spacing:0.06em;margin-bottom:16px;
+}
 .formGroup{margin-bottom:14px;}
-.formGroup label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;}
-.formGroup input,.formGroup select,.formGroup textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;color:var(--ink);background:var(--card);outline:none;transition:border-color 0.15s;}
-.formGroup input:focus,.formGroup select:focus,.formGroup textarea:focus{border-color:var(--orange);}
+.formGroup label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em;}
+.formGroup input,.formGroup select,.formGroup textarea{
+  width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--r-sm);
+  font-size:14px;color:var(--ink);background:var(--bg);outline:none;
+  transition:var(--t);font-family:inherit;
+}
+.formGroup input:focus,.formGroup select:focus,.formGroup textarea:focus{border-color:var(--accent);background:var(--card);box-shadow:0 0 0 3px var(--accent-bg);}
 .formGroup .helper{font-size:11px;color:var(--muted);margin-top:4px;}
-.btnPrimary{width:100%;padding:12px;background:var(--orange);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:900;cursor:pointer;margin-top:4px;}
-.btnPrimary:hover{filter:brightness(1.1);}
-.btnPrimary:disabled{opacity:0.55;cursor:not-allowed;}
-.btnSecondary{padding:8px 16px;background:var(--bg);color:var(--ink);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
-.btnSecondary:hover{background:var(--border);}
-.btnOk{padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:900;cursor:pointer;}
-.btnOk:hover{filter:brightness(1.1);}
-.btnOk:disabled{opacity:0.55;cursor:not-allowed;}
-.loginError{background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,0.25);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+.btnPrimary{
+  width:100%;padding:12px;
+  background:linear-gradient(135deg,var(--accent),#6366f1);
+  color:#fff;border:none;border-radius:var(--r);
+  font-size:15px;font-weight:800;cursor:pointer;margin-top:4px;
+  transition:var(--t);font-family:inherit;letter-spacing:-0.01em;
+  box-shadow:0 4px 14px rgba(79,70,229,0.35);
+}
+.btnPrimary:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 6px 20px rgba(79,70,229,0.45);}
+.btnPrimary:active{transform:translateY(0);}
+.btnPrimary:disabled{opacity:0.55;cursor:not-allowed;transform:none;box-shadow:none;}
+.btnSecondary{
+  padding:8px 16px;background:var(--card);color:var(--ink);
+  border:1.5px solid var(--border);border-radius:var(--r-sm);
+  font-size:13px;font-weight:700;cursor:pointer;transition:var(--t);font-family:inherit;
+}
+.btnSecondary:hover{background:var(--bg);border-color:var(--muted-l);}
+.btnOk{
+  padding:8px 18px;
+  background:linear-gradient(135deg,var(--accent),#6366f1);
+  color:#fff;border:none;border-radius:var(--r-sm);
+  font-size:13px;font-weight:800;cursor:pointer;transition:var(--t);font-family:inherit;
+  box-shadow:0 2px 8px rgba(79,70,229,0.3);
+}
+.btnOk:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.btnOk:disabled{opacity:0.55;cursor:not-allowed;transform:none;}
+.btnDanger{
+  padding:8px 16px;background:var(--red-bg);color:var(--red);
+  border:1.5px solid rgba(220,38,38,0.3);border-radius:var(--r-sm);
+  font-size:13px;font-weight:700;cursor:pointer;transition:var(--t);font-family:inherit;
+}
+.btnDanger:hover{background:var(--red);color:#fff;}
+.loginError{
+  background:var(--red-bg);color:var(--red);
+  border:1px solid rgba(220,38,38,0.3);border-radius:var(--r-sm);
+  padding:10px 14px;font-size:13px;font-weight:600;margin-bottom:14px;display:none;
+}
 
-/* ── Pulse Cards ── */
+/* ─── Pulse Cards ───────────────────────────────────────────────────────── */
 .pulseGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
-.pulseCard{background:var(--card);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);border:1px solid var(--border);}
-.pulseCard .label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
-.pulseCard .value{font-size:28px;font-weight:900;color:var(--ink);line-height:1;}
-.pulseCard .trend{font-size:11px;color:var(--muted);margin-top:4px;}
+.pulseCard{
+  background:var(--card);border-radius:var(--r);padding:20px 22px;
+  box-shadow:var(--sh-sm);border:1px solid var(--border);
+  transition:var(--t);position:relative;overflow:hidden;
+}
+.pulseCard::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent),#818cf8);opacity:0;transition:var(--t);
+}
+.pulseCard:hover{box-shadow:var(--sh);transform:translateY(-2px);}
+.pulseCard:hover::after{opacity:1;}
+.pulseCard .label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px;}
+.pulseCard .value{font-size:30px;font-weight:900;color:var(--ink);line-height:1;letter-spacing:-0.02em;}
+.pulseCard .trend{font-size:11px;color:var(--muted);margin-top:6px;}
 .pulseCard .trend.up{color:var(--green);}
 .pulseCard .trend.down{color:var(--red);}
 
-/* ── Section Header ── */
-.sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
-.sectionTitle{font-size:20px;font-weight:900;color:var(--ink);}
-.sectionSubtitle{font-size:13px;color:var(--muted);margin-top:2px;}
+/* ─── Section Header ────────────────────────────────────────────────────── */
+.sectionHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:22px;}
+.sectionTitle{font-size:22px;font-weight:900;color:var(--ink);letter-spacing:-0.02em;}
+.sectionSubtitle{font-size:13px;color:var(--muted);margin-top:3px;font-weight:500;}
 
-/* ── Cards & Panels ── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
-.card h3{font-size:14px;font-weight:900;margin-bottom:14px;color:var(--ink);}
+/* ─── Cards ─────────────────────────────────────────────────────────────── */
+.card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px;box-shadow:var(--sh-sm);margin-bottom:16px;
+}
+.card h3{font-size:14px;font-weight:800;margin-bottom:14px;color:var(--ink);}
+.card h3.cardTitle{
+  display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;
+  border-bottom:1px solid var(--border-s);padding-bottom:12px;margin-bottom:16px;
+}
 .twoCol{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 .threeCol{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
 
-/* ── Tables ── */
-.tableWrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);}
+/* ─── Tables ─────────────────────────────────────────────────────────────── */
+.tableWrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border);}
 table{width:100%;border-collapse:collapse;font-size:13px;}
-thead th{background:var(--bg);padding:10px 12px;text-align:left;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
-tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--ink);}
+thead th{
+  background:var(--bg);padding:10px 14px;text-align:left;
+  font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.07em;
+  color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border-s);color:var(--ink);}
 tbody tr:last-child td{border-bottom:none;}
-tbody tr:hover{background:var(--bg);}
-tbody tr{cursor:pointer;}
+tbody tr:hover{background:var(--card-hover);}
+tbody tr{transition:background 0.1s;}
 
-/* ── Status Chips ── */
-.chip{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;}
+/* ─── Status Chips ──────────────────────────────────────────────────────── */
+.chip{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;}
 .chip.green{background:var(--green-bg);color:var(--green);}
 .chip.red{background:var(--red-bg);color:var(--red);}
 .chip.amber{background:var(--amber-bg);color:var(--amber);}
 .chip.blue{background:var(--blue-bg);color:var(--blue);}
-.chip.grey{background:var(--border);color:var(--muted);}
-.chip.orange{background:var(--orange-light);color:var(--orange);}
+.chip.grey{background:var(--bg2);color:var(--muted);}
+.chip.orange{background:var(--orange-bg);color:var(--orange);}
+.chip.purple{background:var(--purple-bg);color:var(--purple);}
+.chip.indigo{background:var(--accent-bg);color:var(--accent);}
 
-/* ── Search Bar ── */
-.searchBar{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
-.searchBar input{flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--ink);outline:none;}
-.searchBar input:focus{border-color:var(--orange);}
+/* ─── Search Bar ─────────────────────────────────────────────────────────── */
+.searchBar{display:flex;gap:8px;align-items:center;margin-bottom:16px;}
+.searchBar input,.searchBar select{
+  padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--r-sm);
+  font-size:13px;background:var(--card);color:var(--ink);outline:none;
+  transition:var(--t);font-family:inherit;
+}
+.searchBar input{flex:1;}
+.searchBar input:focus,.searchBar select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg);}
 
-/* ── Activity Feed ── */
-.feedItem{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);}
+/* ─── Activity Feed ──────────────────────────────────────────────────────── */
+.feedItem{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border-s);}
 .feedItem:last-child{border-bottom:none;}
-.feedIcon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.feedIcon{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
 .feedIcon.green{background:var(--green-bg);}
-.feedIcon.orange{background:var(--orange-light);}
+.feedIcon.orange{background:var(--orange-bg);}
 .feedIcon.blue{background:var(--blue-bg);}
+.feedIcon.indigo{background:var(--accent-bg);}
 .feedItem .feedBody{flex:1;min-width:0;}
 .feedItem .feedBody .feedTitle{font-size:13px;font-weight:700;}
 .feedItem .feedBody .feedMeta{font-size:11px;color:var(--muted);margin-top:2px;}
-.feedItem .feedTime{font-size:11px;color:var(--muted);white-space:nowrap;}
+.feedItem .feedTime{font-size:11px;color:var(--muted-l);white-space:nowrap;}
 
-/* ── Quick Actions ── */
+/* ─── Quick Actions ──────────────────────────────────────────────────────── */
 .quickGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.quickAction{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;text-align:center;cursor:pointer;transition:all 0.15s;font-size:12px;font-weight:700;color:var(--ink);}
-.quickAction:hover{border-color:var(--orange);background:var(--orange-light);color:var(--orange);}
+.quickAction{
+  background:var(--bg);border:1.5px solid var(--border);
+  border-radius:var(--r);padding:14px 12px;text-align:center;
+  cursor:pointer;transition:var(--t);font-size:12px;font-weight:700;color:var(--ink2);
+}
+.quickAction:hover{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);transform:translateY(-2px);box-shadow:var(--sh-sm);}
 .quickAction .qaIcon{font-size:22px;display:block;margin-bottom:6px;}
 
-/* ── Team Health ── */
-.teamHealthGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
-.teamTile{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);cursor:pointer;transition:border-color 0.15s;}
-.teamTile:hover{border-color:var(--orange);}
-.teamTile .ttName{font-size:13px;font-weight:900;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.teamTile .ttMeta{font-size:11px;color:var(--muted);margin-bottom:8px;}
-.progressBar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:6px;}
-.progressBar .fill{height:100%;background:var(--orange);border-radius:2px;transition:width 0.4s;}
+/* ─── Team Tiles ─────────────────────────────────────────────────────────── */
+.teamHealthGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;}
+.teamTile{
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:var(--r);padding:16px;box-shadow:var(--sh-xs);
+  cursor:pointer;transition:var(--t);
+}
+.teamTile:hover{border-color:var(--accent);box-shadow:var(--sh);transform:translateY(-2px);}
+.teamTile .ttName{font-size:13px;font-weight:800;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.teamTile .ttMeta{font-size:11px;color:var(--muted);margin-bottom:10px;}
+.progressBar{height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-bottom:8px;}
+.progressBar .fill{height:100%;background:linear-gradient(90deg,var(--accent),#818cf8);border-radius:3px;transition:width 0.4s;}
 
-/* ── Detail Panel ── */
+/* ─── Admin Profile Cards ────────────────────────────────────────────────── */
+.adminCardGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.adminCard{
+  background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-lg);
+  padding:18px;box-shadow:var(--sh-xs);transition:var(--t);
+}
+.adminCard:hover{box-shadow:var(--sh);border-color:var(--accent-mid);}
+.adminCard .acTop{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.adminCard .acAvatar{
+  width:42px;height:42px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:900;color:#fff;
+  background:linear-gradient(135deg,var(--navy-mid),var(--accent));
+}
+.adminCard .acName{font-size:14px;font-weight:800;color:var(--ink);}
+.adminCard .acEmail{font-size:11px;color:var(--muted);margin-top:2px;}
+.adminCard .acMeta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.adminCard .acActions{display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-s);}
+
+/* ─── Detail Panel ───────────────────────────────────────────────────────── */
 #detailPanel{
-  position:fixed;top:var(--topnav-h);right:0;bottom:0;width:420px;max-width:100vw;
+  position:fixed;top:var(--topnav-h);right:0;bottom:0;width:440px;max-width:100vw;
   background:var(--card);border-left:1px solid var(--border);z-index:150;
-  overflow-y:auto;transform:translateX(100%);transition:transform 0.25s;
-  box-shadow:-4px 0 20px rgba(0,0,0,0.1);
+  overflow-y:auto;transform:translateX(100%);transition:transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:-6px 0 32px rgba(0,0,0,0.12);
 }
 #detailPanel.open{transform:translateX(0);}
-.panelHeader{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:10;}
-.panelHeader h2{font-size:16px;font-weight:900;flex:1;}
-.panelClose{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px;}
-.panelTabs{display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;}
-.panelTab{padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;}
-.panelTab.active{color:var(--orange);border-bottom-color:var(--orange);}
-.panelBody{padding:16px;}
+.panelHeader{
+  display:flex;align-items:center;gap:10px;padding:16px 18px;
+  border-bottom:1px solid var(--border);position:sticky;top:0;
+  background:var(--card);z-index:10;
+}
+.panelHeader h2{font-size:15px;font-weight:800;flex:1;letter-spacing:-0.01em;}
+.panelClose{background:var(--bg);border:1px solid var(--border);font-size:16px;cursor:pointer;color:var(--muted);padding:5px 8px;border-radius:8px;transition:var(--t);}
+.panelClose:hover{background:var(--red-bg);color:var(--red);}
+.panelTabs{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;}
+.panelTab{padding:10px 16px;cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;transition:var(--t);}
+.panelTab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.panelBody{padding:18px;}
 
-/* ── Forms ── */
-.field{margin-bottom:12px;}
-.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em;}
-.field input,.field select,.field textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--card);color:var(--ink);outline:none;}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--orange);}
+/* ─── Forms ──────────────────────────────────────────────────────────────── */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.06em;}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--r-sm);
+  font-size:14px;background:var(--card);color:var(--ink);outline:none;
+  transition:var(--t);font-family:inherit;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg);}
 .field textarea{min-height:100px;resize:vertical;}
 
-/* ── Notifications Panel ── */
+/* ─── Notifications ──────────────────────────────────────────────────────── */
 #notifPanel{
-  position:fixed;top:calc(var(--topnav-h) + 4px);right:60px;width:360px;
-  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
-  box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:300;display:none;max-height:480px;overflow-y:auto;
+  position:fixed;top:calc(var(--topnav-h) + 8px);right:16px;width:360px;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);
+  box-shadow:var(--sh-lg);z-index:300;display:none;max-height:480px;overflow-y:auto;
 }
 #notifPanel.open{display:block;}
-.notifItem{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
+.notifItem{display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border-s);cursor:pointer;transition:var(--t);}
 .notifItem:hover{background:var(--bg);}
 .notifItem:last-child{border-bottom:none;}
-.notifItem.unread{background:var(--orange-light);}
+.notifItem.unread{background:var(--accent-bg);}
 .notifIcon{font-size:18px;flex-shrink:0;}
 .notifBody .notifTitle{font-size:13px;font-weight:700;margin-bottom:2px;}
 .notifBody .notifDesc{font-size:12px;color:var(--muted);}
-.notifBody .notifTime{font-size:11px;color:var(--muted);margin-top:2px;}
+.notifBody .notifTime{font-size:11px;color:var(--muted-l);margin-top:2px;}
 
-/* ── Finance Summary ── */
-.finRow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+/* ─── Finance Rows ───────────────────────────────────────────────────────── */
+.finRow{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border-s);font-size:13px;}
 .finRow:last-child{border-bottom:none;}
-.finRow .label{color:var(--muted);}
+.finRow .label{color:var(--muted);font-weight:500;}
 .finRow .amount{font-weight:900;font-size:15px;}
 .finRow .amount.green{color:var(--green);}
 .finRow .amount.amber{color:var(--amber);}
 .finRow .amount.red{color:var(--red);}
 
-/* ── Role Badges ── */
-.roleBadge{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:900;}
-.roleBadge.owner{background:#7c3aed20;color:#7c3aed;}
+/* ─── Role Badges ────────────────────────────────────────────────────────── */
+.roleBadge{display:inline-flex;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;}
+.roleBadge.owner{background:var(--purple-bg);color:var(--purple);}
+.roleBadge.superadmin{background:linear-gradient(135deg,#4c1d95,#7c3aed);color:#fff;}
 .roleBadge.manager{background:var(--blue-bg);color:var(--blue);}
 .roleBadge.staff{background:var(--green-bg);color:var(--green);}
-.roleBadge.viewer{background:var(--border);color:var(--muted);}
+.roleBadge.viewer{background:var(--bg2);color:var(--muted);}
 
-/* ── Modals ── */
-#modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:400;display:none;align-items:center;justify-content:center;}
+/* ─── Modals ─────────────────────────────────────────────────────────────── */
+#modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:400;display:none;align-items:center;justify-content:center;padding:20px;}
 #modalOverlay.open{display:flex;}
-.modal{background:var(--card);border-radius:16px;padding:28px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto;}
-.modal h2{font-size:18px;font-weight:900;margin-bottom:16px;}
-.modalActions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;}
+.modal{
+  background:var(--card);border-radius:var(--r-xl);padding:30px;
+  width:100%;max-width:520px;box-shadow:var(--sh-xl);max-height:90vh;overflow-y:auto;
+}
+.modal h2{font-size:18px;font-weight:900;margin-bottom:18px;letter-spacing:-0.02em;}
+.modalActions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;padding-top:16px;border-top:1px solid var(--border-s);}
 
-/* ── Alerts / Banners ── */
-.banner{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:14px;}
-.banner.success{background:var(--green-bg);color:var(--green);border:1px solid rgba(22,163,74,0.25);}
+/* ─── Banners ────────────────────────────────────────────────────────────── */
+.banner{padding:11px 16px;border-radius:var(--r-sm);font-size:13px;font-weight:700;margin-bottom:14px;}
+.banner.success{background:var(--green-bg);color:var(--green);border:1px solid rgba(5,150,105,0.25);}
 .banner.error{background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,0.25);}
-.banner.info{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(0,87,184,0.25);}
+.banner.info{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(79,70,229,0.25);}
 
-/* ── Responsive ── */
-@media(max-width:900px){
+/* ─── Profile Section (Super Admin) ─────────────────────────────────────── */
+.profileHero{
+  background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 50%,#2d1b69 100%);
+  border-radius:var(--r-lg);padding:28px;margin-bottom:20px;color:#fff;
+  position:relative;overflow:hidden;
+}
+.profileHero::before{
+  content:'⬡';position:absolute;right:-30px;top:-30px;font-size:180px;
+  color:rgba(255,255,255,0.03);line-height:1;
+}
+.profileAvatar{
+  width:72px;height:72px;border-radius:20px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent),#818cf8);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;font-weight:900;color:#fff;
+  box-shadow:0 4px 20px rgba(79,70,229,0.5);
+  border:3px solid rgba(255,255,255,0.2);
+}
+.platformStatGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:16px;}
+.platformStat{
+  background:rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;
+  backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.1);
+}
+.platformStat .psVal{font-size:26px;font-weight:900;line-height:1;}
+.platformStat .psLabel{font-size:10px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-top:3px;}
+
+/* ─── Permission Matrix ──────────────────────────────────────────────────── */
+.permMatrix{width:100%;border-collapse:collapse;font-size:12px;}
+.permMatrix th{padding:8px 12px;text-align:left;font-weight:700;color:var(--muted);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.permMatrix td{padding:8px 12px;border-bottom:1px solid var(--border-s);}
+.permMatrix tr:last-child td{border-bottom:none;}
+.permMatrix .check{color:var(--green);font-size:14px;}
+.permMatrix .cross{color:var(--muted-l);font-size:14px;}
+
+/* ─── Email Config ───────────────────────────────────────────────────────── */
+.emailPreview{
+  border:1px solid var(--border);border-radius:var(--r);overflow:hidden;
+  box-shadow:var(--sh-xs);
+}
+.emailPreviewHeader{
+  background:linear-gradient(90deg,var(--navy),var(--navy-mid));
+  padding:12px 16px;display:flex;align-items:center;gap:8px;
+}
+.emailPreviewBody{padding:20px;background:#fff;font-size:13px;color:#374151;line-height:1.6;}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+@media(max-width:960px){
   #sidebar{transform:translateX(-100%);}
   #sidebar.mobileOpen{transform:translateX(0);}
   #main{margin-left:0;}
@@ -260,6 +586,7 @@ tbody tr{cursor:pointer;}
 @media(max-width:600px){
   .pulseGrid{grid-template-columns:1fr;}
   #globalSearch{display:none;}
+  .adminCardGrid{grid-template-columns:1fr;}
 }
 </style>
 </head>
@@ -270,9 +597,16 @@ tbody tr{cursor:pointer;}
 ═══════════════════════════════════════════════════════════════════════════ -->
 <div id="loginScreen">
   <div class="loginCard">
+    <div class="loginBrand">
+      <div class="loginBrandIcon">⚡</div>
+      <div class="loginBrandText">
+        <div class="loginTitle">SWG Admin</div>
+        <div class="loginSub">Enterprise Platform</div>
+      </div>
+    </div>
     <span class="loginBadge">ENTERPRISE</span>
-    <h1>Tryout Enterprise</h1>
-    <p class="subtitle">Administration Dashboard — Organization Control Layer</p>
+    <h1>Executive Dashboard</h1>
+    <p class="subtitle">Secure administration access · Organization Control Layer</p>
 
     <div id="loginError" class="loginError"></div>
 
@@ -337,7 +671,11 @@ tbody tr{cursor:pointer;}
 ═══════════════════════════════════════════════════════════════════════════ -->
 <nav id="topnav" style="display:none;">
   <div class="logo" onclick="navigate('home')">
-    <span>ENTERPRISE</span> Tryout
+    <div class="logoIcon">⚡</div>
+    <div class="logoText">
+      SWG Admin
+      <span>Enterprise Platform</span>
+    </div>
   </div>
   <div class="orgBadge" id="navOrgName">—</div>
 
@@ -356,9 +694,14 @@ tbody tr{cursor:pointer;}
 
 <!-- Avatar Dropdown -->
 <div class="avatarMenu" id="avatarMenu">
+  <div class="menuHeader">
+    <div class="menuName" id="avatarMenuName">—</div>
+    <div class="menuEmail" id="avatarMenuEmail">—</div>
+  </div>
+  <div class="menuItem" onclick="navigate('profile')">👤 My Profile</div>
   <div class="menuItem" onclick="navigate('settings')">⚙️ Organization Settings</div>
   <div class="menuItem" id="themeToggle" onclick="toggleTheme()">🌙 Dark Mode</div>
-  <div class="menuItem" style="color:var(--red);" onclick="signOut()">↩ Sign Out</div>
+  <div class="menuItem danger" onclick="signOut()">↩ Sign Out</div>
 </div>
 
 <!-- Notification Panel -->
@@ -373,22 +716,31 @@ tbody tr{cursor:pointer;}
      SIDEBAR
 ═══════════════════════════════════════════════════════════════════════════ -->
 <nav id="sidebar" style="display:none;">
-  <div style="padding:12px 16px 6px;">
-    <div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;">Navigation</div>
-  </div>
+  <div class="sidebarSection">Navigation</div>
   <div class="sidebarItem active" data-view="home" onclick="navigate('home')"><span class="icon">🏠</span> Home</div>
   <div class="sidebarItem" data-view="players" onclick="navigate('players')"><span class="icon">👥</span> Players</div>
   <div class="sidebarItem" data-view="assessments" onclick="navigate('assessments')"><span class="icon">📋</span> Assessments</div>
   <div class="sidebarItem" data-view="teams" onclick="navigate('teams')"><span class="icon">🏒</span> Teams</div>
   <div class="sidebarItem" data-view="registrations" onclick="navigate('registrations')"><span class="icon">📝</span> Registrations</div>
   <div class="sidebarDivider"></div>
+  <div class="sidebarSection">Operations</div>
   <div class="sidebarItem" data-view="financials" onclick="navigate('financials')"><span class="icon">💰</span> Financials</div>
   <div class="sidebarItem" data-view="communications" onclick="navigate('communications')"><span class="icon">📢</span> Communications</div>
   <div class="sidebarItem" data-view="reports" onclick="navigate('reports')"><span class="icon">📊</span> Reports</div>
   <div class="sidebarDivider"></div>
-  <div class="sidebarItem" data-view="admins" onclick="navigate('admins')"><span class="icon">🛡️</span> Admin Users</div>
+  <div class="sidebarSection">Admin</div>
+  <div class="sidebarItem" data-view="admins" onclick="navigate('admins')"><span class="icon">🛡️</span> Executive Accounts</div>
   <div class="sidebarItem" data-view="settings" onclick="navigate('settings')"><span class="icon">⚙️</span> Org Settings</div>
   <div class="sidebarItem" id="auditNavItem" data-view="audit" onclick="navigate('audit')" style="display:none;"><span class="icon">📜</span> Audit Log</div>
+  <!-- Super Admin section — shown only when isSuperAdmin -->
+  <div id="superAdminNav" style="display:none;">
+    <div class="sidebarDivider"></div>
+    <div id="superAdminSideBarBlock"></div>
+    <div class="sidebarSection">Super Admin</div>
+    <div class="sidebarItem" data-view="profile" onclick="navigate('profile')"><span class="icon">⭐</span> My Profile</div>
+    <div class="sidebarItem" data-view="emailconfig" onclick="navigate('emailconfig')"><span class="icon">✉️</span> Email Config</div>
+    <div class="sidebarItem" data-view="platform" onclick="navigate('platform')"><span class="icon">🌐</span> Platform Overview</div>
+  </div>
 </nav>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
@@ -1018,24 +1370,46 @@ async function createOrgAndEnter() {
 function enterDashboard() {
   $('loginScreen').style.display = 'none';
   $('topnav').style.display = 'flex';
-  $('sidebar').style.display = 'block';
+  $('sidebar').style.display = 'flex';
   $('main').style.display = 'block';
-  $('navOrgName').textContent = (state.localOrg?.name || state.orgName || state.orgSlug);
-  const initials = (state.adminName || state.email || 'A')[0].toUpperCase();
+
+  const displayName = state.adminName || state.email || 'Admin';
+  const displayOrg  = state.localOrg?.name || state.orgName || state.orgSlug || '—';
+  $('navOrgName').textContent = displayOrg;
+
+  // Avatar button initials
+  const initials = displayName[0].toUpperCase();
   $('avatarBtn').textContent = initials;
+
+  // Avatar menu header
+  const menuName  = $('avatarMenuName');
+  const menuEmail = $('avatarMenuEmail');
+  if(menuName)  menuName.textContent  = displayName;
+  if(menuEmail) menuEmail.textContent = state.email || '';
+
   // Super-admin and owners always see the audit log
   if(state.role === 'owner' || state.isSuperAdmin) $('auditNavItem').style.display = 'flex';
-  // Super-admin badge in nav
-  const existingBadge = document.getElementById('superAdminBadge');
-  if(state.isSuperAdmin && !existingBadge) {
-    const badge = document.createElement('div');
-    badge.id = 'superAdminBadge';
-    badge.style.cssText = 'background:#f97316;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;text-align:center;margin:6px 16px 0;letter-spacing:0.05em;';
-    badge.textContent = '⚡ SUPER ADMIN';
-    $('sidebar').insertBefore(badge, $('sidebar').querySelector('.sidebarDivider'));
+
+  // Super-admin section in sidebar
+  if(state.isSuperAdmin) {
+    const saNav = $('superAdminNav');
+    if(saNav) saNav.style.display = 'block';
+
+    const saBlock = $('superAdminSideBarBlock');
+    if(saBlock) {
+      saBlock.innerHTML = `
+        <div class="superAdminSideBar">
+          <span class="saStar">⭐</span>
+          <div>
+            <div class="saLabel">SUPER ADMIN</div>
+            <div class="saEmail">${esc(state.email || '')}</div>
+          </div>
+        </div>`;
+    }
   }
+
   navigate('home');
-  addNotif('🏠', 'Welcome back', `Signed in as ${state.isSuperAdmin ? 'Super Admin' : state.role} to ${state.orgName}`, false);
+  addNotif('🏠', 'Welcome back', `Signed in as ${state.isSuperAdmin ? 'Super Admin' : state.role} to ${displayOrg}`, false);
 }
 
 function signOut() {
@@ -1077,6 +1451,9 @@ function renderView(view) {
     admins: renderAdmins,
     settings: renderSettings,
     audit: renderAudit,
+    profile: renderMyProfile,
+    emailconfig: renderEmailConfig,
+    platform: renderPlatform,
   };
   if(render[view]) render[view]();
   else vc.innerHTML = `<div class="sectionHeader"><div class="sectionTitle">${esc(view)}</div></div><div class="card"><p style="color:var(--muted);">Coming in Phase 2.</p></div>`;
@@ -1625,25 +2002,153 @@ function openAssessmentPanel(idx) {
 // ═══════════════════════════════════════════════════════════════════════════
 async function renderTeams() {
   const vc = $('viewContainer');
-  vc.innerHTML = `<div class="sectionHeader"><div><div class="sectionTitle">Teams</div><div class="sectionSubtitle">All teams in the organization</div></div></div>
-    <div id="teamGrid" style="padding:8px 0;"><div style="padding:32px;text-align:center;color:var(--muted);">Loading…</div></div>`;
+
+  // Also show local teams from the app DB
+  const localTeams = (state.localSummary?.teams || []);
+
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Teams</div><div class="sectionSubtitle">All teams in the organization — click for full profile</div></div>
+      <button class="btnSecondary" onclick="renderTeams()">↻ Refresh</button>
+    </div>
+    ${localTeams.length ? `
+    <div class="card" style="margin-bottom:20px;">
+      <h3 class="cardTitle">📂 App Database — Local Teams (${localTeams.length})</h3>
+      <div class="teamHealthGrid">
+        ${localTeams.map((t,i) => `
+        <div class="teamTile" onclick="openLocalTeamPanel(${i})">
+          <div style="font-size:20px;margin-bottom:6px;">🏒</div>
+          <div class="ttName">${esc(t.name)}</div>
+          <div class="ttMeta">${esc(t.sport)}${t.year?' · '+esc(t.year):''}${t.playerCount!=null?' · '+t.playerCount+' players':''}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">${t.eventCount} event${t.eventCount!==1?'s':''}</div>
+          <div style="margin-top:10px;font-size:11px;color:var(--accent);font-weight:700;">View Profile →</div>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+    <div id="teamGrid" style="padding:4px 0;"><div style="padding:32px;text-align:center;color:var(--muted);">Loading live teams…</div></div>
+  `;
+
   try {
     const data = await api('/api/enterprise/org?section=teams');
     state.teams = data.teams || [];
     const grid = $('teamGrid');
-    if(!state.teams.length) { grid.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No teams found.</div>'; return; }
-    grid.innerHTML = `<div class="teamHealthGrid">${state.teams.map(t => {
-      const roster = Array.isArray(t.roster) ? t.roster : [];
-      return `<div class="teamTile">
-        <div class="ttName">${esc(t.teamName||t.name||'Unnamed')}</div>
-        <div class="ttMeta">${esc(t.sport||'—')} · ${roster.length} players</div>
-        <div class="progressBar"><div class="fill" style="width:100%"></div></div>
-        <div style="font-size:11px;color:var(--muted);">${esc(t.season||t.label||'')}</div>
+    if(!state.teams.length) {
+      grid.innerHTML = localTeams.length ? '' : '<div style="padding:32px;text-align:center;color:var(--muted);">No teams found.</div>';
+      return;
+    }
+    grid.innerHTML = `
+      <div class="card">
+        <h3 class="cardTitle">🌐 Live Organization Teams (${state.teams.length})</h3>
+        <div class="teamHealthGrid">
+          ${state.teams.map((t,i) => {
+            const roster = Array.isArray(t.roster) ? t.roster : [];
+            return `<div class="teamTile" onclick="openTeamPanel(${i})">
+              <div style="font-size:20px;margin-bottom:6px;">🏒</div>
+              <div class="ttName">${esc(t.teamName||t.name||'Unnamed')}</div>
+              <div class="ttMeta">${esc(t.sport||'—')} · ${roster.length} players</div>
+              <div class="progressBar"><div class="fill" style="width:100%"></div></div>
+              <div style="font-size:11px;color:var(--muted);">${esc(t.season||t.label||'')}</div>
+              <div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:700;">View Profile →</div>
+            </div>`;
+          }).join('')}
+        </div>
       </div>`;
-    }).join('')}</div>`;
   } catch(e) {
-    $('teamGrid').innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
+    const grid = $('teamGrid');
+    if(grid) grid.innerHTML = !localTeams.length ? `<div class="banner error">${esc(e.message)}</div>` : '';
   }
+}
+
+function openLocalTeamPanel(idx) {
+  const t = (state.localSummary?.teams || [])[idx];
+  if(!t) return;
+  openPanel(`🏒 ${t.name}`, `
+    <div class="panelBody">
+      <div style="background:linear-gradient(135deg,var(--navy),var(--navy-mid));border-radius:var(--r);padding:20px;color:#fff;margin-bottom:16px;">
+        <div style="font-size:28px;text-align:center;margin-bottom:8px;">🏒</div>
+        <div style="text-align:center;font-size:18px;font-weight:900;">${esc(t.name)}</div>
+        <div style="text-align:center;color:rgba(255,255,255,0.65);font-size:12px;margin-top:4px;">${esc(t.sport)}${t.year?' · Season '+esc(String(t.year)):''}</div>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <div class="finRow"><span class="label">Players</span><b>${t.playerCount}</b></div>
+        <div class="finRow"><span class="label">Events</span><b>${t.eventCount}</b></div>
+        <div class="finRow"><span class="label">Sport</span><span>${esc(t.sport||'—')}</span></div>
+        ${t.year ? `<div class="finRow"><span class="label">Season Year</span><span>${esc(String(t.year))}</span></div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btnOk" style="flex:1;" onclick="navigate('registrations')">View Registrations</button>
+        <button class="btnSecondary" style="flex:1;" onclick="navigate('reports')">Export Report</button>
+      </div>
+    </div>
+  `);
+}
+
+function openTeamPanel(idx) {
+  const t = state.teams[idx];
+  if(!t) return;
+  const roster = Array.isArray(t.roster) ? t.roster : [];
+  const name = t.teamName || t.name || 'Team';
+  openPanel(`🏒 ${name}`, `
+    <div class="panelTabs">
+      <div class="panelTab active" onclick="teamPanelTab(this,'team-tab-overview')">Overview</div>
+      <div class="panelTab" onclick="teamPanelTab(this,'team-tab-roster')">Roster (${roster.length})</div>
+      <div class="panelTab" onclick="teamPanelTab(this,'team-tab-contact')">Contact</div>
+    </div>
+    <div class="panelBody">
+      <div id="team-tab-overview">
+        <div style="background:linear-gradient(135deg,var(--navy),var(--navy-mid));border-radius:var(--r);padding:20px;color:#fff;margin-bottom:16px;">
+          <div style="font-size:28px;text-align:center;margin-bottom:8px;">🏒</div>
+          <div style="text-align:center;font-size:18px;font-weight:900;">${esc(name)}</div>
+          <div style="text-align:center;color:rgba(255,255,255,0.65);font-size:12px;margin-top:4px;">${esc(t.sport||'—')}${t.season?' · '+esc(t.season):''}</div>
+        </div>
+        <div class="card" style="margin-bottom:12px;">
+          <div class="finRow"><span class="label">Players on Roster</span><b>${roster.length}</b></div>
+          <div class="finRow"><span class="label">Sport</span><span>${esc(t.sport||'—')}</span></div>
+          ${t.season ? `<div class="finRow"><span class="label">Season</span><span>${esc(t.season)}</span></div>` : ''}
+          ${t.level  ? `<div class="finRow"><span class="label">Level</span><span>${esc(t.level)}</span></div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btnOk" style="flex:1;" onclick="navigate('players')">View Players</button>
+          <button class="btnSecondary" style="flex:1;" onclick="navigate('reports')">Export</button>
+        </div>
+      </div>
+      <div id="team-tab-roster" style="display:none;">
+        ${roster.length ? roster.slice(0,30).map(p => {
+          const pname = [p.first||p.firstName, p.last||p.lastName].filter(Boolean).join(' ') || '—';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-s);font-size:13px;">
+            <span style="font-weight:600;">${esc(pname)}</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              ${p.pos||p.position ? `<span style="font-size:11px;color:var(--muted);">${esc(p.pos||p.position)}</span>` : ''}
+              ${p.jersey ? `<span class="chip indigo">#${esc(p.jersey)}</span>` : ''}
+            </div>
+          </div>`;
+        }).join('') + (roster.length>30?`<div style="font-size:12px;color:var(--muted);padding:8px 0;">+${roster.length-30} more players</div>`:'') : '<div style="color:var(--muted);padding:16px 0;font-size:13px;">No roster data available.</div>'}
+      </div>
+      <div id="team-tab-contact" style="display:none;">
+        <div class="card">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">Contact information for this team's management staff.</div>
+          ${t.coachName  ? `<div class="finRow"><span class="label">Head Coach</span><b>${esc(t.coachName)}</b></div>` : ''}
+          ${t.coachEmail ? `<div class="finRow"><span class="label">Coach Email</span><span style="font-size:12px;">${esc(t.coachEmail)}</span></div>` : ''}
+          ${t.coachPhone ? `<div class="finRow"><span class="label">Coach Phone</span><span>${esc(t.coachPhone)}</span></div>` : ''}
+          ${!t.coachName && !t.coachEmail ? '<div style="color:var(--muted);font-size:13px;">No contact info on file.</div>' : ''}
+        </div>
+        ${state.isSuperAdmin || state.role === 'owner' ? `
+        <div class="field" style="margin-top:12px;"><label>Coach / Contact Name</label><input id="pTeamCoachName" value="${esc(t.coachName||'')}" placeholder="Coach name…" /></div>
+        <div class="field"><label>Coach Email</label><input type="email" id="pTeamCoachEmail" value="${esc(t.coachEmail||'')}" placeholder="coach@example.com" /></div>
+        <div class="field"><label>Coach Phone</label><input id="pTeamCoachPhone" value="${esc(t.coachPhone||'')}" placeholder="(555) 000-0000" /></div>
+        <button class="btnOk" onclick="apiBanner('Contact saved','success')">Save Contact</button>
+        ` : ''}
+      </div>
+    </div>
+  `);
+}
+
+function teamPanelTab(el, tabId) {
+  document.querySelectorAll('.panelTab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('[id^="team-tab-"]').forEach(t => t.style.display = 'none');
+  const tab = document.getElementById(tabId);
+  if(tab) tab.style.display = 'block';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2671,29 +3176,102 @@ async function generateReport(title) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VIEW: ADMIN USERS
+// VIEW: ADMIN USERS (Executive Accounts)
 // ═══════════════════════════════════════════════════════════════════════════
 async function renderAdmins() {
   const vc = $('viewContainer');
+  const canManage = state.role === 'manager' || state.role === 'owner' || state.isSuperAdmin;
   vc.innerHTML = `
     <div class="sectionHeader">
-      <div><div class="sectionTitle">Admin Users</div><div class="sectionSubtitle">Manage who has access to this dashboard</div></div>
-      ${state.role === 'manager' || state.role === 'owner' ? `<button class="btnOk" onclick="openInviteAdminModal()">+ Invite Admin</button>` : ''}
+      <div>
+        <div class="sectionTitle">Executive Accounts</div>
+        <div class="sectionSubtitle">Manage administrator access and permissions for this organization</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btnSecondary" id="adminViewToggle" onclick="toggleAdminView()" style="font-size:12px;">⊞ Table View</button>
+        ${canManage ? `<button class="btnOk" onclick="openInviteAdminModal()">+ Invite Admin</button>` : ''}
+      </div>
     </div>
+    <!-- Permission overview card (Super Admin only) -->
+    ${state.isSuperAdmin ? `
+    <div class="card" style="margin-bottom:20px;">
+      <h3 class="cardTitle">🔐 Role Permission Matrix</h3>
+      <div style="overflow-x:auto;">
+        <table class="permMatrix">
+          <thead><tr><th>Permission</th><th>Viewer</th><th>Staff</th><th>Manager</th><th>Owner</th></tr></thead>
+          <tbody>
+            <tr><td>View players & assessments</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Record payments</td><td class="cross">—</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Send communications</td><td class="cross">—</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Manage admin users</td><td class="cross">—</td><td class="cross">—</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Org settings</td><td class="cross">—</td><td class="cross">—</td><td class="check">✓</td><td class="check">✓</td></tr>
+            <tr><td>Audit log</td><td class="cross">—</td><td class="cross">—</td><td class="cross">—</td><td class="check">✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
     <div id="adminTable"><div style="padding:32px;text-align:center;color:var(--muted);">Loading…</div></div>
   `;
   await loadAdmins();
+}
+
+let _adminCardView = true; // default: card view
+
+function toggleAdminView() {
+  _adminCardView = !_adminCardView;
+  const btn = $('adminViewToggle');
+  if(btn) btn.textContent = _adminCardView ? '⊞ Table View' : '⊟ Card View';
+  if(_adminCardView) renderAdminCards();
+  else renderAdminTable();
 }
 
 async function loadAdmins() {
   try {
     const data = await api('/api/enterprise/admins');
     state.admins = data.admins || [];
-    renderAdminTable();
+    if(_adminCardView) renderAdminCards();
+    else renderAdminTable();
   } catch(e) {
     const el = $('adminTable');
     if(el) el.innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
   }
+}
+
+function renderAdminCards() {
+  const wrap = $('adminTable');
+  if(!wrap) return;
+  if(!state.admins.length) {
+    wrap.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No admins found.</div>';
+    return;
+  }
+  const canManage = state.role === 'owner' || state.isSuperAdmin;
+  const roleColors = { owner:'#7c3aed', manager:'#2563eb', staff:'#059669', viewer:'#5a7184' };
+
+  wrap.innerHTML = `<div class="adminCardGrid">${state.admins.map(a => {
+    const initials = (a.name || a.email || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const color = roleColors[a.role] || '#5a7184';
+    const isSelf = a.email === state.email;
+    return `
+    <div class="adminCard">
+      <div class="acTop">
+        <div class="acAvatar" style="background:linear-gradient(135deg,${color}CC,${color});">${esc(initials)}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="acName">${esc(a.name || '—')} ${isSelf ? '<span style="font-size:10px;color:var(--accent);font-weight:700;">(you)</span>' : ''}</div>
+          <div class="acEmail">${esc(a.email)}</div>
+        </div>
+      </div>
+      <div class="acMeta">
+        ${roleBadge(a.role)}
+        ${statusChip(a.status)}
+        ${a.invitedBy ? `<span style="font-size:11px;color:var(--muted);">via ${esc(a.invitedBy)}</span>` : ''}
+      </div>
+      ${canManage && !isSelf ? `
+      <div class="acActions">
+        <button class="btnSecondary" style="flex:1;font-size:12px;" onclick="openEditAdminModal('${esc(a.email)}')">✎ Edit Role</button>
+        <button class="btnDanger" style="font-size:12px;" onclick="removeAdmin('${esc(a.email)}','${esc(a.name||a.email)}')">Remove</button>
+      </div>` : `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-s);font-size:11px;color:var(--muted);">No actions available</div>`}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function renderAdminTable() {
@@ -2708,9 +3286,9 @@ function renderAdminTable() {
       <td>${statusChip(a.status)}</td>
       <td style="font-size:12px;color:var(--muted);">${esc(a.invitedBy || '—')}</td>
       <td>
-        ${state.role === 'owner' && a.email !== state.email ? `
+        ${(state.role === 'owner' || state.isSuperAdmin) && a.email !== state.email ? `
           <button class="btnSecondary" style="font-size:11px;padding:4px 10px;margin-right:4px;" onclick="openEditAdminModal('${esc(a.email)}')">Edit</button>
-          <button style="background:var(--red-bg);color:var(--red);border:1px solid rgba(220,38,38,0.25);border-radius:6px;font-size:11px;padding:4px 10px;cursor:pointer;" onclick="removeAdmin('${esc(a.email)}','${esc(a.name||a.email)}')">Remove</button>
+          <button class="btnDanger" style="font-size:11px;padding:4px 10px;" onclick="removeAdmin('${esc(a.email)}','${esc(a.name||a.email)}')">Remove</button>
         ` : '<span style="font-size:12px;color:var(--muted);">—</span>'}
       </td>
     </tr>`).join('')}</tbody>
@@ -2944,6 +3522,394 @@ async function loadAudit() {
   } catch(e) {
     wrap.innerHTML = `<div class="banner error">${esc(e.message)}</div>`;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: MY PROFILE (Super Admin)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderMyProfile() {
+  const vc = $('viewContainer');
+  const sum = state.localSummary || {};
+  const org = state.localOrg || {};
+  const name  = state.adminName || 'Super Admin';
+  const email = state.email || '';
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() || '⭐';
+
+  const totalRegs  = sum.registrationCount || 0;
+  const totalTeams = sum.teamCount || 0;
+  const totalPlayers = sum.playerCount || 0;
+  const totalAssessments = sum.assessmentCount || 0;
+
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">My Profile</div><div class="sectionSubtitle">Super Administrator · Platform Owner</div></div>
+      <button class="btnSecondary" onclick="renderMyProfile()">↻ Refresh</button>
+    </div>
+
+    <!-- Hero banner -->
+    <div class="profileHero" style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:18px;margin-bottom:20px;">
+        <div class="profileAvatar">${esc(initials)}</div>
+        <div>
+          <div style="font-size:24px;font-weight:900;letter-spacing:-0.02em;">${esc(name)}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.65);margin-top:3px;">${esc(email)}</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="background:linear-gradient(135deg,#f97316,#fb923c);color:#fff;font-size:10px;font-weight:900;padding:3px 10px;border-radius:999px;letter-spacing:0.06em;">⭐ SUPER ADMIN</span>
+            <span style="background:rgba(255,255,255,0.15);color:#fff;font-size:10px;font-weight:700;padding:3px 10px;border-radius:999px;">PLATFORM OWNER</span>
+          </div>
+        </div>
+      </div>
+      <div class="platformStatGrid">
+        <div class="platformStat">
+          <div class="psVal">${totalTeams}</div>
+          <div class="psLabel">Teams</div>
+        </div>
+        <div class="platformStat">
+          <div class="psVal">${totalPlayers.toLocaleString()}</div>
+          <div class="psLabel">Players</div>
+        </div>
+        <div class="platformStat">
+          <div class="psVal">${totalAssessments}</div>
+          <div class="psLabel">Assessments</div>
+        </div>
+        <div class="platformStat" style="cursor:pointer;" onclick="navigate('registrations')">
+          <div class="psVal">${totalRegs.toLocaleString()}</div>
+          <div class="psLabel">Registrations</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="twoCol">
+      <div>
+        <!-- Identity Card -->
+        <div class="card" style="margin-bottom:16px;">
+          <h3 class="cardTitle">👤 Identity</h3>
+          <div class="field"><label>Display Name</label>
+            <input id="profName" value="${esc(name)}" placeholder="Your name" />
+          </div>
+          <div class="field"><label>Email Address</label>
+            <input value="${esc(email)}" readonly style="background:var(--bg2);color:var(--muted);cursor:not-allowed;" />
+          </div>
+          <div class="field"><label>Role</label>
+            <input value="Super Administrator · Platform Owner" readonly style="background:var(--bg2);color:var(--muted);cursor:not-allowed;" />
+          </div>
+          <button class="btnOk" style="margin-top:4px;" onclick="apiBanner('Profile saved','success')">Save Profile</button>
+        </div>
+
+        <!-- App DB Info -->
+        <div class="card">
+          <h3 class="cardTitle">🗄️ App Database</h3>
+          <div class="finRow"><span class="label">Organization</span><b>${esc(org.name || state.orgName || '—')}</b></div>
+          ${org.sport ? `<div class="finRow"><span class="label">Sport</span><span>${esc(org.sport)}</span></div>` : ''}
+          ${org.city  ? `<div class="finRow"><span class="label">City</span><span>${esc(org.city)}</span></div>` : ''}
+          <div class="finRow"><span class="label">DB Version</span><span style="font-family:monospace;font-size:12px;">SWG_TRYOUT_SYSTEMS_DB_V6</span></div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btnSecondary" style="font-size:12px;" onclick="hydrateStateFromLocalDb(state.email);renderMyProfile();apiBanner('Data refreshed','success')">↻ Refresh DB</button>
+            <button class="btnSecondary" style="font-size:12px;" onclick="openAdminGenDemoModal()">⚡ Gen Test Data</button>
+            <button class="btnDanger" style="font-size:12px;" onclick="openAdminDeleteRegsModal()">🗑 Delete Data</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <!-- Security -->
+        <div class="card" style="margin-bottom:16px;">
+          <h3 class="cardTitle">🔐 Security</h3>
+          <div class="finRow"><span class="label">Authentication</span><span>${statusChip('active','green')}</span></div>
+          <div class="finRow"><span class="label">Identity Provider</span><span>Netlify Identity</span></div>
+          <div class="finRow"><span class="label">Session</span><span>Active</span></div>
+          <div style="margin-top:12px;">
+            <button class="btnSecondary" style="font-size:12px;margin-right:8px;" onclick="apiBanner('Password reset email sent','success')">Change Password</button>
+            <button class="btnDanger" style="font-size:12px;" onclick="signOut()">Sign Out</button>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+          <h3 class="cardTitle">⚡ Quick Actions</h3>
+          <div class="quickGrid">
+            <div class="quickAction" onclick="navigate('admins')"><span class="qaIcon">🛡️</span>Exec Accounts</div>
+            <div class="quickAction" onclick="navigate('emailconfig')"><span class="qaIcon">✉️</span>Email Config</div>
+            <div class="quickAction" onclick="navigate('platform')"><span class="qaIcon">🌐</span>Platform View</div>
+            <div class="quickAction" onclick="navigate('registrations')"><span class="qaIcon">📝</span>Registrations</div>
+            <div class="quickAction" onclick="navigate('teams')"><span class="qaIcon">🏒</span>Teams</div>
+            <div class="quickAction" onclick="navigate('reports')"><span class="qaIcon">📊</span>Reports</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: EMAIL CONFIG (Super Admin)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderEmailConfig() {
+  const vc = $('viewContainer');
+  const cfg = state.orgConfig || {};
+  const fromName   = cfg.emailFromName   || state.orgName || 'SWG Tryout System';
+  const replyTo    = cfg.emailReplyTo    || state.email   || '';
+  const contactEmail = cfg.contactEmail  || '';
+
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div><div class="sectionTitle">Email Configuration</div><div class="sectionSubtitle">Control how outgoing emails appear to registrants and parents</div></div>
+      <button class="btnOk" onclick="saveEmailConfig()">Save Email Config</button>
+    </div>
+
+    <div class="twoCol">
+      <div>
+        <!-- From / Reply-to settings -->
+        <div class="card" style="margin-bottom:16px;">
+          <h3 class="cardTitle">📤 Sender Settings</h3>
+          <div class="field"><label>From Name</label>
+            <input id="ecFromName" value="${esc(fromName)}" placeholder="e.g. Metro Hockey Tryouts" />
+            <div class="helper">This name appears in email inboxes as the sender.</div>
+          </div>
+          <div class="field"><label>From Email</label>
+            <input value="noreply@swg47.com" readonly style="background:var(--bg2);color:var(--muted);cursor:not-allowed;" />
+            <div class="helper">Outgoing email address (managed by platform).</div>
+          </div>
+          <div class="field"><label>Reply-To Address</label>
+            <input id="ecReplyTo" type="email" value="${esc(replyTo)}" placeholder="admin@yourassociation.com" />
+            <div class="helper">Replies from parents go here.</div>
+          </div>
+          <div class="field"><label>Contact / Support Email (shown in footer)</label>
+            <input id="ecContact" type="email" value="${esc(contactEmail)}" placeholder="support@yourorg.com" />
+          </div>
+        </div>
+
+        <!-- Test email -->
+        <div class="card">
+          <h3 class="cardTitle">🧪 Send Test Email</h3>
+          <div class="field"><label>Send To</label>
+            <input id="ecTestTo" type="email" value="${esc(state.email||'')}" placeholder="your@email.com" />
+          </div>
+          <div class="field"><label>Template</label>
+            <select id="ecTestTemplate">
+              <option value="registration_confirm">Registration Confirmation</option>
+              <option value="payment_receipt">Payment Receipt</option>
+              <option value="broadcast">Broadcast / Announcement</option>
+            </select>
+          </div>
+          <button class="btnOk" onclick="sendTestEmail()">Send Test Email</button>
+          <div id="ecTestStatus" style="margin-top:10px;font-size:13px;display:none;"></div>
+        </div>
+      </div>
+
+      <div>
+        <!-- Email preview -->
+        <div class="card">
+          <h3 class="cardTitle">👁 Live Preview</h3>
+          <div class="emailPreview">
+            <div class="emailPreviewHeader">
+              <span style="font-size:16px;">✉️</span>
+              <div>
+                <div style="font-size:12px;font-weight:800;color:#fff;" id="ecPreviewFrom">
+                  ${esc(fromName)} &lt;noreply@swg47.com&gt;
+                </div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.6);">to you · Registration Confirmation</div>
+              </div>
+            </div>
+            <div class="emailPreviewBody">
+              <p>Hello <b>[Player Name]</b>,</p>
+              <p>Your tryout registration has been received. Here is a summary:</p>
+              <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:12px;">
+                <tr style="background:#f9fafb;"><td style="padding:6px 10px;font-weight:700;">Player</td><td style="padding:6px 10px;">[First Last]</td></tr>
+                <tr><td style="padding:6px 10px;font-weight:700;">Position</td><td style="padding:6px 10px;">[Position]</td></tr>
+                <tr style="background:#f9fafb;"><td style="padding:6px 10px;font-weight:700;">Birth Year</td><td style="padding:6px 10px;">[Year]</td></tr>
+                <tr><td style="padding:6px 10px;font-weight:700;">Status</td><td style="padding:6px 10px;color:#059669;font-weight:700;">✓ Confirmed</td></tr>
+              </table>
+              <p style="color:#6b7280;font-size:12px;">If you have questions, contact <span id="ecPreviewContact">${esc(contactEmail || 'your organization admin')}</span>.</p>
+              <p style="color:#6b7280;font-size:12px;">— <span id="ecPreviewSig">${esc(fromName)}</span></p>
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:11px;color:var(--muted);">Preview updates as you type in the sender settings.</div>
+        </div>
+
+        <!-- Email history placeholder -->
+        <div class="card" style="margin-top:16px;">
+          <h3 class="cardTitle">📋 Recent Emails Sent</h3>
+          <div style="color:var(--muted);font-size:13px;padding:8px 0;">Email send log coming in a future update. Use the Audit Log for a full history of communications.</div>
+          <button class="btnSecondary" style="font-size:12px;margin-top:8px;" onclick="navigate('audit')">View Audit Log →</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire up live preview update
+  const updatePreview = () => {
+    const fn  = $('ecFromName')?.value || fromName;
+    const rep = $('ecReplyTo')?.value  || '';
+    const con = $('ecContact')?.value  || '';
+    const pFrom    = $('ecPreviewFrom');    if(pFrom)    pFrom.textContent    = `${fn} <noreply@swg47.com>`;
+    const pContact = $('ecPreviewContact'); if(pContact) pContact.textContent = con || rep || 'your organization admin';
+    const pSig     = $('ecPreviewSig');     if(pSig)     pSig.textContent     = fn;
+  };
+  ['ecFromName','ecReplyTo','ecContact'].forEach(id => {
+    const el = $(id);
+    if(el) el.addEventListener('input', updatePreview);
+  });
+}
+
+function saveEmailConfig() {
+  const fromName = $('ecFromName')?.value.trim();
+  const replyTo  = $('ecReplyTo')?.value.trim();
+  const contact  = $('ecContact')?.value.trim();
+  if(!fromName) { apiBanner('From Name is required', 'error'); return; }
+  // Merge into orgConfig
+  if(!state.orgConfig) state.orgConfig = {};
+  state.orgConfig.emailFromName  = fromName;
+  state.orgConfig.emailReplyTo   = replyTo;
+  state.orgConfig.contactEmail   = contact;
+  // Also persist via API if possible
+  api('/api/enterprise/org', { method:'PATCH', body: JSON.stringify({ emailFromName: fromName, emailReplyTo: replyTo, contactEmail: contact }) })
+    .then(() => apiBanner('Email config saved', 'success'))
+    .catch(() => apiBanner('Saved locally (API unavailable in offline mode)', 'info'));
+}
+
+async function sendTestEmail() {
+  const to = $('ecTestTo')?.value.trim();
+  const template = $('ecTestTemplate')?.value;
+  const status = $('ecTestStatus');
+  if(!to || !to.includes('@')) { apiBanner('Valid email address required', 'error'); return; }
+  if(status) { status.style.display='block'; status.style.color='var(--muted)'; status.textContent='Sending…'; }
+  try {
+    await api('/api/enterprise/broadcast', {
+      method:'POST',
+      body: JSON.stringify({ subject:'[TEST] Email Config Test', message:'This is a test email from the SWG Admin platform.', audienceType:'custom', customEmails:[to], draft:false }),
+    });
+    if(status) { status.style.color='var(--green)'; status.textContent=`✓ Test email sent to ${to}`; }
+  } catch(e) {
+    if(status) { status.style.color='var(--red)'; status.textContent='Error: ' + e.message; }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VIEW: PLATFORM OVERVIEW (Super Admin)
+// ═══════════════════════════════════════════════════════════════════════════
+function renderPlatform() {
+  const vc = $('viewContainer');
+  const sum = state.localSummary || {};
+  const org = state.localOrg || {};
+  const regs = state.localRegs || [];
+
+  const paid    = regs.filter(r => r.paymentStatus === 'paid').length;
+  const partial = regs.filter(r => r.paymentStatus === 'partial').length;
+  const unpaid  = regs.filter(r => r.paymentStatus === 'unpaid').length;
+  const demoRegs = regs.filter(r => r.source === 'demo').length;
+  const liveRegs = regs.length - demoRegs;
+
+  const byPos = {};
+  regs.forEach(r => { const p = r.positionTryingOutFor||'Unknown'; byPos[p]=(byPos[p]||0)+1; });
+  const posRows = Object.entries(byPos).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  const byYear = {};
+  regs.forEach(r => { const y = r.yearOfBirth||'Unknown'; byYear[y]=(byYear[y]||0)+1; });
+  const yearRows = Object.entries(byYear).sort((a,b)=>Number(a[0])-Number(b[0])).slice(0,8);
+
+  vc.innerHTML = `
+    <div class="sectionHeader">
+      <div>
+        <div class="sectionTitle">Platform Overview</div>
+        <div class="sectionSubtitle">Live snapshot of all data in the connected app database</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btnSecondary" onclick="hydrateStateFromLocalDb(state.email);renderPlatform();">↻ Refresh</button>
+        <button class="btnOk" onclick="openAdminGenDemoModal()">⚡ Generate Data</button>
+      </div>
+    </div>
+
+    <!-- Organization identity -->
+    ${org.name ? `
+    <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 60%,#4c1d95 100%);border-radius:var(--r-lg);padding:22px 28px;margin-bottom:20px;color:#fff;display:flex;align-items:center;gap:16px;">
+      <div style="width:56px;height:56px;background:rgba(255,255,255,0.12);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;flex-shrink:0;">${org.name[0].toUpperCase()}</div>
+      <div>
+        <div style="font-size:20px;font-weight:900;">${esc(org.name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-top:2px;">${esc(org.sport||'Multi-Sport')}${org.city?' · '+esc(org.city):''}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 18px;">
+          <div style="font-size:22px;font-weight:900;">${sum.teamCount||0}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Teams</div>
+        </div>
+        <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 18px;">
+          <div style="font-size:22px;font-weight:900;">${(sum.playerCount||0).toLocaleString()}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Players</div>
+        </div>
+        <div style="text-align:center;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px 18px;cursor:pointer;" onclick="navigate('registrations')">
+          <div style="font-size:22px;font-weight:900;">${regs.length.toLocaleString()}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.05em;">Registrations</div>
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- Stats row -->
+    <div class="pulseGrid" style="margin-bottom:20px;">
+      <div class="pulseCard" onclick="navigate('registrations')" style="cursor:pointer;">
+        <div class="label">Total Registrations</div>
+        <div class="value">${regs.length.toLocaleString()}</div>
+        <div class="trend">${liveRegs} live · ${demoRegs} demo</div>
+      </div>
+      <div class="pulseCard">
+        <div class="label">Paid</div>
+        <div class="value" style="color:var(--green);">${paid.toLocaleString()}</div>
+        <div class="trend up">${regs.length ? Math.round(paid/regs.length*100) : 0}% payment rate</div>
+      </div>
+      <div class="pulseCard">
+        <div class="label">Partial / Unpaid</div>
+        <div class="value" style="color:var(--amber);">${(partial+unpaid).toLocaleString()}</div>
+        <div class="trend">${partial} partial · ${unpaid} unpaid</div>
+      </div>
+      <div class="pulseCard">
+        <div class="label">Assessments</div>
+        <div class="value">${sum.assessmentCount||0}</div>
+        <div class="trend">Events configured in app DB</div>
+      </div>
+    </div>
+
+    <div class="twoCol">
+      <!-- Position breakdown -->
+      <div class="card">
+        <h3 class="cardTitle">🏒 Registrations by Position</h3>
+        ${posRows.length ? posRows.map(([pos,cnt]) => {
+          const pct = regs.length ? Math.round(cnt/regs.length*100) : 0;
+          return `<div style="margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+              <span style="font-weight:700;">${esc(pos)}</span>
+              <span style="color:var(--muted);">${cnt.toLocaleString()} <span style="font-size:11px;">(${pct}%)</span></span>
+            </div>
+            <div class="progressBar"><div class="fill" style="width:${pct}%"></div></div>
+          </div>`;
+        }).join('') : '<div style="color:var(--muted);font-size:13px;">No registration data.</div>'}
+      </div>
+
+      <!-- Birth year breakdown -->
+      <div class="card">
+        <h3 class="cardTitle">📅 Registrations by Birth Year</h3>
+        ${yearRows.length ? `<div class="tableWrap"><table>
+          <thead><tr><th>Year of Birth</th><th>Count</th><th>%</th></tr></thead>
+          <tbody>${yearRows.map(([yr,cnt]) => {
+            const pct = regs.length ? Math.round(cnt/regs.length*100) : 0;
+            return `<tr><td style="font-weight:700;">${esc(yr)}</td><td>${cnt.toLocaleString()}</td><td><span class="chip indigo">${pct}%</span></td></tr>`;
+          }).join('')}</tbody>
+        </table></div>` : '<div style="color:var(--muted);font-size:13px;">No registration data.</div>'}
+      </div>
+    </div>
+
+    <!-- Super Admin actions -->
+    <div class="card" style="margin-top:16px;">
+      <h3 class="cardTitle">🔧 Platform Management</h3>
+      <div class="quickGrid">
+        <div class="quickAction" onclick="navigate('profile')"><span class="qaIcon">👤</span>My Profile</div>
+        <div class="quickAction" onclick="navigate('emailconfig')"><span class="qaIcon">✉️</span>Email Config</div>
+        <div class="quickAction" onclick="navigate('admins')"><span class="qaIcon">🛡️</span>Exec Accounts</div>
+        <div class="quickAction" onclick="navigate('audit')"><span class="qaIcon">📜</span>Audit Log</div>
+        <div class="quickAction" onclick="openAdminGenDemoModal()" style="border-color:rgba(99,102,241,0.45);background:rgba(99,102,241,0.08);"><span class="qaIcon">⚡</span>Generate Data</div>
+        <div class="quickAction" onclick="openAdminDeleteRegsModal()" style="border-color:rgba(220,38,38,0.45);background:rgba(220,38,38,0.06);color:#dc2626;"><span class="qaIcon">🗑</span>Delete Data</div>
+      </div>
+    </div>
+  `;
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
