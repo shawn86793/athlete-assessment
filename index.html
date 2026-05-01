@@ -14016,6 +14016,7 @@ function renderHome(){
             </svg>
           </button>
         ` : ``}
+        ${showSuperAdmin ? `<button class="profileSuperAdminBtn" onclick="openSuperAdminFromProfileBar()">🛡 Super Admin</button>` : ``}
         <button class="upgradeBtn small" style="width:auto;padding:8px 16px;" onclick="go('upgrade')">Upgrade Plan</button>
         <button class="darkModeToggle small" style="width:auto;background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.2);" onclick="toggleDarkMode()" title="Toggle dark mode">
           ${isDarkMode() ? "☀ Light" : "☾ Dark"}
