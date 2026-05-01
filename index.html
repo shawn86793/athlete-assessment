@@ -2807,11 +2807,15 @@
     }
 
     /* ── Team Builder Drag-and-Drop ──────── */
-    .tbPlayerRow{cursor:grab;user-select:none;transition:opacity 0.15s,background 0.12s;}
-    .tbPlayerRow:active{cursor:grabbing;}
-    .tbPlayerRow.dragging{opacity:0.35;}
-    .tbTeamDropZone{transition:border-color 0.15s,background 0.15s;}
-    .tbTeamDropZone.dragover{border-color:#ff6b2b !important;background:rgba(255,107,43,0.04) !important;}
+    .tbPlayerRow{cursor:grab;user-select:none;transition:opacity 0.15s,background 0.12s,transform 0.12s,box-shadow 0.12s;}
+    .tbPlayerRow:hover{background:rgba(79,70,229,0.06) !important;}
+    .tbPlayerRow:active{cursor:grabbing;transform:scale(0.98);}
+    .tbPlayerRow.dragging{opacity:0.22;transform:scale(0.95);box-shadow:none !important;}
+    .tbTeamDropZone{transition:border-color 0.18s,background 0.18s,box-shadow 0.18s,transform 0.18s;}
+    .tbTeamDropZone.dragover{border-color:#ff6b2b !important;background:rgba(255,107,43,0.07) !important;box-shadow:0 0 0 3px rgba(255,107,43,0.22),inset 0 0 24px rgba(255,107,43,0.06) !important;transform:scale(1.012);}
+    @keyframes tbDropSuccess{0%{background:rgba(16,185,129,0.18);}100%{background:transparent;}}
+    .tbTeamDropZone.dropSuccess{animation:tbDropSuccess 0.55s ease-out forwards;}
+    @keyframes tbDragHintBounce{0%,100%{transform:translateX(0);}40%{transform:translateX(6px);}80%{transform:translateX(-2px);}}
 
     /* ── Home Dashboard ─────────────────── */
     .homeDashLogo{
@@ -16588,6 +16592,7 @@ function openRosterPlayerCard(playerId){
                 <div style="font-size:11px;color:#64748b;margin-top:2px;">${escapeHTML(t?.name||"this assessment")}</div>
               </div>
             </div>
+            ${(()=>{const radarCats=avgCatScoresAcrossEvals(playerEvals,player);return radarCats.length>=3?`<div style="margin:8px 0 10px;padding:12px;background:#fff;border-radius:8px;border:1px solid #dbeafe;">${buildRadarChartSVG(radarCats,160)}</div>`:""})()}
             <div style="display:flex;flex-direction:column;gap:4px;">
               ${playerEvals.slice(0,3).map(e => {
                 const sc = Number(e.overall);
@@ -16771,6 +16776,7 @@ function _renderRegCardOverlay(reg, editMode){
                 <div style="font-size:11px;color:#64748b;margin-top:2px;">On roster · ${escapeHTML(t?.name||"this assessment")}</div>
               </div>
             </div>
+            ${(()=>{ const rc=avgCatScoresAcrossEvals(playerEvals,rosterPlayer); return rc.length>=3?`<div style="margin:4px 0 10px;padding:12px;background:#fff;border-radius:8px;border:1px solid #dbeafe;">${buildRadarChartSVG(rc,160)}</div>`:""; })()}
             <div style="display:flex;flex-direction:column;gap:4px;">
               ${playerEvals.slice(0,3).map(e => {
                 const sc = Number(e.overall);
@@ -20652,6 +20658,14 @@ function renderTeamBuilderDashboard(){
         </div>
       </div>
       ${(data.warnings||[]).length ? `<div style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);border-radius:8px;padding:10px 14px;color:#fbbf24;font-size:12px;margin-bottom:12px;">⚠️ ${escapeHTML(data.warnings.join(" · "))}</div>` : ""}
+      <div id="tbDragHint" style="display:flex;align-items:center;gap:10px;background:rgba(255,107,43,0.1);border:1px solid rgba(255,107,43,0.3);border-radius:10px;padding:10px 16px;margin-bottom:14px;cursor:default;">
+        <span style="font-size:18px;display:inline-block;animation:tbDragHintBounce 1.4s ease-in-out 1s 2;">👆</span>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:800;color:#ff6b2b;">Drag &amp; Drop Players</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px;">Drag any player row to move them between teams — or tap a row to use the trade modal</div>
+        </div>
+        <button onclick="document.getElementById('tbDragHint').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,0.45);font-size:16px;cursor:pointer;line-height:1;padding:2px;">✕</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
         ${teamsHTML}
       </div>
@@ -20715,6 +20729,11 @@ function tbDrop(toTeamId, ev){
   saveCurrentTryout();
   showBannerTemporary("synced", `✓ Player moved to ${toTeam.name}`);
   renderTeamBuilderDashboard();
+  // Flash the destination zone green
+  requestAnimationFrame(function(){
+    const zone = document.querySelector('[data-team-id="' + toTeamId + '"]');
+    if(zone){ zone.classList.add("dropSuccess"); setTimeout(function(){ zone.classList.remove("dropSuccess"); }, 600); }
+  });
 }
 
 // ── Trade modal ──────────────────────────────────────────────────────────────
@@ -23524,6 +23543,79 @@ function evalCatScores(e, p){
     const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
     return { key:catKey, label:catLabels[catKey]||catKey, avg };
   }).filter(c => c.avg !== null);
+}
+
+// ── Radar Chart ──────────────────────────────────────────────────────────────
+function buildRadarChartSVG(cats, size){
+  size = size || 180;
+  const n = cats.length;
+  if(!n || n < 3) return "";
+  const cx = size / 2, cy = size / 2;
+  const R  = (size / 2) * 0.60;
+  const labelR = R + 20;
+  const levels = 4;
+  const maxVal = 5;
+  const ang = function(i){ return (Math.PI * 2 * i / n) - Math.PI / 2; };
+  const px = function(val, i){ return cx + (val / maxVal) * R * Math.cos(ang(i)); };
+  const py = function(val, i){ return cy + (val / maxVal) * R * Math.sin(ang(i)); };
+
+  // Grid rings
+  var grid = "";
+  for(var l = 1; l <= levels; l++){
+    var r2 = R * l / levels;
+    var pts2 = [];
+    for(var ii = 0; ii < n; ii++) pts2.push((cx + r2*Math.cos(ang(ii))).toFixed(1) + "," + (cy + r2*Math.sin(ang(ii))).toFixed(1));
+    var fill2 = l === levels ? "rgba(241,245,249,0.6)" : "none";
+    grid += '<polygon points="' + pts2.join(" ") + '" fill="' + fill2 + '" stroke="#e2e8f0" stroke-width="' + (l===levels?1.5:1) + '"/>';
+  }
+
+  // Axes
+  var axes = "";
+  for(var i = 0; i < n; i++){
+    axes += '<line x1="' + cx.toFixed(1) + '" y1="' + cy.toFixed(1) + '" x2="' + px(maxVal,i).toFixed(1) + '" y2="' + py(maxVal,i).toFixed(1) + '" stroke="#e2e8f0" stroke-width="1"/>';
+  }
+
+  // Data polygon
+  var dataPts = cats.map(function(c,i){ return px(c.avg||0,i).toFixed(1)+","+py(c.avg||0,i).toFixed(1); }).join(" ");
+  var dataShape = '<polygon points="'+dataPts+'" fill="rgba(79,70,229,0.15)" stroke="#4f46e5" stroke-width="2.5" stroke-linejoin="round"/>';
+
+  // Dots + value labels
+  var dots = cats.map(function(c,i){
+    var vx = px(c.avg||0,i), vy = py(c.avg||0,i);
+    return '<circle cx="'+vx.toFixed(1)+'" cy="'+vy.toFixed(1)+'" r="4.5" fill="#4f46e5" stroke="#fff" stroke-width="2"/>';
+  }).join("");
+
+  // Axis labels
+  var lbls = cats.map(function(c,i){
+    var lx = cx + labelR * Math.cos(ang(i));
+    var ly = cy + labelR * Math.sin(ang(i));
+    var cosA = Math.cos(ang(i));
+    var sinA = Math.sin(ang(i));
+    var anchor = cosA > 0.25 ? "start" : cosA < -0.25 ? "end" : "middle";
+    var dy = sinA > 0.4 ? "1.1em" : sinA < -0.4 ? "-0.3em" : "0.38em";
+    var scoreStr = (c.avg > 0) ? " " + c.avg.toFixed(1) : "";
+    return '<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="'+anchor+'" dy="'+dy+'" font-size="9.5" font-weight="800" fill="#334155" font-family="system-ui,-apple-system,sans-serif">'+escapeHTML(c.label)+'</text>' +
+           (scoreStr ? '<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="'+anchor+'" dy="'+(sinA>0.4?"2.3em":sinA<-0.4?"1.0em":"1.55em")+'" font-size="8.5" font-weight="900" fill="#4f46e5" font-family="system-ui,-apple-system,sans-serif">'+escapeHTML(scoreStr)+'</text>' : '');
+  }).join("");
+
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" style="display:block;margin:0 auto;">'+grid+axes+dataShape+dots+lbls+'</svg>';
+}
+
+// Average category scores across multiple evals for a player
+function avgCatScoresAcrossEvals(playerEvals, player){
+  if(!playerEvals || !playerEvals.length) return [];
+  var catMap = {};
+  playerEvals.forEach(function(e){
+    var cats = evalCatScores(e, player);
+    cats.forEach(function(c){
+      if(c.avg === null || c.avg === undefined) return;
+      if(!catMap[c.key]) catMap[c.key] = { label: c.label, scores: [] };
+      catMap[c.key].scores.push(c.avg);
+    });
+  });
+  return Object.values(catMap).map(function(d){
+    return { label: d.label, avg: d.scores.length ? d.scores.reduce(function(a,b){return a+b;},0)/d.scores.length : 0 };
+  }).filter(function(c){ return c.avg > 0; });
 }
 
 function cancelEdit(){
