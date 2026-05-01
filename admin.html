@@ -718,6 +718,83 @@ function adminToast(msg, tone) {
   el._t = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(12px)'; setTimeout(()=>el.remove(),280); }, tone==='error'?5000:3000);
 }
 
+// ── Delete registration data helpers ──────────────────────────────────────
+
+function openAdminDeleteRegsModal() {
+  document.getElementById('adminDeleteRegsModal')?.remove();
+  const allRegs = state.localRegs || [];
+  const demoCount = allRegs.filter(r => r.source === 'demo').length;
+  const allCount  = allRegs.length;
+
+  const modal = document.createElement('div');
+  modal.id = 'adminDeleteRegsModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;box-sizing:border-box;';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:16px;padding:28px 24px;max-width:420px;width:100%;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--text);">🗑 Delete Registration Data</h3>
+        <button onclick="document.getElementById('adminDeleteRegsModal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">&times;</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+        <!-- Demo only -->
+        <div style="border:1.5px solid rgba(220,38,38,0.35);border-radius:12px;padding:14px 16px;">
+          <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:4px;">🧪 Clear Demo Data Only</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">${demoCount.toLocaleString()} record${demoCount!==1?'s':''} tagged <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">source:demo</code></div>
+          <button onclick="confirmAdminDelete('demo')" ${demoCount===0?'disabled':''} style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:${demoCount===0?'not-allowed':'pointer'};opacity:${demoCount===0?0.4:1};">
+            Delete ${demoCount.toLocaleString()} Demo Records
+          </button>
+        </div>
+
+        <!-- All registrations -->
+        <div style="border:1.5px solid rgba(220,38,38,0.6);border-radius:12px;padding:14px 16px;background:rgba(220,38,38,0.04);">
+          <div style="font-weight:800;font-size:14px;color:#dc2626;margin-bottom:4px;">⚠ Delete ALL Registrations</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">${allCount.toLocaleString()} total record${allCount!==1?'s':''} — live and demo. This cannot be undone.</div>
+          <button onclick="confirmAdminDelete('all')" ${allCount===0?'disabled':''} style="background:#7f1d1d;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-weight:700;cursor:${allCount===0?'not-allowed':'pointer'};opacity:${allCount===0?0.4:1};">
+            Delete ALL ${allCount.toLocaleString()} Records
+          </button>
+        </div>
+      </div>
+
+      <button class="btnSecondary" style="width:100%;" onclick="document.getElementById('adminDeleteRegsModal').remove()">Cancel</button>
+    </div>
+  `;
+  modal.addEventListener('click', e => { if(e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function confirmAdminDelete(mode) {
+  const allRegs = state.localRegs || [];
+  const label   = mode === 'demo' ? 'demo' : 'ALL';
+  const count   = mode === 'demo'
+    ? allRegs.filter(r => r.source === 'demo').length
+    : allRegs.length;
+
+  if(!count){ adminToast('Nothing to delete.', 'info'); document.getElementById('adminDeleteRegsModal')?.remove(); return; }
+  if(!confirm(`Delete ${count.toLocaleString()} ${label} registration${count!==1?'s':''}?\n\nThis cannot be undone.`)) return;
+
+  const email = state.email;
+  const db    = loadLocalAppDb(email);
+  if(!db){ adminToast('Database not found.', 'error'); return; }
+
+  let deleted = 0;
+  Object.values(db.tryouts || {}).forEach(t => {
+    if(!Array.isArray(t.registrations)) return;
+    const before = t.registrations.length;
+    t.registrations = mode === 'demo'
+      ? t.registrations.filter(r => r.source !== 'demo')
+      : [];
+    deleted += before - t.registrations.length;
+    t.updatedAt = Date.now();
+  });
+
+  saveLocalAppDb(email, db);
+  hydrateStateFromLocalDb(email);
+  document.getElementById('adminDeleteRegsModal')?.remove();
+  adminToast(`🗑 Deleted ${deleted.toLocaleString()} registration${deleted!==1?'s':''}`, 'success');
+  navigate('registrations');
+}
+
 function hydrateStateFromLocalDb(email) {
   const db = loadLocalAppDb(email);
   if(!db) return;
@@ -1227,6 +1304,7 @@ async function renderHome() {
             <div class="quickAction" onclick="navigate('admins')"><span class="qaIcon">👤</span>Add Admin</div>
             <div class="quickAction" onclick="navigate('players')"><span class="qaIcon">📋</span>Player List</div>
             <div class="quickAction" onclick="openAdminGenDemoModal()" style="border-color:rgba(99,102,241,0.45);background:rgba(99,102,241,0.08);"><span class="qaIcon">⚡</span>Gen Test Data</div>
+            <div class="quickAction" onclick="openAdminDeleteRegsModal()" style="border-color:rgba(220,38,38,0.45);background:rgba(220,38,38,0.06);color:#dc2626;"><span class="qaIcon">🗑</span>Delete Data</div>
           </div>
         </div>
       </div>
@@ -1669,7 +1747,10 @@ function renderRegistrations() {
         <div class="sectionTitle">Registrations</div>
         <div class="sectionSubtitle">${total.toLocaleString()} total registrations across all assessments</div>
       </div>
-      <button class="btnSecondary" onclick="openAdminGenDemoModal()" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">⚡ Gen Test Data</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btnSecondary" onclick="openAdminGenDemoModal()" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">⚡ Gen Test Data</button>
+        ${total > 0 ? `<button class="btnSecondary" onclick="openAdminDeleteRegsModal()" style="display:flex;align-items:center;gap:6px;white-space:nowrap;border-color:rgba(220,38,38,0.5);color:#dc2626;">🗑 Delete Data</button>` : ''}
+      </div>
     </div>
 
     ${total === 0 ? `
