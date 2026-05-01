@@ -16418,7 +16418,7 @@ function openRegistrationPlayerCard(registrationId){
   _renderRegCardOverlay(reg, false);
 }
 
-// Show a lightweight roster-player info overlay when no registration record is linked
+// Show a roster-player info overlay when no registration record is linked
 function openRosterPlayerCard(playerId){
   const t = getTryout();
   const player = (t?.roster||[]).find(p => p.id === playerId);
@@ -16428,42 +16428,127 @@ function openRosterPlayerCard(playerId){
   const name = playerDisplayName(player) || "Player";
   const initials = ((player.first||"")[0]||"").toUpperCase() + ((player.last||"")[0]||"").toUpperCase() || "?";
 
+  // Assessment / evaluation data
+  const playerEvals  = evalsForPlayer(player.id);
+  const evalCount    = playerEvals.length;
+  const avgScore     = evalCount
+    ? (playerEvals.reduce((s,e) => s + (Number(e.overall)||0), 0) / evalCount)
+    : null;
+  const evalScoreColor = avgScore===null?'#94a3b8':avgScore>=4.5?'#059669':avgScore>=3.8?'#16a34a':avgScore>=3.0?'#d97706':avgScore>=2.0?'#ea580c':'#dc2626';
+
+  const hasFriends = player.friend1Name || player.friend2Name;
+
   const ov = document.createElement("div");
   ov.id = "rosterPlayerCardOverlay";
-  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:16px;box-sizing:border-box;overflow-y:auto;";
   ov.innerHTML = `
-    <div style="background:#fff;border-radius:18px;padding:0;max-width:420px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.3);overflow:hidden;max-height:90vh;overflow-y:auto;">
+    <div style="background:#fff;border-radius:18px;max-width:480px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.35);overflow:hidden;margin:auto;">
       <!-- Header -->
-      <div style="background:linear-gradient(135deg,#0a1e3d,#1e3a5f);padding:22px 22px 16px;color:#fff;position:relative;">
-        <button onclick="document.getElementById('rosterPlayerCardOverlay').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;">✕</button>
+      <div style="background:linear-gradient(135deg,#0a1e3d,#1e3a5f);padding:22px 22px 18px;color:#fff;position:relative;">
+        <button onclick="document.getElementById('rosterPlayerCardOverlay').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:16px;font-weight:700;line-height:1;">✕</button>
         <div style="display:flex;align-items:center;gap:14px;">
-          <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;">${escapeHTML(initials)}</div>
+          <div style="width:54px;height:54px;border-radius:14px;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;letter-spacing:-1px;flex-shrink:0;">${escapeHTML(initials)}</div>
           <div>
-            <div style="font-size:19px;font-weight:900;">${escapeHTML(name)}</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:3px;">${escapeHTML(player.pos||"—")} · Born ${escapeHTML(player.yearOfBirth||"—")}</div>
+            <div style="font-size:20px;font-weight:900;line-height:1.2;">${escapeHTML(name)}</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
+              <span>${escapeHTML(player.pos||"—")}</span>
+              ${player.yearOfBirth?`<span>· Born ${escapeHTML(player.yearOfBirth)}</span>`:""}
+              ${player.sortOut?`<span style="background:#f97316;color:#fff;padding:1px 8px;border-radius:999px;font-size:10px;font-weight:900;">SORT OUT</span>`:""}
+            </div>
           </div>
         </div>
       </div>
-      <!-- Body -->
-      <div style="padding:18px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-          ${[
-            ["Position",    player.pos||"—"],
-            ["Birth Year",  player.yearOfBirth||"—"],
-            ["Current Team",player.currentTeam||"—"],
-            ["Level",       player.currentLevel||"—"],
-            ["Guardian",    player.guardianName||"—"],
-            ["Phone",       player.guardianPhone||"—"],
-          ].map(([lbl,val]) => `
-            <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
-              <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">${escapeHTML(lbl)}</div>
-              <div style="font-size:13px;font-weight:700;color:#0f172a;">${escapeHTML(val)}</div>
-            </div>`).join("")}
+
+      <div style="padding:18px;display:flex;flex-direction:column;gap:14px;">
+
+        <!-- 1. Player Info -->
+        <div>
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:8px;">Player Info</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            ${[
+              ["Position",    player.pos||"—"],
+              ["Birth Year",  player.yearOfBirth||"—"],
+              ["Current Team",player.currentTeam||"—"],
+              ["Level",       player.currentLevel||"—"],
+            ].map(([lbl,val]) => `
+              <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;border:1px solid #e2e8f0;">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;">${lbl}</div>
+                <div style="font-size:13px;font-weight:700;color:#0f172a;">${escapeHTML(val)}</div>
+              </div>`).join("")}
+          </div>
         </div>
-        ${player.guardianEmail ? `<div style="background:#f8fafc;border-radius:8px;padding:10px 12px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">Guardian Email</div><div style="font-size:13px;color:#0f172a;">${escapeHTML(player.guardianEmail)}</div></div>` : ""}
-        ${player.medicalInfo ? `<div style="background:#fff3e0;border:1px solid rgba(249,115,22,0.3);border-radius:8px;padding:10px 12px;margin-bottom:10px;"><div style="font-size:10px;font-weight:700;color:#c2410c;text-transform:uppercase;margin-bottom:2px;">Medical Info</div><div style="font-size:13px;color:#92400e;">${escapeHTML(player.medicalInfo)}</div></div>` : ""}
-        ${player.sortOut ? `<div style="background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.25);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;font-weight:700;color:#dc2626;">🔶 Sort Out participant</div>` : ""}
-        <div style="display:flex;gap:10px;margin-top:4px;">
+
+        <!-- 2. Contact / Guardian -->
+        ${player.guardianName||player.guardianEmail||player.guardianPhone ? `
+        <div>
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:8px;">Contact / Guardian</div>
+          <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;">
+            ${player.guardianName  ? `<div style="font-size:14px;font-weight:800;color:#14532d;">👤 ${escapeHTML(player.guardianName)}</div>` : ""}
+            ${player.guardianEmail ? `<div style="font-size:12px;color:#166534;">✉️ ${escapeHTML(player.guardianEmail)}</div>` : ""}
+            ${player.guardianPhone ? `<div style="font-size:12px;color:#166534;">📞 ${escapeHTML(player.guardianPhone)}</div>` : ""}
+          </div>
+        </div>` : ""}
+
+        <!-- 3. Teammate Requests — between Contact and Assessment -->
+        <div>
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#7c3aed;margin-bottom:8px;">🤝 Teammate Requests</div>
+          ${hasFriends ? `
+          <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;">
+            ${player.friend1Name ? `
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:26px;height:26px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">1</div>
+              <div style="font-size:13px;font-weight:700;color:#4c1d95;">${escapeHTML(player.friend1Name)}</div>
+            </div>` : ""}
+            ${player.friend2Name ? `
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:26px;height:26px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">2</div>
+              <div style="font-size:13px;font-weight:700;color:#4c1d95;">${escapeHTML(player.friend2Name)}</div>
+            </div>` : ""}
+          </div>` : `
+          <div style="background:#f5f3ff;border:1.5px dashed #c4b5fd;border-radius:10px;padding:12px 16px;text-align:center;color:#7c3aed;font-size:12px;font-weight:600;opacity:0.75;">
+            No teammate requests submitted
+          </div>`}
+        </div>
+
+        <!-- 4. Assessment History -->
+        <div>
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#2563eb;margin-bottom:8px;">📊 Assessment History</div>
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:12px 16px;">
+            ${evalCount > 0 ? `
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+              <div style="text-align:center;">
+                <div style="font-size:26px;font-weight:900;color:${evalScoreColor};line-height:1;">${avgScore!==null?avgScore.toFixed(2):"—"}</div>
+                <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Avg Score</div>
+              </div>
+              <div style="flex:1;border-left:1px solid #bfdbfe;padding-left:12px;">
+                <div style="font-size:13px;font-weight:700;color:#1e3a5f;">${evalCount} evaluation${evalCount!==1?"s":""} recorded</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">${escapeHTML(t?.name||"this assessment")}</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${playerEvals.slice(0,3).map(e => {
+                const sc = Number(e.overall);
+                const scStr = Number.isFinite(sc)&&sc>0 ? sc.toFixed(2) : "—";
+                const scColor = !Number.isFinite(sc)||sc===0?'#94a3b8':sc>=4.5?'#059669':sc>=3.8?'#16a34a':sc>=3.0?'#d97706':'#dc2626';
+                return `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:5px 8px;background:#fff;border-radius:6px;border:1px solid #dbeafe;">
+                  <span style="color:#1e3a5f;font-weight:600;">${escapeHTML(e.assessorName||e.assessor||"Assessor")}</span>
+                  <span style="font-weight:800;color:${scColor};">${scStr}</span>
+                </div>`;
+              }).join("")}
+              ${evalCount>3?`<div style="font-size:11px;color:#64748b;text-align:center;padding-top:2px;">+${evalCount-3} more</div>`:""}
+            </div>` : `
+            <div style="text-align:center;color:#3b82f6;font-size:12px;font-weight:600;opacity:0.75;">No evaluations recorded yet</div>`}
+          </div>
+        </div>
+
+        <!-- 5. Medical -->
+        ${player.medicalInfo ? `
+        <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#ef4444;margin-bottom:6px;">⚕️ Medical Info</div>
+          <div style="font-size:13px;color:#374151;">${escapeHTML(player.medicalInfo)}</div>
+        </div>` : ""}
+
+        <div style="display:flex;gap:10px;padding-top:2px;">
           <button onclick="document.getElementById('rosterPlayerCardOverlay').remove()" style="flex:1;padding:11px;border:2px solid #94a3b8;border-radius:9px;background:#f1f5f9;color:#334155;cursor:pointer;font-size:14px;font-weight:700;">Close</button>
         </div>
       </div>
@@ -16544,8 +16629,25 @@ function _renderRegCardOverlay(reg, editMode){
           <div style="font-size:13px;font-weight:700;">${escapeHTML(String(val))}</div>
         </div>` : "";
 
+    // Assessment / evaluation summary for this player
+    const t = getTryout();
+    const rosterPlayer = (t?.roster||[]).find(p =>
+      String(p.first||"").toLowerCase() === String(reg.firstName||"").toLowerCase() &&
+      String(p.last||"").toLowerCase()  === String(reg.lastName||"").toLowerCase()
+    );
+    const playerEvals = rosterPlayer ? evalsForPlayer(rosterPlayer.id) : [];
+    const evalCount   = playerEvals.length;
+    const avgScore    = evalCount
+      ? (playerEvals.reduce((s,e) => s + (Number(e.overall)||0), 0) / evalCount)
+      : null;
+    const evalScoreColor = avgScore===null?'#94a3b8':avgScore>=4.5?'#059669':avgScore>=3.8?'#16a34a':avgScore>=3.0?'#d97706':avgScore>=2.0?'#ea580c':'#dc2626';
+
+    const hasFriends = reg.friendRequest1||reg.friendRequest2||reg.friend1Name||reg.friend2Name;
+
     return `
       <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+
+        <!-- 1. Personal Information -->
         <div>
           ${sec("Personal Information")}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
@@ -16559,46 +16661,95 @@ function _renderRegCardOverlay(reg, editMode){
           </div>
         </div>
 
+        <!-- 2. Guardian / Contact -->
         ${reg.guardianName||reg.guardianEmail||reg.guardianPhone ? `
         <div>
-          ${sec("Guardian / Parent")}
-          <div style="background:#f0fdf4;border-radius:8px;padding:12px 14px;margin-top:6px;display:flex;flex-direction:column;gap:5px;">
-            ${reg.guardianName  ? `<div style="font-size:14px;font-weight:800;">${escapeHTML(reg.guardianName)}</div>` : ""}
-            ${reg.guardianEmail ? `<div style="font-size:12px;color:#374151;">✉️ ${escapeHTML(reg.guardianEmail)}</div>` : ""}
-            ${reg.guardianPhone ? `<div style="font-size:12px;color:#374151;">📞 ${escapeHTML(reg.guardianPhone)}</div>` : ""}
+          ${sec("Contact / Guardian")}
+          <div style="background:#f0fdf4;border-radius:10px;padding:14px 16px;margin-top:6px;display:flex;flex-direction:column;gap:6px;border:1px solid #bbf7d0;">
+            ${reg.guardianName  ? `<div style="font-size:14px;font-weight:800;color:#14532d;">👤 ${escapeHTML(reg.guardianName)}</div>` : ""}
+            ${reg.guardianEmail ? `<a href="mailto:${escapeAttr(reg.guardianEmail)}" style="font-size:12px;color:#166534;text-decoration:none;">✉️ ${escapeHTML(reg.guardianEmail)}</a>` : ""}
+            ${reg.guardianPhone ? `<div style="font-size:12px;color:#166534;">📞 ${escapeHTML(reg.guardianPhone)}</div>` : ""}
           </div>
         </div>` : ""}
 
+        <!-- 3. Teammate / Friend Requests (between Contact and Assessment) -->
+        <div>
+          ${sec("🤝 Teammate Requests","#7c3aed")}
+          ${hasFriends ? `
+          <div style="background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:12px 16px;margin-top:6px;display:flex;flex-direction:column;gap:8px;">
+            ${reg.friendRequest1||reg.friend1Name ? `
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:26px;height:26px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">1</div>
+              <div style="font-size:13px;font-weight:700;color:#4c1d95;">${escapeHTML(reg.friendRequest1||reg.friend1Name||"")}</div>
+            </div>` : ""}
+            ${reg.friendRequest2||reg.friend2Name ? `
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:26px;height:26px;border-radius:50%;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#fff;flex-shrink:0;">2</div>
+              <div style="font-size:13px;font-weight:700;color:#4c1d95;">${escapeHTML(reg.friendRequest2||reg.friend2Name||"")}</div>
+            </div>` : ""}
+          </div>` : `
+          <div style="background:#f5f3ff;border:1.5px dashed #c4b5fd;border-radius:10px;padding:12px 16px;margin-top:6px;text-align:center;color:#7c3aed;font-size:12px;font-weight:600;opacity:0.7;">
+            No teammate requests submitted
+          </div>`}
+        </div>
+
+        <!-- 4. Assessment History (evaluations on this player) -->
+        <div>
+          ${sec("📊 Assessment History","#2563eb")}
+          <div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin-top:6px;">
+            ${evalCount > 0 ? `
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+              <div style="text-align:center;">
+                <div style="font-size:26px;font-weight:900;color:${evalScoreColor};line-height:1;">${avgScore!==null?avgScore.toFixed(2):"—"}</div>
+                <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Avg Score</div>
+              </div>
+              <div style="flex:1;border-left:1px solid #bfdbfe;padding-left:12px;">
+                <div style="font-size:13px;font-weight:700;color:#1e3a5f;">${evalCount} evaluation${evalCount!==1?"s":""} recorded</div>
+                <div style="font-size:11px;color:#64748b;margin-top:2px;">On roster · ${escapeHTML(t?.name||"this assessment")}</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${playerEvals.slice(0,3).map(e => {
+                const sc = Number(e.overall);
+                const scStr = Number.isFinite(sc)&&sc>0 ? sc.toFixed(2) : "—";
+                const scColor = !Number.isFinite(sc)||sc===0?'#94a3b8':sc>=4.5?'#059669':sc>=3.8?'#16a34a':sc>=3.0?'#d97706':'#dc2626';
+                return `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:5px 8px;background:#fff;border-radius:6px;border:1px solid #dbeafe;">
+                  <span style="color:#1e3a5f;font-weight:600;">${escapeHTML(e.assessorName||e.assessor||"Assessor")}</span>
+                  <span style="font-weight:800;color:${scColor};">${scStr}</span>
+                </div>`;
+              }).join("")}
+              ${evalCount > 3 ? `<div style="font-size:11px;color:#64748b;text-align:center;padding-top:2px;">+${evalCount-3} more evaluation${evalCount-3!==1?"s":""}</div>` : ""}
+            </div>` : `
+            <div style="text-align:center;color:#3b82f6;font-size:12px;font-weight:600;opacity:0.75;">
+              ${rosterPlayer ? "No evaluations recorded yet" : "Player not yet added to roster — no evaluation data"}
+            </div>`}
+          </div>
+        </div>
+
+        <!-- 5. Payment -->
         ${payStatus ? `
         <div>
           ${sec("Payment")}
-          <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;margin-top:6px;">${payBadge}${payDetails}</div>
+          <div style="background:#f8fafc;border-radius:10px;padding:12px 14px;margin-top:6px;border:1px solid #e2e8f0;">${payBadge}${payDetails}</div>
         </div>` : ""}
 
+        <!-- 6. About Player -->
         ${reg.aboutChild||reg.aboutPlayer ? `
         <div>
           ${sec("About Player")}
-          <div style="background:#fffbeb;border-radius:8px;padding:12px 14px;margin-top:6px;font-size:13px;color:#374151;line-height:1.5;">${escapeHTML(reg.aboutChild||reg.aboutPlayer||"")}</div>
+          <div style="background:#fffbeb;border-radius:10px;padding:12px 14px;margin-top:6px;font-size:13px;color:#374151;line-height:1.5;border:1px solid #fde68a;">${escapeHTML(reg.aboutChild||reg.aboutPlayer||"")}</div>
         </div>` : ""}
 
+        <!-- 7. Medical -->
         ${reg.medicalInfo ? `
         <div>
           ${sec("⚕️ Medical Information","#ef4444")}
-          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin-top:6px;font-size:13px;color:#374151;">${escapeHTML(reg.medicalInfo)}</div>
-        </div>` : ""}
-
-        ${reg.friendRequest1||reg.friendRequest2||reg.friend1Name||reg.friend2Name ? `
-        <div>
-          ${sec("🤝 Teammate Requests","#7c3aed")}
-          <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-top:6px;display:flex;flex-direction:column;gap:6px;">
-            ${reg.friendRequest1||reg.friend1Name ? `<div style="font-size:13px;font-weight:600;color:#4c1d95;">1. ${escapeHTML(reg.friendRequest1||reg.friend1Name||"")}</div>` : ""}
-            ${reg.friendRequest2||reg.friend2Name ? `<div style="font-size:13px;font-weight:600;color:#4c1d95;">2. ${escapeHTML(reg.friendRequest2||reg.friend2Name||"")}</div>` : ""}
-          </div>
+          <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px 14px;margin-top:6px;font-size:13px;color:#374151;">${escapeHTML(reg.medicalInfo)}</div>
         </div>` : ""}
 
         <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;">
           <button onclick="document.getElementById('regPlayerCardOverlay').remove()"
-            style="padding:9px 18px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-weight:700;color:#475569;">Close</button>
+            style="padding:9px 18px;border:2px solid #94a3b8;border-radius:8px;background:#f1f5f9;font-size:13px;cursor:pointer;font-weight:700;color:#334155;">Close</button>
           <button onclick="_renderRegCardOverlay(window._regCardReg, true)"
             style="padding:9px 22px;border:none;border-radius:8px;background:#6366f1;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">✏️ Edit</button>
         </div>
