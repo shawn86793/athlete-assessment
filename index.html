@@ -6358,15 +6358,36 @@ function confirmDeleteOrg(orgId){
 }
 
 // ── Executive Organization Dashboard ─────────────────────────────────────
-// State for which panel is currently shown
-let _execDashPanel = "overview";
-let _execDashOrgId = "";
+// Opens the full admin portal in the org context.
+// The admin portal (renderAdminDashboard) has the complete feature set:
+// registrations, dummy data, reports, teams, assessments, audit log, etc.
+// We store the orgId in sessionStorage so the portal can label itself
+// with the org name and the Back button returns to the home screen.
 
-function openOrgDashboard(orgId){
+async function openOrgDashboard(orgId){
   const org = getOrgById(orgId);
   if(!org){ showActionBanner("Organization not found.", "error"); return; }
-  _execDashOrgId = orgId;
-  _execDashPanel = "overview";
+
+  // Persist the org context so the admin portal can read it
+  try {
+    sessionStorage.setItem("EXEC_DASH_ORG_ID",   orgId);
+    sessionStorage.setItem("EXEC_DASH_ORG_NAME",  org.name || "");
+  } catch(e) { /* ignore */ }
+
+  // Navigate into the full admin portal — same flow as Super Admin button
+  const session = await requestAdminPortalToken();
+  if(!session?.token){
+    showActionBanner("Unable to open the executive dashboard. Please try signing out and back in.", "error");
+    return;
+  }
+  setStoredAdminToken(session.token, Number(session.expiresInSeconds || (2 * 60 * 60)));
+  window.location.href = "/?admin=1";
+}
+
+// Legacy stub so any remaining _renderExecPanel references don't throw
+function _renderExecPanel(){ /* replaced by full admin portal */ }
+/* ── OLD exec overlay removed ── BEGIN
+  (replaced by openOrgDashboard → requestAdminPortalToken → /?admin=1)
 
   const ov = document.createElement("div");
   ov.id = "orgDashOverlay";
@@ -6920,8 +6941,7 @@ function _renderExecPanel(orgId, panel){
     return;
   }
 
-  host.innerHTML = `<div class="ed-empty">Panel not found.</div>`;
-}
+END ── */
 
 // ── Organization Demo Generator ───────────────────────────────────────────
 
@@ -35052,14 +35072,26 @@ function renderAdminDashboard(panel = "overview"){
   clearAdminPortalTimer();
   adminPanelState.panel = panel;
   const email = getCurrentUserEmail() || "admin";
+
+  // Detect if launched from an org dashboard
+  let _execOrgId   = ""; let _execOrgName = "";
+  try {
+    _execOrgId   = sessionStorage.getItem("EXEC_DASH_ORG_ID")   || "";
+    _execOrgName = sessionStorage.getItem("EXEC_DASH_ORG_NAME") || "";
+  } catch(e) {}
+  const _fromOrg = !!_execOrgId && !!_execOrgName;
+
   renderAdminPortalRoot(`
     <div class="admin-shell">
       <aside class="admin-side">
 
         <!-- Branding header -->
         <div class="admin-side-logo">
-          <div class="admin-side-logo-badge">⚡ Super Admin</div>
-          <div class="admin-side-appname">Back Office</div>
+          ${_fromOrg
+            ? `<div class="admin-side-logo-badge">🏢 Organization</div>
+               <div class="admin-side-appname">${escapeHTML(_execOrgName)}</div>`
+            : `<div class="admin-side-logo-badge">⚡ Super Admin</div>
+               <div class="admin-side-appname">Back Office</div>`}
           <div class="admin-side-user">${escapeHTML(email)}</div>
         </div>
 
@@ -35124,6 +35156,8 @@ function renderAdminDashboard(panel = "overview"){
     btn.addEventListener("click", ()=>{
       const target = String(btn.getAttribute("data-admin-nav") || "");
       if(target === "backApp"){
+        // Clear org context so the next direct Super Admin open starts fresh
+        try { sessionStorage.removeItem("EXEC_DASH_ORG_ID"); sessionStorage.removeItem("EXEC_DASH_ORG_NAME"); } catch(e){}
         window.location.href = "/";
         return;
       }
