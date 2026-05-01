@@ -6353,11 +6353,18 @@ function openOrgDemoGenerator(){
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:10px;width:auto;">
             <input type="checkbox" id="demoGenRegs" checked> Generate registration records with payment data
           </label>
-          <div style="display:flex;gap:10px;">
-            <div style="flex:1;"><label class="muted" style="font-size:11px;">Count</label>
-              <input id="demoGenRegCount" type="number" min="5" max="1000" value="30"></div>
+          <div style="display:flex;gap:10px;margin-bottom:8px;">
+            <div style="flex:1;"><label class="muted" style="font-size:11px;">Count (max 2500)</label>
+              <input id="demoGenRegCount" type="number" min="5" max="2500" value="30"
+                style="width:100%;box-sizing:border-box;"></div>
             <div style="flex:1;"><label class="muted" style="font-size:11px;">Birth Years</label>
-              <input id="demoGenRegYears" value="2008–2016" placeholder="2008–2016"></div>
+              <input id="demoGenRegYears" value="2008–2016" placeholder="2008–2016"
+                style="width:100%;box-sizing:border-box;"></div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="muted" style="font-size:11px;line-height:26px;">Quick:</span>
+            ${[50,250,500,1000,2500].map(n=>`<button type="button" class="secondary small" style="width:auto;padding:3px 10px;font-size:11px;"
+              onclick="document.getElementById('demoGenRegCount').value=${n}">${n.toLocaleString()}</button>`).join("")}
           </div>
         </div>
       </div>
@@ -6376,7 +6383,7 @@ function runOrgDemoGenerator(){
   const eventCount    = Math.max(1, Math.min(6,   parseInt(document.getElementById("demoGenEventCount")?.value   || "2",  10)));
   const playerCount   = Math.max(5, Math.min(40,  parseInt(document.getElementById("demoGenPlayerCount")?.value  || "20", 10)));
   const evalCount     = Math.max(1, Math.min(5,   parseInt(document.getElementById("demoGenEvalCount")?.value    || "3",  10)));
-  const regCount      = Math.max(1, Math.min(1000, parseInt(document.getElementById("demoGenRegCount")?.value     || "30", 10)));
+  const regCount      = Math.max(1, Math.min(2500, parseInt(document.getElementById("demoGenRegCount")?.value     || "30", 10)));
   const regYearsRaw   = (document.getElementById("demoGenRegYears")?.value || "2008-2016").replace(/[–—]/g, "-");
   const [minYearStr, maxYearStr] = regYearsRaw.split("-");
   const minYear = parseInt(minYearStr, 10) || 2008;
@@ -6437,8 +6444,31 @@ function runOrgDemoGenerator(){
 
   // ── Generate registrations ────────────────────────────────────────────
   if(doRegs){
-    generateDemoRegistrations(regCount, { minYear, maxYear, payMode: "realistic", withSortOut: true });
-    bannermsg.push(`${regCount} registration${regCount===1?"":"s"}`);
+    if(regCount <= 200){
+      generateDemoRegistrations(regCount, { minYear, maxYear, payMode: "realistic", withSortOut: true });
+      if(bannermsg.length) showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")} + ${regCount} registration${regCount===1?"":"s"}`, "success");
+      else showActionBanner(`🎭 Generated ${regCount} registration${regCount===1?"":"s"}`, "success");
+      renderHomeContent();
+    } else {
+      // Large batch — chunk across ticks so the UI stays responsive
+      showActionBanner(`Generating ${regCount.toLocaleString()} registrations…`, "info");
+      if(bannermsg.length) showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")}`, "success");
+      renderHomeContent();
+      const CHUNK = 250;
+      let done = 0;
+      function nextChunk(){
+        const batch = Math.min(CHUNK, regCount - done);
+        if(batch <= 0){
+          showActionBanner(`✅ ${regCount.toLocaleString()} registrations generated`, "success");
+          return;
+        }
+        generateDemoRegistrations(batch, { minYear, maxYear, payMode: "realistic", withSortOut: true, silent: true });
+        done += batch;
+        setTimeout(nextChunk, 0);
+      }
+      nextChunk();
+    }
+    return; // renderHomeContent called inside branches above
   }
 
   if(bannermsg.length){
