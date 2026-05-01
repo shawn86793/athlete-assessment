@@ -13422,31 +13422,8 @@ function renderHome(){
   }
   const _dAvgScore = _dScoreCnt > 0 ? (_dScoreSum / _dScoreCnt).toFixed(1) : "—";
   const _dTeams = getTeams().length;
-  const _dShowStats = _dTotalPlayers > 0 || _dTeams > 0;
-  const _dashSummaryHTML = _dShowStats ? `
-    <div class="homeSummaryCards">
-      <div class="summaryCard sc-blue">
-        <div class="summaryCardIcon">👥</div>
-        <div class="summaryCardValue countUpTarget" id="scValPlayers">0</div>
-        <div class="summaryCardLabel">Players Assessed</div>
-      </div>
-      <div class="summaryCard sc-teal">
-        <div class="summaryCardIcon">⭐</div>
-        <div class="summaryCardValue countUpTarget" id="scValAvg">${_dScoreCnt > 0 ? "0.0" : "—"}</div>
-        <div class="summaryCardLabel">Avg Score</div>
-      </div>
-      <div class="summaryCard sc-gold">
-        <div class="summaryCardIcon">🏆</div>
-        <div class="summaryCardValue">${escapeHTML(_dTopName)}</div>
-        <div class="summaryCardLabel">Top Performer</div>
-      </div>
-      <div class="summaryCard sc-purple">
-        <div class="summaryCardIcon">⚡</div>
-        <div class="summaryCardValue countUpTarget" id="scValTeams">0</div>
-        <div class="summaryCardLabel">Teams Built</div>
-      </div>
-    </div>
-  ` : "";
+  const _dShowStats = false;
+  const _dashSummaryHTML = "";
 
   app.innerHTML = `<div class="pageContent">
     <div class="profilePlanBar">
