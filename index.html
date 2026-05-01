@@ -6358,40 +6358,277 @@ function confirmDeleteOrg(orgId){
 }
 
 // ── Executive Organization Dashboard ─────────────────────────────────────
-// Opens the full admin portal in the org context.
-// The admin portal (renderAdminDashboard) has the complete feature set:
-// registrations, dummy data, reports, teams, assessments, audit log, etc.
-// We store the orgId in sessionStorage so the portal can label itself
-// with the org name and the Back button returns to the home screen.
+// Self-contained org-scoped overlay. Shows ONLY data tagged with orgId.
+// New org = no tagged data = clean slate.
 
-async function openOrgDashboard(orgId){
+window._currentOrgDashId = "";
+
+function openOrgDashboard(orgId){
   const org = getOrgById(orgId);
   if(!org){ showActionBanner("Organization not found.", "error"); return; }
-
-  // Persist the org context so the admin portal can read it
-  try {
-    sessionStorage.setItem("EXEC_DASH_ORG_ID",   orgId);
-    sessionStorage.setItem("EXEC_DASH_ORG_NAME",  org.name || "");
-  } catch(e) { /* ignore */ }
-
-  // Navigate into the full admin portal — same flow as Super Admin button
-  const session = await requestAdminPortalToken();
-  if(!session?.token){
-    showActionBanner("Unable to open the executive dashboard. Please try signing out and back in.", "error");
-    return;
-  }
-  setStoredAdminToken(session.token, Number(session.expiresInSeconds || (2 * 60 * 60)));
-  window.location.href = "/?admin=1";
+  window._currentOrgDashId = orgId;
+  _renderOrgDashboard(orgId, "overview");
 }
 
-// Legacy stub so any remaining _renderExecPanel references don't throw
-function _renderExecPanel(){ /* replaced by full admin portal */ }
+function _getOrgData(orgId){
+  const tryouts = Object.values(DB.tryouts || {}).filter(function(t){ return t.orgId === orgId; });
+  const seasons  = Object.values(DB.seasons  || {}).filter(function(s){ return s.orgId === orgId; });
+  var regs = [];
+  tryouts.forEach(function(t){
+    if(Array.isArray(t.registrations)){
+      t.registrations.forEach(function(r){
+        regs.push(Object.assign({}, r, { _tryoutName: t.name, _tryoutId: t.id }));
+      });
+    }
+  });
+  return { tryouts: tryouts, seasons: seasons, regs: regs };
+}
 
+function _renderOrgDashboard(orgId, panel){
+  document.getElementById("orgDashOverlay")?.remove();
+  const org = getOrgById(orgId);
+  if(!org) return;
+  window._currentOrgDashId = orgId;
+  const d = _getOrgData(orgId);
+
+  const navItems = [
+    { key:"overview",      icon:"🏠", label:"Overview"      },
+    { key:"assessments",   icon:"📋", label:"Assessments"   },
+    { key:"registrations", icon:"📝", label:"Registrations" },
+    { key:"reports",       icon:"📊", label:"Reports"       },
+    { key:"settings",      icon:"⚙️",  label:"Settings"      },
+  ];
+
+  const navHTML = navItems.map(function(n){
+    const a = n.key === panel;
+    return "<button onclick=\"_renderOrgDashboard('" + orgId + "','" + n.key + "')\" "
+      + "style=\"width:100%;text-align:left;background:" + (a ? "rgba(56,189,248,0.15)" : "transparent") + ";"
+      + "border:none;border-left:3px solid " + (a ? "#38bdf8" : "transparent") + ";"
+      + "padding:11px 20px;color:" + (a ? "#fff" : "#94b8d4") + ";"
+      + "font-size:13px;font-weight:" + (a ? "700" : "500") + ";"
+      + "cursor:pointer;display:flex;align-items:center;gap:10px;box-sizing:border-box;\">"
+      + "<span>" + n.icon + "</span><span>" + n.label + "</span></button>";
+  }).join("");
+
+  let panelHTML = "";
+  if     (panel === "overview")       panelHTML = _odPanelOverview(orgId, org, d.tryouts, d.regs);
+  else if(panel === "assessments")    panelHTML = _odPanelAssessments(orgId, org, d.tryouts);
+  else if(panel === "registrations")  panelHTML = _odPanelRegistrations(orgId, org, d.regs);
+  else if(panel === "reports")        panelHTML = _odPanelReports(orgId, org, d.tryouts, d.regs);
+  else if(panel === "settings")       panelHTML = _odPanelSettings(orgId, org);
+
+  const overlay = document.createElement("div");
+  overlay.id = "orgDashOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:9000;display:flex;background:#0f1c2e;font-family:var(--font,system-ui,sans-serif);overflow:hidden;";
+  overlay.innerHTML =
+    "<div style=\"width:220px;min-width:220px;background:#162236;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);\">"
+    + "<div style=\"padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);\">"
+      + "<div style=\"font-size:10px;color:#6b9dc7;text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:6px;\">Organization</div>"
+      + "<div style=\"font-size:15px;font-weight:800;color:#fff;line-height:1.3;\">" + escapeHTML(org.name) + "</div>"
+      + (org.sport ? "<div style=\"font-size:11px;color:#6b9dc7;margin-top:4px;\">" + escapeHTML(org.sport) + "</div>" : "")
+    + "</div>"
+    + "<nav style=\"flex:1;padding:10px 0;overflow-y:auto;\">" + navHTML + "</nav>"
+    + "<div style=\"padding:14px 16px;border-top:1px solid rgba(255,255,255,0.08);\">"
+      + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove()\" style=\"width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#94b8d4;font-size:12px;padding:9px 12px;cursor:pointer;font-weight:600;box-sizing:border-box;\">← Back to App</button>"
+    + "</div>"
+  + "</div>"
+  + "<div id=\"orgDashBody\" style=\"flex:1;overflow-y:auto;padding:32px 36px;background:#0f1c2e;\">" + panelHTML + "</div>";
+  document.body.appendChild(overlay);
+}
+
+function _odStat(icon, val, label){
+  return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;flex:1;min-width:130px;\">"
+    + "<div style=\"font-size:28px;font-weight:900;color:#38bdf8;\">" + (typeof val === "number" ? val.toLocaleString() : val) + "</div>"
+    + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;\">" + icon + " " + label + "</div>"
+  + "</div>";
+}
+
+function _odPanelOverview(orgId, org, tryouts, regs){
+  const totalPlayers = tryouts.reduce(function(n,t){ return n+(t.roster||[]).length; }, 0);
+  const totalEvals   = tryouts.reduce(function(n,t){ return n+(t.evals||[]).length; }, 0);
+  const recentHTML = tryouts.length === 0 ? "" :
+    "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;flex:1;min-width:260px;\">"
+    + "<div style=\"font-size:13px;font-weight:800;color:#fff;margin-bottom:14px;\">Recent Assessments</div>"
+    + tryouts.slice().sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); }).slice(0,5).map(function(t){
+        return "<div style=\"padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);\">"
+          + "<div style=\"font-size:13px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(t.name) + "</div>"
+          + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:2px;\">" + (t.roster||[]).length + " players · " + (t.evals||[]).length + " evals</div>"
+        + "</div>";
+      }).join("")
+  + "</div>";
+  return "<div>"
+    + "<div style=\"margin-bottom:28px;\">"
+      + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">" + escapeHTML(org.name) + "</h1>"
+      + "<div style=\"color:#6b9dc7;font-size:13px;\">Organization Overview</div>"
+    + "</div>"
+    + "<div style=\"display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px;\">"
+      + _odStat("📋", tryouts.length, "Assessments")
+      + _odStat("👥", totalPlayers, "Players")
+      + _odStat("📊", totalEvals, "Evaluations")
+      + _odStat("📝", regs.length, "Registrations")
+    + "</div>"
+    + "<div style=\"display:flex;gap:16px;flex-wrap:wrap;\">"
+      + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;min-width:240px;\">"
+        + "<div style=\"font-size:13px;font-weight:800;color:#fff;margin-bottom:14px;\">Quick Actions</div>"
+        + "<div style=\"display:flex;flex-direction:column;gap:10px;\">"
+          + "<button onclick=\"_odCreateAssessment('" + orgId + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:12px 16px;cursor:pointer;text-align:left;width:100%;\">📋 New Assessment Event</button>"
+          + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:12px 16px;cursor:pointer;text-align:left;width:100%;\">🎭 Generate Demo Data</button>"
+        + "</div>"
+      + "</div>"
+      + recentHTML
+    + "</div>"
+  + "</div>";
+}
+
+function _odPanelAssessments(orgId, org, tryouts){
+  const sorted = tryouts.slice().sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
+  const empty =
+    "<div style=\"text-align:center;padding:64px 20px;color:#6b9dc7;\">"
+    + "<div style=\"font-size:42px;margin-bottom:12px;\">📋</div>"
+    + "<div style=\"font-size:16px;font-weight:700;color:#94b8d4;margin-bottom:8px;\">No assessments yet</div>"
+    + "<div style=\"font-size:13px;margin-bottom:22px;\">Create a new assessment event or generate demo data to get started.</div>"
+    + "<button onclick=\"_odCreateAssessment('" + orgId + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:11px 20px;cursor:pointer;margin-right:10px;\">📋 New Assessment</button>"
+    + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 20px;cursor:pointer;\">🎭 Demo Data</button>"
+  + "</div>";
+  const list = sorted.map(function(t){
+    return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px 20px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;\">"
+      + "<div>"
+        + "<div style=\"font-size:14px;font-weight:700;color:#e2eaf2;\">" + escapeHTML(t.name) + "</div>"
+        + "<div style=\"font-size:12px;color:#6b9dc7;margin-top:4px;\">"
+          + escapeHTML(t.sport||"Hockey") + " · " + (t.roster||[]).length + " players · " + (t.evals||[]).length + " evaluations"
+          + (t.tryoutDate ? " · " + escapeHTML(t.tryoutDate) : "")
+          + ((t.registrations||[]).length ? " · " + (t.registrations||[]).length + " registrations" : "")
+        + "</div>"
+      + "</div>"
+      + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();currentTryoutId='" + t.id + "';go('tryout')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:12px;font-weight:700;padding:9px 18px;cursor:pointer;flex-shrink:0;\">Open →</button>"
+    + "</div>";
+  }).join("");
+  return "<div>"
+    + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;\">"
+      + "<div>"
+        + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Assessments</h1>"
+        + "<div style=\"color:#6b9dc7;font-size:13px;\">" + tryouts.length + " event" + (tryouts.length!==1?"s":"") + " · " + escapeHTML(org.name) + "</div>"
+      + "</div>"
+      + "<button onclick=\"_odCreateAssessment('" + orgId + "')\" style=\"background:#0e7fc0;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700;padding:10px 18px;cursor:pointer;\">+ New Event</button>"
+    + "</div>"
+    + (sorted.length === 0 ? empty : list)
+  + "</div>";
+}
+
+function _odPanelRegistrations(orgId, org, regs){
+  if(regs.length === 0){
+    return "<div>"
+      + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;\">"
+        + "<div><h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Registrations</h1>"
+        + "<div style=\"color:#6b9dc7;font-size:13px;\">0 records · " + escapeHTML(org.name) + "</div></div>"
+        + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;\">🎭 Generate Demo</button>"
+      + "</div>"
+      + "<div style=\"text-align:center;padding:64px 20px;color:#6b9dc7;\">"
+        + "<div style=\"font-size:42px;margin-bottom:12px;\">📝</div>"
+        + "<div style=\"font-size:16px;font-weight:700;color:#94b8d4;margin-bottom:8px;\">No registrations yet</div>"
+        + "<div style=\"font-size:13px;margin-bottom:22px;\">Use the demo generator to populate registration data.</div>"
+        + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:11px 20px;cursor:pointer;\">🎭 Generate Demo Data</button>"
+      + "</div>"
+    + "</div>";
+  }
+  const paidCount = regs.filter(function(r){ return r.paymentStatus === "paid" || r.paid; }).length;
+  const display = regs.slice(0, 200);
+  const rows = display.map(function(r){
+    const name = ((r.firstName||"") + " " + (r.lastName||"")).trim() || "—";
+    const paid = r.paymentStatus === "paid" || r.paid;
+    return "<tr style=\"border-bottom:1px solid rgba(255,255,255,0.04);\">"
+      + "<td style=\"padding:9px 14px;font-size:13px;color:#e2eaf2;\">" + escapeHTML(name) + "</td>"
+      + "<td style=\"padding:9px 14px;font-size:13px;color:#94b8d4;\">" + (r.yearOfBirth||r.birthYear||"—") + "</td>"
+      + "<td style=\"padding:9px 14px;font-size:13px;color:#94b8d4;\">" + escapeHTML(r._tryoutName||"—") + "</td>"
+      + "<td style=\"padding:9px 14px;font-size:13px;color:" + (paid?"#4ade80":"#f87171") + ";\">" + (paid?"✓ Paid":"✗ Unpaid") + "</td>"
+      + "<td style=\"padding:9px 14px;font-size:12px;color:#6b9dc7;\">" + escapeHTML(r.status||r.paymentStatus||"") + "</td>"
+    + "</tr>";
+  }).join("");
+  const th = function(l){ return "<th style=\"padding:10px 14px;font-size:11px;font-weight:700;color:#6b9dc7;text-transform:uppercase;letter-spacing:.5px;text-align:left;\">" + l + "</th>"; };
+  return "<div>"
+    + "<div style=\"display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;\">"
+      + "<div>"
+        + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Registrations</h1>"
+        + "<div style=\"color:#6b9dc7;font-size:13px;\">" + regs.length.toLocaleString() + " records · " + paidCount.toLocaleString() + " paid · " + escapeHTML(org.name) + "</div>"
+      + "</div>"
+      + "<button onclick=\"_odOpenDemoGenerator('" + orgId + "')\" style=\"background:#1a3a55;border:1px solid rgba(56,189,248,0.25);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;\">🎭 Add Demo Data</button>"
+    + "</div>"
+    + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:auto;\">"
+      + "<table style=\"width:100%;border-collapse:collapse;\">"
+        + "<thead><tr style=\"border-bottom:2px solid rgba(255,255,255,0.1);\">"
+          + th("Player") + th("Birth Year") + th("Assessment") + th("Payment") + th("Status")
+        + "</tr></thead>"
+        + "<tbody>" + rows + "</tbody>"
+      + "</table>"
+      + (regs.length > 200 ? "<div style=\"padding:12px 16px;font-size:12px;color:#6b9dc7;text-align:center;\">Showing first 200 of " + regs.length.toLocaleString() + " records</div>" : "")
+    + "</div>"
+  + "</div>";
+}
+
+function _odPanelReports(orgId, org, tryouts, regs){
+  const totalPlayers = tryouts.reduce(function(n,t){ return n+(t.roster||[]).length; }, 0);
+  const totalEvals   = tryouts.reduce(function(n,t){ return n+(t.evals||[]).length; }, 0);
+  const paidRegs     = regs.filter(function(r){ return r.paymentStatus === "paid" || r.paid; }).length;
+  const stats = [
+    { icon:"📋", val:tryouts.length,          label:"Assessment Events" },
+    { icon:"👥", val:totalPlayers,             label:"Players Assessed"  },
+    { icon:"📊", val:totalEvals,               label:"Total Evaluations" },
+    { icon:"📝", val:regs.length,              label:"Registrations"     },
+    { icon:"💳", val:paidRegs,                 label:"Paid"              },
+    { icon:"⏳", val:regs.length - paidRegs,   label:"Pending / Unpaid"  },
+  ];
+  return "<div>"
+    + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Reports</h1>"
+    + "<div style=\"color:#6b9dc7;font-size:13px;margin-bottom:28px;\">" + escapeHTML(org.name) + "</div>"
+    + "<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-bottom:28px;\">"
+      + stats.map(function(s){
+          return "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 22px;\">"
+            + "<div style=\"font-size:28px;font-weight:900;color:#38bdf8;\">" + s.val.toLocaleString() + "</div>"
+            + "<div style=\"font-size:11px;color:#6b9dc7;margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;\">" + s.icon + " " + s.label + "</div>"
+          + "</div>";
+        }).join("")
+    + "</div>"
+    + (tryouts.length === 0 && regs.length === 0
+        ? "<div style=\"text-align:center;padding:40px 20px;color:#6b9dc7;background:#162236;border-radius:10px;border:1px solid rgba(255,255,255,0.08);font-size:13px;\">Generate demo data from the Overview panel to populate reports.</div>"
+        : "")
+  + "</div>";
+}
+
+function _odPanelSettings(orgId, org){
+  return "<div>"
+    + "<h1 style=\"font-size:22px;font-weight:900;color:#fff;margin:0 0 4px;\">Settings</h1>"
+    + "<div style=\"color:#6b9dc7;font-size:13px;margin-bottom:28px;\">" + escapeHTML(org.name) + "</div>"
+    + "<div style=\"background:#162236;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:24px;max-width:520px;\">"
+      + "<div style=\"font-size:14px;font-weight:800;color:#fff;margin-bottom:20px;\">Organization Details</div>"
+      + "<div style=\"margin-bottom:14px;\">"
+        + "<div style=\"font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;\">Name</div>"
+        + "<div style=\"font-size:14px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(org.name) + "</div>"
+      + "</div>"
+      + (org.sport ? "<div style=\"margin-bottom:14px;\"><div style=\"font-size:11px;color:#6b9dc7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;\">Sport</div><div style=\"font-size:14px;color:#e2eaf2;font-weight:600;\">" + escapeHTML(org.sport) + "</div></div>" : "")
+      + "<div style=\"margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.08);\">"
+        + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();editOrg('" + orgId + "')\" style=\"background:transparent;border:1px solid rgba(56,189,248,0.3);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:10px 18px;cursor:pointer;\">Edit Organization</button>"
+      + "</div>"
+    + "</div>"
+  + "</div>";
+}
+
+function _odCreateAssessment(orgId){
+  window._pendingNewTryoutOrgId = orgId;
+  document.getElementById("orgDashOverlay")?.remove();
+  if(typeof openNewTryoutForm === "function") openNewTryoutForm();
+  else go("newTryout");
+}
+
+function _odOpenDemoGenerator(orgId){
+  window._currentOrgDashId = orgId;
+  openOrgDemoGenerator(orgId);
+}
 
 // ── Organization Demo Generator ───────────────────────────────────────────
 
-function openOrgDemoGenerator(){
-  const org = getPrimaryOrg();
+function openOrgDemoGenerator(orgId){
+  const targetOrgId = orgId || window._currentOrgDashId || "";
+  const org = targetOrgId ? getOrgById(targetOrgId) : getPrimaryOrg();
   swgModal({
     id: "orgDemoOverlay",
     title: "🎭 Generate Demo Data",
@@ -6442,11 +6679,12 @@ function openOrgDemoGenerator(){
 }
 
 function runOrgDemoGenerator(){
+  const targetOrgId = window._currentOrgDashId || "";
   const doAssessments = document.getElementById("demoGenAssessments")?.checked;
   const doRegs        = document.getElementById("demoGenRegs")?.checked;
-  const eventCount    = Math.max(1, Math.min(6,   parseInt(document.getElementById("demoGenEventCount")?.value   || "2",  10)));
-  const playerCount   = Math.max(5, Math.min(40,  parseInt(document.getElementById("demoGenPlayerCount")?.value  || "20", 10)));
-  const evalCount     = Math.max(1, Math.min(5,   parseInt(document.getElementById("demoGenEvalCount")?.value    || "3",  10)));
+  const eventCount    = Math.max(1, Math.min(6,    parseInt(document.getElementById("demoGenEventCount")?.value   || "2",  10)));
+  const playerCount   = Math.max(5, Math.min(40,   parseInt(document.getElementById("demoGenPlayerCount")?.value  || "20", 10)));
+  const evalCount     = Math.max(1, Math.min(5,    parseInt(document.getElementById("demoGenEvalCount")?.value    || "3",  10)));
   const regCount      = Math.max(1, Math.min(2500, parseInt(document.getElementById("demoGenRegCount")?.value     || "30", 10)));
   const regYearsRaw   = (document.getElementById("demoGenRegYears")?.value || "2008-2016").replace(/[–—]/g, "-");
   const [minYearStr, maxYearStr] = regYearsRaw.split("-");
@@ -6455,17 +6693,18 @@ function runOrgDemoGenerator(){
 
   document.getElementById("orgDemoOverlay")?.remove();
 
-  const orgName = getPrimaryOrg()?.name || "Demo";
-  const sport   = getPrimaryOrg()?.sport === "Multi-Sport"
+  const org     = targetOrgId ? getOrgById(targetOrgId) : getPrimaryOrg();
+  const orgName = org?.name || "Demo";
+  const sport   = org?.sport === "Multi-Sport"
     ? (typeof SPORT_OPTIONS !== "undefined" ? SPORT_OPTIONS[0] : "Hockey")
-    : (getPrimaryOrg()?.sport || "Hockey");
+    : (org?.sport || "Hockey");
 
-  let totalGenerated = [];
   let bannermsg = [];
+  let firstGeneratedTryoutId = "";
 
-  // ── Generate assessment events ────────────────────────────────────────
+  // ── Generate assessment events (stamped with orgId) ───────────────────
   if(doAssessments){
-    const ageLabels  = ["U9","U11","U13","U15","U18"];
+    const ageLabels     = ["U9","U11","U13","U15","U18"];
     const eventSuffixes = ["Tryout #1","Tryout #2","Skills Camp","Development Camp","Final Cuts","Spring Evaluation"];
     for(let i = 0; i < eventCount; i++){
       const label   = eventSuffixes[i % eventSuffixes.length];
@@ -6483,13 +6722,15 @@ function runOrgDemoGenerator(){
         defaultPosition: "",
         demoGenerated: true,
       };
+      // Stamp org context so this assessment belongs to this org only
+      if(targetOrgId) tryout.orgId = targetOrgId;
       if(!tryout.settings.skaterWeights && typeof DEFAULT_SK_WEIGHTS !== "undefined")
         tryout.settings.skaterWeights = {...DEFAULT_SK_WEIGHTS};
       if(!tryout.settings.goalieWeights && typeof DEFAULT_GO_WEIGHTS !== "undefined")
         tryout.settings.goalieWeights = {...DEFAULT_GO_WEIGHTS};
       if(typeof ensureRubricSettings === "function") ensureRubricSettings(tryout);
       DB.tryouts[tryout.id] = tryout;
-      // Use existing generator to fill players + assessments
+      if(!firstGeneratedTryoutId) firstGeneratedTryoutId = tryout.id;
       if(typeof generateRandomAssessments === "function"){
         generateRandomAssessments({
           tryout,
@@ -6500,30 +6741,50 @@ function runOrgDemoGenerator(){
           silent: true,
         });
       }
-      totalGenerated.push(tryout.name);
     }
     saveDB();
     bannermsg.push(`${eventCount} assessment event${eventCount===1?"":"s"}`);
+  } else if(doRegs && targetOrgId){
+    // No assessments requested — create a lightweight container so regs have a home
+    const container = {
+      id:            uid(),
+      name:          `${orgName} Registrations`,
+      sport,
+      createdAt:     Date.now(),
+      updatedAt:     Date.now(),
+      roster:        [],
+      evals:         [],
+      assessors:     [],
+      settings:      { skaterWeights:{}, goalieWeights:{}, customRubrics:[] },
+      defaultPosition: "",
+      demoGenerated: true,
+      orgId:         targetOrgId,
+    };
+    if(typeof ensureRubricSettings === "function") ensureRubricSettings(container);
+    DB.tryouts[container.id] = container;
+    firstGeneratedTryoutId = container.id;
+    saveDB();
   }
 
-  // ── Generate registrations ────────────────────────────────────────────
-  if(doRegs){
+  // ── Generate registrations into the first org assessment ─────────────
+  if(doRegs && firstGeneratedTryoutId){
+    const prevTryoutId = currentTryoutId;
+    currentTryoutId = firstGeneratedTryoutId;
     if(regCount <= 200){
       generateDemoRegistrations(regCount, { minYear, maxYear, payMode: "realistic", withSortOut: true });
-      if(bannermsg.length) showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")} + ${regCount} registration${regCount===1?"":"s"}`, "success");
-      else showActionBanner(`🎭 Generated ${regCount} registration${regCount===1?"":"s"}`, "success");
-      renderHomeContent();
+      bannermsg.push(`${regCount} registration${regCount===1?"":"s"}`);
     } else {
-      // Large batch — chunk across ticks so the UI stays responsive
       showActionBanner(`Generating ${regCount.toLocaleString()} registrations…`, "info");
       if(bannermsg.length) showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")}`, "success");
-      renderHomeContent();
       const CHUNK = 250;
       let done = 0;
       function nextChunk(){
         const batch = Math.min(CHUNK, regCount - done);
         if(batch <= 0){
           showActionBanner(`✅ ${regCount.toLocaleString()} registrations generated`, "success");
+          currentTryoutId = prevTryoutId;
+          if(targetOrgId) _renderOrgDashboard(targetOrgId, "registrations");
+          else renderHomeContent();
           return;
         }
         generateDemoRegistrations(batch, { minYear, maxYear, payMode: "realistic", withSortOut: true, silent: true });
@@ -6531,16 +6792,22 @@ function runOrgDemoGenerator(){
         setTimeout(nextChunk, 0);
       }
       nextChunk();
+      return;
     }
-    return; // renderHomeContent called inside branches above
+    currentTryoutId = prevTryoutId;
   }
 
   if(bannermsg.length){
     showActionBanner(`🎭 Generated: ${bannermsg.join(" + ")}`, "success");
   }
 
-  renderHomeContent();
+  if(targetOrgId){
+    _renderOrgDashboard(targetOrgId, "assessments");
+  } else {
+    renderHomeContent();
+  }
 }
+
 
 function deleteSeasonFromHome(seasonId){
   const season = DB.seasons[seasonId];
@@ -14887,6 +15154,11 @@ async function createTryout(){
     } : baseSettings,
     archived: false
   };
+  // Stamp org context if created from within an org dashboard
+  if(window._pendingNewTryoutOrgId){
+    newTryout.orgId = window._pendingNewTryoutOrgId;
+    window._pendingNewTryoutOrgId = "";
+  }
   const customCap = getPlanLimits().customRubricLimit;
   const customCount = Array.isArray(newTryout.settings?.customRubrics) ? newTryout.settings.customRubrics.length : 0;
   if(customCap !== Infinity && customCount > customCap){
@@ -30107,15 +30379,25 @@ async function submitSeasonBuilder(){
     }
   }
   const season = createSeason(teamName + " " + year, sport, year, teamName);
-  // Verify save completed before navigating — if navigation fires before
-  // localStorage write finishes, the season will be lost on next load.
+  // Stamp org context if the season was initiated from an org dashboard
+  const _pendingOrgId = window._pendingNewSeasonOrgId || "";
+  window._pendingNewSeasonOrgId = "";
+  if(_pendingOrgId) season.orgId = _pendingOrgId;
+  // Verify save completed before navigating
   if(!DB.seasons[season.id]){
     DB.seasons[season.id] = season;
+    saveDB();
+  } else if(_pendingOrgId){
+    DB.seasons[season.id].orgId = _pendingOrgId;
     saveDB();
   }
   currentSeasonId = season.id;
   closeSeasonBuilderOverlay();
-  go("seasonList");
+  if(_pendingOrgId){
+    _renderOrgDashboard(_pendingOrgId, "assessments");
+  } else {
+    go("seasonList");
+  }
 }
 
 function openSeason(id){
