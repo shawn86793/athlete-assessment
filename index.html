@@ -13770,45 +13770,21 @@ function renderHomeContent(){
     const nextEventStr = nextEvent ? formatSeasonDateCompact(nextEvent.date) + (nextEvent.title ? " — " + nextEvent.title : "") : null;
     const scoreStr = avgScore !== null ? avgScore.toFixed(1) : null;
     return (
-      '<div onclick="openSeason(\'' + escapeJS(season.id) + '\')" tabindex="0" role="button" aria-label="Open ' + escapeAttr(season.teamName || season.name) + '" style="background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:16px;margin-bottom:12px;cursor:pointer;position:relative;transition:border-color 0.15s,box-shadow 0.15s;" onmouseover="this.style.borderColor=\'#4f46e5\';this.style.boxShadow=\'0 4px 20px rgba(79,70,229,0.13)\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.boxShadow=\'none\'">' +
-        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">' +
-          '<div style="flex:1;min-width:0;">' +
-            '<div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHTML(season.teamName || season.name) + '</div>' +
-            '<div style="font-size:12px;color:#64748b;margin-top:2px;">' + escapeHTML(season.sport || 'Sport') + ' &bull; ' + escapeHTML(season.year || 'Year') + '</div>' +
+      '<div onclick="openSeason(\'' + escapeJS(season.id) + '\')" tabindex="0" role="button" aria-label="Open ' + escapeAttr(season.teamName || season.name) + '" style="background:#fff;border:1.5px solid #e2e8f0;border-left:4px solid ' + healthColor + ';border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;position:relative;display:flex;align-items:center;gap:12px;transition:box-shadow 0.15s;" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">' +
+            '<div style="font-size:15px;font-weight:900;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHTML(season.teamName || season.name) + '</div>' +
+            '<div style="flex-shrink:0;background:' + healthColor + '20;color:' + healthColor + ';border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800;">' + healthLabel + '</div>' +
           '</div>' +
-          '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
-            (avgScore !== null ? miniOuraRingHTML(avgScore, 5, healthColor, 72, scoreStr, 'avg', true) : '') +
-            '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">' +
-              '<div style="background:' + healthColor + '20;color:' + healthColor + ';border:1.5px solid ' + healthColor + '60;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;">' + healthLabel + '</div>' +
-              '<div style="font-size:10px;color:#94a3b8;font-weight:600;">' + evaluatedCount + '/' + playerCount + ' evaluated</div>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="margin-bottom:12px;">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
-            '<div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Roster Evaluated</div>' +
-            '<div style="font-size:12px;font-weight:800;color:' + healthColor + ';">' + evaluatedCount + '/' + playerCount + ' (' + evalPct + '%)</div>' +
-          '</div>' +
-          '<div style="height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;">' +
+          '<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">' + escapeHTML(season.sport || 'Sport') + ' &bull; ' + escapeHTML(season.year || 'Year') + ' &bull; ' + playerCount + ' players &bull; ' + events.length + ' events</div>' +
+          '<div style="height:4px;background:#e2e8f0;border-radius:999px;overflow:hidden;">' +
             '<div style="height:100%;width:' + evalPct + '%;background:' + healthColor + ';border-radius:999px;"></div>' +
           '</div>' +
+          '<div style="font-size:10px;color:#94a3b8;margin-top:3px;">' + evaluatedCount + '/' + playerCount + ' evaluated (' + evalPct + '%)</div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
-          '<div style="background:#f8fafc;border-radius:8px;padding:6px 12px;text-align:center;min-width:56px;">' +
-            '<div style="font-size:16px;font-weight:900;color:#0f172a;">' + playerCount + '</div>' +
-            '<div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">Players</div>' +
-          '</div>' +
-          '<div style="background:#f8fafc;border-radius:8px;padding:6px 12px;text-align:center;min-width:56px;">' +
-            '<div style="font-size:16px;font-weight:900;color:#0f172a;">' + events.length + '</div>' +
-            '<div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">Events</div>' +
-          '</div>' +
-          (nextEventStr ? '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:6px;flex:1;min-width:120px;"><span style="font-size:14px;">&#128197;</span><div><div style="font-size:10px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Next</div><div style="font-size:12px;color:#0f172a;font-weight:700;">' + escapeHTML(nextEventStr) + '</div></div></div>' : '') +
-        '</div>' +
-        '<div style="display:flex;gap:8px;flex-wrap:nowrap;align-items:center;" onclick="event.stopPropagation()">' +
-          '<button onclick="openSeason(\'' + escapeJS(season.id) + '\')" style="flex:1;padding:10px 6px;background:#0f172a;border:none;border-radius:10px;font-size:13px;font-weight:800;color:#fff;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'#1e293b\'" onmouseout="this.style.background=\'#0f172a\'">&#128203; Roster</button>' +
-          '<button onclick="openSeason(\'' + escapeJS(season.id) + '\');setTimeout(function(){go(\'builder\')},120)" style="flex:1;padding:10px 6px;background:#ff6b2b;border:none;border-radius:10px;font-size:13px;font-weight:800;color:#fff;cursor:pointer;white-space:nowrap;" onmouseover="this.style.background=\'#ea5a1a\'" onmouseout="this.style.background=\'#ff6b2b\'">&#9889; Team Builder</button>' +
-          '<button onclick="deleteSeasonFromHome(\'' + escapeJS(season.id) + '\')" style="flex-shrink:0;padding:10px 13px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;font-size:14px;line-height:1;cursor:pointer;" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'#fef2f2\'">&#128465;</button>' +
-        '</div>' +
+        (avgScore !== null ? miniOuraRingHTML(avgScore, 5, healthColor, 52, scoreStr, 'avg', true) : '<div style="width:52px;flex-shrink:0;"></div>') +
+        '<div onclick="event.stopPropagation();deleteSeasonFromHome(\'' + escapeJS(season.id) + '\')" style="flex-shrink:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:#cbd5e1;font-size:13px;cursor:pointer;" onmouseover="this.style.background=\'#fef2f2\';this.style.color=\'#ef4444\'" onmouseout="this.style.background=\'transparent\';this.style.color=\'#cbd5e1\'">&#128465;</div>' +
+        '<div style="flex-shrink:0;color:#cbd5e1;font-size:16px;">&#8250;</div>' +
       '</div>'
     );
   }).join("") + orphanedTeams.map(team=>(
