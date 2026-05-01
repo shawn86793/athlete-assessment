@@ -512,6 +512,212 @@ function loadLocalAppDb(email) {
   } catch(e) { return null; }
 }
 
+function saveLocalAppDb(email, db) {
+  try {
+    const suffix = String(email || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+    const key    = `SWG_TRYOUT_SYSTEMS_DB_V6::${suffix}`;
+    localStorage.setItem(key, JSON.stringify(db));
+    return true;
+  } catch(e) { console.error('saveLocalAppDb error', e); return false; }
+}
+
+// ── Self-contained demo registration generator for admin.html ──────────────
+// Mirrors the logic in index.html's generateDemoRegistrations() so the
+// executive dashboard can create realistic test data without opening the app.
+
+function adminGenerateDemoRegs(count, opts) {
+  opts = opts || {};
+  const email = state.email;
+  if(!email) { adminToast('Not logged in — cannot write to app database.', 'error'); return; }
+
+  const db = loadLocalAppDb(email);
+  if(!db) { adminToast('No app database found. Open the main app first to initialise it.', 'error'); return; }
+
+  // Find or create a tryout to attach registrations to
+  const tryouts = Object.values(db.tryouts || {});
+  let target = tryouts.find(t => t.registrations && t.registrations.length) || tryouts[0];
+  if(!target) {
+    // Create a minimal shell tryout
+    const tid = 'admin_demo_' + Date.now();
+    target = { id: tid, name: 'Demo Registration Event', sport: 'Hockey', roster: [], evals: [], registrations: [], createdAt: Date.now(), updatedAt: Date.now() };
+    if(!db.tryouts) db.tryouts = {};
+    db.tryouts[tid] = target;
+  }
+  if(!Array.isArray(target.registrations)) target.registrations = [];
+
+  const minYear = opts.minYear || 2008;
+  const maxYear = opts.maxYear || 2016;
+  const payMode = opts.payMode || 'realistic';
+  const withSortOut = !!opts.withSortOut;
+
+  const randInt  = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+  const randPick = arr  => arr[randInt(0,arr.length-1)];
+  const pad2     = n    => String(n).padStart(2,'0');
+  const uid8     = ()   => Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,6);
+
+  const firstNames = ['James','Liam','Noah','Oliver','Lucas','Mason','Alex','Ethan','Aiden','Jack','Owen','Sam','Ryan','Nathan','Dylan','Carter','Luke','Henry','Emma','Olivia','Ava','Sophia','Mia','Harper','Ella','Riley','Zoe','Lily','Chloe','Grace','Nora','Maya','Quinn','Piper','Connor','Finn','Declan','Brayden','Hunter','Marcus','Caleb','Wyatt','Gavin'];
+  const lastNames  = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Wilson','Moore','Taylor','Anderson','Thomas','Jackson','White','Harris','Martin','Thompson','Robinson','Clark','Lewis','Lee','Walker','Hall','Allen','Young','King','Wright','Scott','Green','Baker','Adams','Nelson','Hill','Campbell','Mitchell','Roberts','Carter','Phillips','Evans','Nguyen','Patel','Kim','Chen','Murray','Walsh'];
+  const parentFirsts = ['Michael','David','Robert','Chris','Jennifer','Sarah','Lisa','Karen','Mark','Brian','Daniel','Kevin','Laura','Susan','Angela','Michelle','Stephanie','Nicole','Jessica','Amanda'];
+  const positions = ['F','D','G','C','LW','RW'];
+  const teams   = ['Thunder','Wolves','Storm','Eagles','Blaze','Titans','Hawks','Mustangs','Lightning','Rebels'];
+  const levels  = ['House League','Rep','A','AA','AAA','U9','U11','U13','U15','U18'];
+  const prefixes= ['City','North','South','East','West','Valley','Bay','Lake','Metro','Central'];
+  const domains = ['gmail.com','hotmail.com','yahoo.com','outlook.com','icloud.com','rogers.com','bell.net'];
+  const payMethods = ['credit_card','e-transfer','cash','cheque'];
+  const payStatuses = payMode==='all_paid'?['paid']:payMode==='none'?['unpaid']:['paid','paid','paid','partial','unpaid'];
+  const medOptions = ['','','','','','','Mild tree nut allergy — carries EpiPen.','Asthma — uses inhaler before activity.','Wears glasses/contacts.','Previous knee injury — fully healed.'];
+
+  const existingIds = new Set((target.registrations||[]).map(r=>r.registrationId));
+  const newRegs = [];
+
+  for(let i = 0; i < count; i++){
+    const first = randPick(firstNames);
+    const last  = randPick(lastNames);
+    const pFirst = randPick(parentFirsts);
+    const yob   = randInt(minYear, maxYear);
+    const month = randInt(1,12);
+    const day   = randInt(1,[31,28,31,30,31,30,31,31,30,31,30,31][month-1]);
+    const dob   = `${yob}-${pad2(month)}-${pad2(day)}`;
+    const team  = `${randPick(prefixes)} ${randPick(teams)}`;
+    const level = randPick(levels);
+    const pos   = randPick(positions);
+    const email2= `${(first+'.'+last+randInt(10,99)).toLowerCase().replace(/[^a-z0-9.]/g,'')}@${randPick(domains)}`;
+    const phone = `(${randInt(200,999)}) ${randInt(200,999)}-${randInt(1000,9999)}`;
+
+    const payStatus = randPick(payStatuses);
+    const fullAmt   = [75,100,125,150,175,200,225,250,300,350,400,500][randInt(0,11)];
+    const paidAmt   = payStatus==='paid'?fullAmt:payStatus==='partial'?Math.round(fullAmt*[0.25,0.5,0.75][randInt(0,2)]):0;
+    const payDate   = payStatus!=='unpaid'?new Date(Date.now()-randInt(1,120)*86400000).toISOString().slice(0,10):'';
+    const payMethod = payStatus!=='unpaid'?randPick(payMethods):'';
+    const payRef    = payMethod?((payMethod==='credit_card'?'CC-':'payMethod'==='e-transfer'?'ET-':'CHQ-')+randInt(10000,99999)):'';
+
+    let regId;
+    do { regId = 'demo_'+uid8(); } while(existingIds.has(regId));
+    existingIds.add(regId);
+
+    newRegs.push({
+      registrationId: regId,
+      firstName: first, lastName: last,
+      dateOfBirth: dob, yearOfBirth: String(yob),
+      positionTryingOutFor: pos,
+      currentTeam: team, currentLevel: level,
+      guardianName: pFirst+' '+last,
+      guardianEmail: email2,
+      guardianPhone: phone,
+      aboutChild: '',
+      medicalInfo: randPick(medOptions),
+      friendRequest1: Math.random()<0.35?randPick(firstNames)+' '+randPick(lastNames):'',
+      friendRequest2: Math.random()<0.2?randPick(firstNames)+' '+randPick(lastNames):'',
+      registeredAt: new Date(Date.now()-randInt(0,60)*86400000-randInt(0,23)*3600000).toISOString(),
+      status: 'registered',
+      movedToRoster: false,
+      sortOut: withSortOut && Math.random()<0.12,
+      source: 'demo',
+      paymentStatus: payStatus, paymentAmount: fullAmt, paymentPaid: paidAmt,
+      paymentDate: payDate, paymentMethod: payMethod, paymentRef: payRef,
+    });
+  }
+
+  target.registrations = [...(target.registrations||[]), ...newRegs];
+  target.updatedAt = Date.now();
+  db.tryouts[target.id] = target;
+  saveLocalAppDb(email, db);
+  // Refresh state so the view shows the new data immediately
+  hydrateStateFromLocalDb(email);
+  return newRegs.length;
+}
+
+function openAdminGenDemoModal() {
+  document.getElementById('adminGenDemoModal')?.remove();
+  const yr = new Date().getFullYear();
+  const modal = document.createElement('div');
+  modal.id = 'adminGenDemoModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;box-sizing:border-box;';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:16px;padding:28px 24px;max-width:480px;width:100%;border:1px solid var(--border);max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <h3 style="margin:0;font-size:17px;font-weight:900;color:var(--text);">⚡ Generate Dummy Registrations</h3>
+        <button onclick="document.getElementById('adminGenDemoModal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px;">&times;</button>
+      </div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 18px;">Creates realistic fake registration records written directly to the app database. All records are tagged <code style="background:var(--bg);padding:1px 5px;border-radius:4px;">source:demo</code>.</p>
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Number of Registrations</label>
+      <input id="agdmCount" type="number" min="1" max="2500" value="100"
+        style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:16px;font-weight:900;box-sizing:border-box;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+        <span style="font-size:11px;color:var(--muted);line-height:26px;font-weight:600;">Quick:</span>
+        ${[50,250,500,1000,2500].map(n=>`<button type="button" class="btnSecondary" style="font-size:11px;padding:4px 12px;"
+          onclick="document.getElementById('agdmCount').value=${n}">${n.toLocaleString()}</button>`).join('')}
+      </div>
+
+      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:4px;">Birth Year Range</label>
+      <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
+        <input id="agdmMin" type="number" min="2000" max="2025" value="${yr-18}"
+          style="width:90px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;">
+        <span style="color:var(--muted);">to</span>
+        <input id="agdmMax" type="number" min="2000" max="2025" value="${yr-7}"
+          style="width:90px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;">
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:20px;color:var(--text);">
+        <input type="checkbox" id="agdmSortOut"> Include Sort Out flags (~12%)
+      </label>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btnSecondary" onclick="document.getElementById('adminGenDemoModal').remove()">Cancel</button>
+        <button class="btnPrimary" onclick="runAdminGenDemo()" style="background:#6366f1;border-color:#6366f1;">⚡ Generate</button>
+      </div>
+    </div>
+  `;
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function runAdminGenDemo() {
+  const count = Math.max(1, Math.min(2500, parseInt(document.getElementById('agdmCount')?.value||'100',10)));
+  const minYear = parseInt(document.getElementById('agdmMin')?.value||'2008',10);
+  const maxYear = parseInt(document.getElementById('agdmMax')?.value||'2016',10);
+  const withSortOut = document.getElementById('agdmSortOut')?.checked||false;
+  document.getElementById('adminGenDemoModal')?.remove();
+
+  if(count <= 300){
+    const n = adminGenerateDemoRegs(count, { minYear, maxYear, payMode:'realistic', withSortOut });
+    if(n) { adminToast(`✅ ${n.toLocaleString()} demo registrations generated`, 'success'); navigate('registrations'); }
+    return;
+  }
+  // Chunked async for large counts
+  adminToast(`Generating ${count.toLocaleString()} registrations…`, 'info');
+  const CHUNK = 300;
+  let done = 0;
+  function next(){
+    const batch = Math.min(CHUNK, count - done);
+    if(batch <= 0){ adminToast(`✅ ${count.toLocaleString()} demo registrations generated`, 'success'); navigate('registrations'); return; }
+    adminGenerateDemoRegs(batch, { minYear, maxYear, payMode:'realistic', withSortOut });
+    done += batch;
+    setTimeout(next, 0);
+  }
+  next();
+}
+
+function adminToast(msg, tone) {
+  const bg = tone==='success'?'#047857':tone==='error'?'#b91c1c':'#1e3a5f';
+  const icon = tone==='success'?'✓':tone==='error'?'✕':'ℹ';
+  let wrap = document.getElementById('adminToastWrap');
+  if(!wrap){
+    wrap = document.createElement('div');
+    wrap.id = 'adminToastWrap';
+    wrap.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:19000;display:flex;flex-direction:column-reverse;align-items:center;gap:8px;pointer-events:none;width:min(calc(100vw - 32px),480px);';
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.style.cssText = `background:${bg};color:#fff;padding:10px 18px;border-radius:12px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:10px;pointer-events:auto;opacity:0;transform:translateY(16px);transition:opacity .22s,transform .22s;box-shadow:0 4px 20px rgba(0,0,0,.32);cursor:pointer;`;
+  el.innerHTML = `<span>${icon}</span><span>${String(msg).replace(/</g,'&lt;')}</span>`;
+  el.onclick = () => { clearTimeout(el._t); el.style.opacity='0'; setTimeout(()=>el.remove(),280); };
+  wrap.appendChild(el);
+  requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translateY(0)'; });
+  el._t = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(12px)'; setTimeout(()=>el.remove(),280); }, tone==='error'?5000:3000);
+}
+
 function hydrateStateFromLocalDb(email) {
   const db = loadLocalAppDb(email);
   if(!db) return;
@@ -1020,6 +1226,7 @@ async function renderHome() {
             <div class="quickAction" onclick="navigate('reports')"><span class="qaIcon">📄</span>Export Report</div>
             <div class="quickAction" onclick="navigate('admins')"><span class="qaIcon">👤</span>Add Admin</div>
             <div class="quickAction" onclick="navigate('players')"><span class="qaIcon">📋</span>Player List</div>
+            <div class="quickAction" onclick="openAdminGenDemoModal()" style="border-color:rgba(99,102,241,0.45);background:rgba(99,102,241,0.08);"><span class="qaIcon">⚡</span>Gen Test Data</div>
           </div>
         </div>
       </div>
@@ -1462,13 +1669,15 @@ function renderRegistrations() {
         <div class="sectionTitle">Registrations</div>
         <div class="sectionSubtitle">${total.toLocaleString()} total registrations across all assessments</div>
       </div>
+      <button class="btnSecondary" onclick="openAdminGenDemoModal()" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">⚡ Gen Test Data</button>
     </div>
 
     ${total === 0 ? `
-      <div class="card" style="text-align:center;padding:40px;color:var(--muted);">
+      <div class="card" style="text-align:center;padding:40px;">
         <div style="font-size:48px;margin-bottom:12px;">📝</div>
-        <div style="font-size:16px;font-weight:700;margin-bottom:8px;">No registrations yet</div>
-        <div style="font-size:13px;">Generate demo registrations in the main app to see them here.</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text);">No registrations yet</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">Generate dummy data to populate the registration dashboard for testing.</div>
+        <button class="btnPrimary" onclick="openAdminGenDemoModal()" style="background:#6366f1;border-color:#6366f1;width:auto;display:inline-flex;align-items:center;gap:8px;padding:10px 24px;font-size:14px;">⚡ Generate Dummy Registrations</button>
       </div>
     ` : `
 
