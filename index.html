@@ -10053,11 +10053,14 @@ function mergeMissingQrRegistrations(localTryout, remoteTryout){
   const remoteRoster = Array.isArray(remoteTryout?.roster) ? remoteTryout.roster : [];
   if(!remoteRoster.length) return 0;
 
+  // Never re-add players that were explicitly deleted on this device
+  const tombstones = new Set((localTryout._deletedPlayerIds || []).map(id => String(id)));
+
   const localIds = new Set(localRoster.map(player=>String(player?.id || "").trim()).filter(Boolean));
   const additions = remoteRoster.filter(player=>{
     if(!player || typeof player !== "object") return false;
     const id = String(player.id || "").trim();
-    if(!id || localIds.has(id)) return false;
+    if(!id || localIds.has(id) || tombstones.has(id)) return false;
     const source = String(player.registrationSource || "").trim().toLowerCase();
     if(source !== "qr") return false;
     localIds.add(id);
@@ -10520,8 +10523,18 @@ async function pullCloudTryout(t, options = {}){
 
     if(remoteUpdated > localUpdated || hasRemoteTimestampMismatch){
       // Remote is newer with no additional QR adds; replace local with remote.
+      // Carry over tombstones from local so deleted players can't return.
+      const localTombstones = Array.isArray(t._deletedPlayerIds) ? t._deletedPlayerIds : [];
       const cloud = { ...(remote.cloud || {}), id: t.cloud.id, enabled: true, dirty: false, lastPullAt: Date.now(), lastSyncAt: Date.now(), lastError: null };
       remote.cloud = cloud;
+      // Merge tombstones and strip any re-introduced deleted players
+      const mergedTombstones = [...new Set([...localTombstones, ...(remote._deletedPlayerIds || [])])];
+      if(mergedTombstones.length){
+        const dead = new Set(mergedTombstones.map(String));
+        remote.roster = (remote.roster || []).filter(p => !dead.has(String(p.id || "")));
+        remote.evaluations = (remote.evaluations || []).filter(e => !dead.has(String(e.playerId || "")));
+        remote._deletedPlayerIds = mergedTombstones;
+      }
       DB.tryouts[remote.id] = remote;
       currentTryoutId = remote.id;
       saveDB();
@@ -17716,8 +17729,10 @@ function renderRoster(){
   }
   // Trigger an immediate cloud pull when viewing the roster so QR registrations
   // show up without waiting for the next sync tick.
+  // softRender:true keeps the roster visible during sync to avoid the Teams button
+  // flickering off and back on when the full page re-renders.
   if(isCloudEnabled(t) && !cloudSyncInFlight){
-    pullCloudTryout(t);
+    pullCloudTryout(t, { softRender: true });
   }
   // Start fast polling while on the roster page for near-instant QR updates.
   startRosterFastPoll();
@@ -18852,8 +18867,10 @@ function buildFriendPackages(players){
     if(ra !== rb) parent[rb] = ra;
   }
 
+  // Check both field names: manually-added players use friend1Name/friend2Name,
+  // CSV/Excel-imported players use friendRequest1/friendRequest2
   players.forEach(p=>{
-    [p.friend1Name, p.friend2Name].filter(Boolean).forEach(name=>{
+    [p.friend1Name || p.friendRequest1, p.friend2Name || p.friendRequest2].filter(Boolean).forEach(name=>{
       const key = String(name).trim().toLowerCase();
       const match = nameIndex[key];
       if(match && match.id !== p.id) union(p.id, match.id);
@@ -18871,6 +18888,18 @@ function buildFriendPackages(players){
 
 function getTeamTotalScore(team){
   return Object.values(team.details || {}).reduce((s, d)=>s + (d.overall != null ? Number(d.overall) : 0), 0);
+}
+
+let _assignRRIdx = 0; // round-robin tiebreaker counter — resets on each buildTeamAssignments call
+
+// Pick the lowest-score team; when scores are tied use round-robin for even spread
+function _pickLowest(candidates){
+  if(!candidates.length) return null;
+  const minScore = Math.min(...candidates.map(t => getTeamTotalScore(t)));
+  const tied = candidates.filter(t => getTeamTotalScore(t) === minScore);
+  const chosen = tied[_assignRRIdx % tied.length];
+  _assignRRIdx++;
+  return chosen;
 }
 
 function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
@@ -18902,10 +18931,8 @@ function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
     const eligible = teams.filter(team => remaining(team) >= pkg.length);
 
     if(eligible.length > 0){
-      // Pick lowest-score team with enough room
-      const target = eligible.reduce((best, team)=>
-        getTeamTotalScore(team) < getTeamTotalScore(best) ? team : best
-      );
+      // Pick lowest-score team with enough room; round-robin breaks ties for even spread
+      const target = _pickLowest(eligible);
       pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     } else if(pkg.length > 1){
       // ── Friend package but no single team has enough contiguous room.
@@ -18914,14 +18941,11 @@ function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
       //    Only split if the package is larger than any team's full capacity.
       const maxCap = Math.max(...teams.map(t => capacityFn(t)));
       if(pkg.length <= maxCap){
-        // Overflow to team with most remaining space (ties broken by lowest score)
-        const target = teams
-          .filter(t => remaining(t) > 0 || capacityFn(t) > 0)
-          .reduce((best, t) => {
-            const remT = remaining(t), remB = remaining(best);
-            if(remT !== remB) return remT > remB ? t : best;
-            return getTeamTotalScore(t) < getTeamTotalScore(best) ? t : best;
-          });
+        // Overflow to team with most remaining space (ties broken by lowest score + round-robin)
+        const withRoom = teams.filter(t => remaining(t) > 0 || capacityFn(t) > 0);
+        const ovfCandidates = withRoom.length ? withRoom : teams;
+        const maxRem = Math.max(...ovfCandidates.map(t => remaining(t)));
+        const target = _pickLowest(ovfCandidates.filter(t => remaining(t) === maxRem));
         pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
       } else {
         // Package larger than any team — must split, keep as many together as possible
@@ -18932,24 +18956,21 @@ function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
           i += maxCap;
         }
         chunks.forEach(chunk => {
-          const t2 = teams.reduce((best, t) =>
-            getTeamTotalScore(t) < getTeamTotalScore(best) ? t : best
-          );
+          const t2 = _pickLowest(teams);
           chunk.forEach(p => assignPlayerToTeam(t2, p, role, sport));
         });
       }
     } else {
       // Singleton — place on any team with capacity, or overflow to least-full team
       const hasRoom = teams.filter(t => remaining(t) > 0);
-      const target = (hasRoom.length ? hasRoom : teams).reduce((best, t)=>
-        getTeamTotalScore(t) < getTeamTotalScore(best) ? t : best
-      );
+      const target = _pickLowest(hasRoom.length ? hasRoom : teams);
       pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     }
   });
 }
 
 function buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sortMethod){
+  _assignRRIdx = 0; // reset round-robin counter for each fresh build
   sortMethod = sortMethod || 'average';
   const sport = getSportFromTryout(t);
   const labels = teamBuilderGroupLabels(sport);
@@ -20233,7 +20254,9 @@ function buildExplicitFriendPackages(t, players){
     if(disp) nameIndex[disp] = p;
   });
   players.forEach(p => {
-    [p.friend1Name, p.friend2Name].filter(Boolean).forEach(name => {
+    // Support both manually-added (friend1Name/friend2Name) and
+    // CSV/Excel-imported (friendRequest1/friendRequest2) field names
+    [p.friend1Name || p.friendRequest1, p.friend2Name || p.friendRequest2].filter(Boolean).forEach(name => {
       const match = nameIndex[String(name).trim().toLowerCase()];
       if(match && match.id !== p.id) union(p.id, match.id);
     });
@@ -21301,6 +21324,9 @@ function deleteRosterPlayer(pid, ev){
   if(!confirm(`Delete ${name}?\n\nThis will also remove all their assessments and cannot be undone.`)) return;
   t.roster      = (t.roster      || []).filter(r => r.id !== pid);
   t.evaluations = (t.evaluations || []).filter(e => e.playerId !== pid);
+  // Tombstone: remember this id so cloud pulls can never re-introduce the player
+  if(!Array.isArray(t._deletedPlayerIds)) t._deletedPlayerIds = [];
+  if(!t._deletedPlayerIds.includes(pid)) t._deletedPlayerIds.push(pid);
   touchTryout(t); saveDB();
   if(authState.user) dbSaveTryout(t.id);
   showActionBanner(`${name} deleted.`, "success");
@@ -22026,6 +22052,9 @@ function deletePlayer(pid){
   const t = getTryout();
   t.roster = t.roster.filter(x=>x.id!==pid);
   t.evals = t.evals.filter(e=>e.playerId!==pid);
+  // Tombstone: remember this id so cloud pulls can never re-introduce the player
+  if(!Array.isArray(t._deletedPlayerIds)) t._deletedPlayerIds = [];
+  if(!t._deletedPlayerIds.includes(pid)) t._deletedPlayerIds.push(pid);
   touchTryout(t);
   saveDB();
   showActionBanner("Player removed", "success");
