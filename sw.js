@@ -1,8 +1,8 @@
 /**
- * AAS Service Worker — stale-while-revalidate for HTML, cache-first for assets
+ * AAS Service Worker — network-first for HTML, cache-first for assets
  * Version is embedded so bumping it forces cache invalidation on deploy.
  */
-const SW_VERSION   = "aas-2026-04-30-v2";
+const SW_VERSION   = "aas-2026-04-30-v3";
 const CACHE_HTML   = SW_VERSION + "-html";
 const CACHE_ASSETS = SW_VERSION + "-assets";
 
@@ -57,60 +57,44 @@ self.addEventListener("fetch", function(ev) {
     return;
   }
 
-  // HTML pages (/ or /index.html or /admin.html or /register.html)
-  // Strategy: stale-while-revalidate — serve cached immediately, update in background
+  // HTML pages — network-first so deploys are visible immediately.
+  // Falls back to cache only when offline.
   if (
     url.pathname === "/" ||
     url.pathname.endsWith(".html") ||
     url.pathname === "/admin" ||
     url.pathname === "/register"
   ) {
-    ev.respondWith(staleWhileRevalidate(req, CACHE_HTML));
+    ev.respondWith(networkFirstWithCacheFallback(req, CACHE_HTML));
     return;
   }
 
   // Everything else — network with cache fallback
-  ev.respondWith(networkWithCacheFallback(req));
+  ev.respondWith(networkFirstWithCacheFallback(req, CACHE_ASSETS));
 });
 
 // ── Caching strategies ────────────────────────────────────────────────────────
 
 /** Serve from cache; if absent fetch, store, and return. */
 async function cacheFirst(req, cacheName) {
-  var cache   = await caches.open(cacheName);
-  var cached  = await cache.match(req);
+  var cache  = await caches.open(cacheName);
+  var cached = await cache.match(req);
   if (cached) return cached;
   try {
     var fresh = await fetch(req);
     if (fresh.ok) cache.put(req, fresh.clone());
     return fresh;
   } catch(e) {
-    return cached || new Response("Offline", { status: 503 });
+    return new Response("Offline", { status: 503 });
   }
 }
 
 /**
- * Return cached response immediately if available (fast),
- * then kick off a background network request to update the cache.
- * On first visit (no cache), falls through to network.
+ * Always try network first — fresh code on every load.
+ * Falls back to cache only if the network is unavailable (offline).
  */
-async function staleWhileRevalidate(req, cacheName) {
-  var cache  = await caches.open(cacheName);
-  var cached = await cache.match(req);
-
-  // Background revalidation — don't await, fire and forget
-  var revalidation = fetch(req).then(function(fresh) {
-    if (fresh.ok) cache.put(req, fresh.clone());
-    return fresh;
-  }).catch(function() { return null; });
-
-  // Serve stale immediately if we have it, otherwise wait for network
-  return cached || revalidation;
-}
-
-/** Try network first; fall back to cache on failure. */
-async function networkWithCacheFallback(req) {
-  var cache = await caches.open(CACHE_ASSETS);
+async function networkFirstWithCacheFallback(req, cacheName) {
+  var cache = await caches.open(cacheName);
   try {
     var fresh = await fetch(req);
     if (fresh.ok) cache.put(req, fresh.clone());
