@@ -13826,10 +13826,6 @@ function renderHomeContent(){
     `;
   }).join("");
 
-  const activeForRing = Object.values(DB.tryouts || {})
-    .filter(t => !isArchivedTryout(t))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  const summaryRingHTML = buildSessionSummaryRing(activeForRing);
 
   // ── Build org banner ────────────────────────────────────────────────────
   const primaryOrg = getPrimaryOrg();
@@ -13880,7 +13876,6 @@ function renderHomeContent(){
   ` : ``;
 
   container.innerHTML = `
-    ${summaryRingHTML}
     ${orgBannerHTML}
     <div style="margin-bottom:16px;">
       <div style="position:relative;">
