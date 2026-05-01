@@ -13950,13 +13950,6 @@ function renderHomeContent(){
 
   container.innerHTML = `
     ${orgBannerHTML}
-    <div style="margin-bottom:16px;">
-      <div style="position:relative;">
-        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;">🔍</span>
-        <input id="globalSearchInput" type="search" placeholder="Search players, assessments, Athlete ID…" oninput="renderGlobalSearchResults()" style="width:100%;padding:11px 14px 11px 38px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;box-sizing:border-box;color:#0f172a;background:#fff;" autocomplete="off">
-      </div>
-      <div id="globalSearchResults" style="margin-top:6px;"></div>
-    </div>
     <div style="${teamsSectionStyle}">
       <div style="
         background: linear-gradient(135deg, #1e3a5f 0%, #2d4e7a 100%);
@@ -13969,7 +13962,7 @@ function renderHomeContent(){
         gap: 10px;
       ">
         <div>
-          <div style="font-weight:900;font-size:18px;color:#fff;letter-spacing:-0.01em;">Season Dashboard</div>
+          <div style="font-weight:900;font-size:18px;color:#fff;letter-spacing:-0.01em;">Dashboard</div>
           <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;">${allSeasons.length} team${allSeasons.length !== 1 ? "s" : ""} — tap a card to open Team Hub</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
