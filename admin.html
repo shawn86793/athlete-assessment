@@ -1645,36 +1645,77 @@ async function renderTeams() {
 
 const _REG_CUSTOM_GROUPS_KEY = 'SWG_ADMIN_CUSTOM_AGE_GROUPS';
 
-const _BUILTIN_AGE_GROUPS = [
-  { label:'U5',         minAge:0,  maxAge:4,  builtin:true },
-  { label:'U7',         minAge:5,  maxAge:6,  builtin:true },
-  { label:'U9',         minAge:7,  maxAge:8,  builtin:true },
-  { label:'U11',        minAge:9,  maxAge:10, builtin:true },
-  { label:'U13',        minAge:11, maxAge:12, builtin:true },
-  { label:'U15',        minAge:13, maxAge:14, builtin:true },
-  { label:'U18',        minAge:15, maxAge:17, builtin:true },
-  { label:'U21',        minAge:18, maxAge:20, builtin:true },
-  { label:'Senior/Open',minAge:21, maxAge:99, builtin:true },
-];
+// No built-in groups — library starts empty, admin creates groups by year of birth.
 
+/** 8-char unambiguous code generator (no 0/O/1/I) */
+function _genGroupCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c = '';
+  for(let i = 0; i < 8; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  return c;
+}
+
+/**
+ * Load age groups — prefer groups saved on the main app's tryouts (index.html),
+ * fall back to groups stored in admin's own localStorage key.
+ * All groups use minYob / maxYob (year of birth), not age.
+ */
 function _loadCustomAgeGroups() {
+  // Primary: pull from the main app DB (any tryout that has ageGroups defined)
+  const db = state.localDb;
+  if(db) {
+    const tryouts = Object.values(db.tryouts || {});
+    for(const t of tryouts) {
+      if(Array.isArray(t.ageGroups) && t.ageGroups.length) {
+        // Ensure each group has a code
+        t.ageGroups.forEach(g => { if(!g.code) g.code = _genGroupCode(); });
+        return t.ageGroups;
+      }
+    }
+  }
+  // Fallback: admin's own localStorage store
   try { return JSON.parse(localStorage.getItem(_REG_CUSTOM_GROUPS_KEY) || '[]'); }
   catch(e) { return []; }
 }
+
 function _saveCustomAgeGroups(arr) {
   localStorage.setItem(_REG_CUSTOM_GROUPS_KEY, JSON.stringify(arr));
+  // Also persist into the first tryout in the main app DB so both views stay in sync
+  const email = state.email;
+  if(email) {
+    const db = loadLocalAppDb(email);
+    if(db) {
+      const tryouts = Object.values(db.tryouts || {});
+      const target = tryouts.find(t => Array.isArray(t.ageGroups)) || tryouts[0];
+      if(target) {
+        target.ageGroups = arr;
+        target.updatedAt = Date.now();
+        db.tryouts[target.id] = target;
+        saveLocalAppDb(email, db);
+        hydrateStateFromLocalDb(email);
+      }
+    }
+  }
 }
+
 function _buildEffectiveGroups() {
-  const custom = _loadCustomAgeGroups();
-  return [..._BUILTIN_AGE_GROUPS, ...custom].sort((a,b) => a.minAge - b.minAge);
+  // Returns groups sorted by minYob descending (newest births = youngest age first)
+  return _loadCustomAgeGroups().slice().sort((a, b) => b.minYob - a.minYob);
 }
+
+/** Match a registration to a group by year of birth */
 function _makeAgeGroupFn(effectiveGroups) {
   return function(reg) {
-    const yob = parseInt(reg.yearOfBirth || reg.dateOfBirth?.slice(0,4) || '0', 10);
+    const code = String(reg.ageGroupCode || '').trim().toUpperCase();
+    if(code) {
+      const byCode = effectiveGroups.find(g => String(g.code || '').toUpperCase() === code);
+      if(byCode) return byCode.label;
+    }
+    const yob = parseInt(reg.yearOfBirth || (reg.dateOfBirth || '').slice(0, 4) || '0', 10);
     if(!yob) return 'Unknown';
-    const age = new Date().getFullYear() - yob;
     for(const g of effectiveGroups) {
-      if(age >= g.minAge && age <= g.maxAge) return g.label;
+      const lo = parseInt(g.minYob, 10), hi = parseInt(g.maxYob, 10);
+      if(!isNaN(lo) && !isNaN(hi) && yob >= lo && yob <= hi) return g.label;
     }
     return 'Unknown';
   };
@@ -1921,62 +1962,80 @@ function renderRegistrations() {
 // ── Age Group Manager Modal ───────────────────────────────────────────────────
 window._openAgeGroupManager = function() {
   document.getElementById('ageGroupManagerOverlay')?.remove();
+  const yr = new Date().getFullYear();
+
+  function _copyCode(code, btn) {
+    navigator.clipboard?.writeText(code).catch(()=>{});
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(()=>{ btn.textContent = orig; }, 1600);
+  }
+  window._agmCopyCode = _copyCode;
 
   function _renderManagerContent() {
-    const custom = _loadCustomAgeGroups();
-    const builtinRows = _BUILTIN_AGE_GROUPS.map(g => `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--bg);">
-        <span style="flex:1;font-weight:700;font-size:13px;">${esc(g.label)}</span>
-        <span style="font-size:12px;color:var(--muted);">Ages ${g.minAge}–${g.maxAge === 99 ? '∞' : g.maxAge}</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:5px;background:#e0e7ff;color:#3730a3;font-weight:700;">Built-in</span>
-      </div>`).join('');
+    const groups = _loadCustomAgeGroups();
 
-    const customRows = custom.length ? custom.map((g, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--bg);">
-        <span style="flex:1;font-weight:700;font-size:13px;">${esc(g.label)}</span>
-        <span style="font-size:12px;color:var(--muted);">Ages ${g.minAge}–${g.maxAge === 99 ? '∞' : g.maxAge}</span>
-        <button onclick="_deleteCustomAgeGroup(${i})"
-          style="padding:3px 9px;border:1.5px solid #dc2626;border-radius:6px;background:transparent;color:#dc2626;font-size:12px;font-weight:700;cursor:pointer;">✕</button>
+    const groupRows = groups.length ? groups.map((g, i) => `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--bg);">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="width:14px;height:14px;border-radius:50%;background:${esc(g.color||'#6366f1')};flex-shrink:0;"></div>
+          <span style="font-weight:800;font-size:14px;flex:1;">${esc(g.label)}</span>
+          <span style="font-size:12px;color:var(--muted);">YOB ${g.minYob} – ${g.maxYob}</span>
+          <button onclick="_deleteCustomAgeGroup(${i})"
+            style="padding:2px 10px;border:1.5px solid #dc2626;border-radius:6px;background:transparent;color:#dc2626;font-size:12px;font-weight:700;cursor:pointer;">✕</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;">
+          <span style="font-size:11px;color:var(--muted);font-weight:600;">Code:</span>
+          <code style="font-family:monospace;font-size:13px;font-weight:900;letter-spacing:0.12em;color:#7c3aed;background:var(--card);padding:2px 8px;border-radius:6px;border:1px solid var(--border);">${esc(g.code||'—')}</code>
+          ${g.code ? `<button onclick="_agmCopyCode('${esc(g.code)}',this)"
+            style="padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;">📋 Copy</button>` : ''}
+        </div>
       </div>`).join('') :
-      `<div style="color:var(--muted);font-size:13px;padding:8px 0;">No custom groups yet.</div>`;
+      `<div style="text-align:center;padding:28px 20px;border:2px dashed var(--border);border-radius:10px;">
+        <div style="font-size:32px;margin-bottom:8px;">📋</div>
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px;color:var(--text);">No age groups yet</div>
+        <div style="font-size:12px;color:var(--muted);">Create your first group below using year of birth ranges.</div>
+      </div>`;
 
     return `
-      <div style="margin-bottom:18px;">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:8px;">Built-in Groups</div>
-        <div style="display:flex;flex-direction:column;gap:6px;">${builtinRows}</div>
-      </div>
       <div style="margin-bottom:20px;">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:8px;">Custom Groups</div>
-        <div id="customGroupList" style="display:flex;flex-direction:column;gap:6px;">${customRows}</div>
+        <div id="agmGroupList" style="display:flex;flex-direction:column;gap:8px;">${groupRows}</div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:16px;">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:10px;">Add Custom Group</div>
-        <div id="agmError" style="display:none;color:#dc2626;font-size:12px;margin-bottom:8px;font-weight:600;"></div>
-        <div style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px;align-items:end;">
+        <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:12px;">＋ Create Age Group</div>
+        <div id="agmError" style="display:none;color:#dc2626;font-size:12px;margin-bottom:10px;font-weight:600;padding:8px 12px;background:rgba(220,38,38,0.08);border-radius:8px;"></div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:flex-end;flex-wrap:wrap;">
           <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Colour</label>
+            <input id="agmColor" type="color" value="#6366f1"
+              style="width:40px;height:38px;padding:2px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;background:var(--card);">
+          </div>
+          <div style="flex:2;min-width:110px;">
             <label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Group Label</label>
-            <input id="agmLabel" type="text" placeholder="e.g. Bantam, Midget…" maxlength="30"
-              style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;background:var(--card);color:var(--text);">
-          </div>
-          <div>
-            <label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Min Age</label>
-            <input id="agmMinAge" type="number" min="0" max="99" placeholder="0"
-              style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;background:var(--card);color:var(--text);">
-          </div>
-          <div>
-            <label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Max Age</label>
-            <input id="agmMaxAge" type="number" min="0" max="99" placeholder="99"
+            <input id="agmLabel" type="text" placeholder="e.g. 2014 Birth Year" maxlength="40"
               style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;background:var(--card);color:var(--text);">
           </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:12px;justify-content:space-between;align-items:center;">
-          <button onclick="_resetCustomAgeGroups()"
-            style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;background:transparent;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;">
-            🗑 Reset Custom Groups
-          </button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Min Birth Year (oldest)</label>
+            <input id="agmMinYob" type="number" min="1980" max="${yr}" placeholder="${yr-18}"
+              style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;background:var(--card);color:var(--text);">
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;">Max Birth Year (youngest)</label>
+            <input id="agmMaxYob" type="number" min="1980" max="${yr}" placeholder="${yr-7}"
+              style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;background:var(--card);color:var(--text);">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+          ${groups.length ? `<button onclick="_resetCustomAgeGroups()"
+            style="padding:8px 14px;border:1.5px solid #dc2626;border-radius:8px;background:transparent;color:#dc2626;font-size:12px;font-weight:700;cursor:pointer;">
+            🗑 Clear All Groups
+          </button>` : '<div></div>'}
           <button onclick="_addCustomAgeGroup()"
-            style="padding:8px 20px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-size:13px;font-weight:800;cursor:pointer;">
-            + Add Group
+            style="padding:9px 22px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-size:13px;font-weight:800;cursor:pointer;">
+            ＋ Create Group
           </button>
         </div>
       </div>`;
@@ -1984,14 +2043,14 @@ window._openAgeGroupManager = function() {
 
   const overlay = document.createElement('div');
   overlay.id = 'ageGroupManagerOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(5px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
   overlay.innerHTML = `
     <div style="background:var(--card);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.3);
                 width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(--border);">
         <div>
-          <div style="font-size:16px;font-weight:900;">⚙ Age Group Manager</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Custom groups are saved to this browser and persist across sessions.</div>
+          <div style="font-size:16px;font-weight:900;color:var(--text);">📋 Age Group Manager</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Groups defined by year of birth. Each gets a unique 8-digit code for coach imports.</div>
         </div>
         <button onclick="document.getElementById('ageGroupManagerOverlay').remove()"
           style="width:32px;height:32px;border:none;background:var(--bg);border-radius:8px;font-size:18px;cursor:pointer;color:var(--text);line-height:1;">×</button>
@@ -2006,37 +2065,39 @@ window._openAgeGroupManager = function() {
   window._refreshAgmBody = function() {
     const body = document.getElementById('agmBody');
     if(body) body.innerHTML = _renderManagerContent();
-    // Recompute groups + re-render breakdown in background
+    // Recompute groups and refresh the live age breakdown grid
     window._adminEffectiveGroups = _buildEffectiveGroups();
     window._adminAgeGroup = _makeAgeGroupFn(window._adminEffectiveGroups);
-    // Refresh age grid
     const grid = document.getElementById('regAgeGrid');
     const gf   = document.getElementById('regGroupFilter');
     if(grid) {
-      const regs = window._adminAllRegs || [];
-      const bd   = [];
-      const byG  = {};
+      const regs   = window._adminAllRegs || [];
+      const byG    = {};
       for(const r of regs) {
         const g = window._adminAgeGroup(r);
         if(!byG[g]) byG[g] = [];
         byG[g].push(r);
       }
-      const ord = window._adminEffectiveGroups.map(g => g.label);
+      const grps = window._adminEffectiveGroups;
+      const ord  = grps.map(g => g.label);
       const sorted = Object.keys(byG).sort((a,b)=>{
-        const ai=ord.indexOf(a),bi=ord.indexOf(b);
+        const ai=ord.indexOf(a), bi=ord.indexOf(b);
         return (ai===-1?999:ai)-(bi===-1?999:bi);
       });
       grid.innerHTML = sorted.map(label => {
-        const gr = byG[label];
+        const gr  = byG[label];
+        const grp = grps.find(g => g.label === label);
+        const col = grp?.color || '#6366f1';
         const grpPaid = gr.filter(r => r.paymentStatus==='paid').length;
         const pct = gr.length ? Math.round(grpPaid/gr.length*100) : 0;
         return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;cursor:pointer;"
                      onclick="document.getElementById('regGroupFilter').value='${esc(label)}';_filterRegs();">
-          <div style="font-size:20px;font-weight:900;color:var(--accent);">${gr.length}</div>
+          <div style="width:10px;height:10px;border-radius:50%;background:${col};margin:0 auto 4px;"></div>
+          <div style="font-size:20px;font-weight:900;color:${col};">${gr.length}</div>
           <div style="font-size:13px;font-weight:700;margin-top:2px;">${esc(label)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px;">${pct}% paid</div>
           <div style="height:4px;background:var(--border);border-radius:2px;margin-top:6px;">
-            <div style="height:100%;width:${pct}%;background:#059669;border-radius:2px;"></div>
+            <div style="height:100%;width:${pct}%;background:${col};border-radius:2px;"></div>
           </div>
         </div>`;
       }).join('');
@@ -2051,32 +2112,33 @@ window._openAgeGroupManager = function() {
 
   window._addCustomAgeGroup = function() {
     const label  = (document.getElementById('agmLabel')?.value || '').trim();
-    const minAge = parseInt(document.getElementById('agmMinAge')?.value || '', 10);
-    const maxAge = parseInt(document.getElementById('agmMaxAge')?.value || '', 10);
+    const minYob = parseInt(document.getElementById('agmMinYob')?.value || '', 10);
+    const maxYob = parseInt(document.getElementById('agmMaxYob')?.value || '', 10);
+    const color  = document.getElementById('agmColor')?.value || '#6366f1';
     const errEl  = document.getElementById('agmError');
     const showErr = msg => { if(errEl){ errEl.textContent = msg; errEl.style.display = 'block'; } };
-    if(!label)                  return showErr('Label is required.');
-    if(isNaN(minAge)||isNaN(maxAge)) return showErr('Min and max age are required.');
-    if(minAge > maxAge)         return showErr('Min age must be ≤ max age.');
-    if(minAge < 0||maxAge > 99) return showErr('Ages must be between 0 and 99.');
-    const existing = [..._BUILTIN_AGE_GROUPS, ..._loadCustomAgeGroups()];
+    if(!label)                       return showErr('Group label is required.');
+    if(isNaN(minYob)||isNaN(maxYob)) return showErr('Min and Max birth year are required.');
+    if(minYob > maxYob)              return showErr('Min birth year must be ≤ Max birth year.');
+    if(minYob < 1980 || maxYob > new Date().getFullYear()) return showErr('Birth years must be between 1980 and this year.');
+    const existing = _loadCustomAgeGroups();
     if(existing.some(g => g.label.toLowerCase() === label.toLowerCase()))
       return showErr(`"${label}" already exists.`);
-    const custom = _loadCustomAgeGroups();
-    custom.push({ label, minAge, maxAge, builtin:false });
-    _saveCustomAgeGroups(custom);
+    existing.push({ key: 'grp_' + Date.now(), label, minYob, maxYob, color, capacity: 0, code: _genGroupCode() });
+    _saveCustomAgeGroups(existing);
     _refreshAgmBody();
   };
 
   window._deleteCustomAgeGroup = function(idx) {
-    const custom = _loadCustomAgeGroups();
-    custom.splice(idx, 1);
-    _saveCustomAgeGroups(custom);
+    if(!confirm('Remove this age group?')) return;
+    const groups = _loadCustomAgeGroups();
+    groups.splice(idx, 1);
+    _saveCustomAgeGroups(groups);
     _refreshAgmBody();
   };
 
   window._resetCustomAgeGroups = function() {
-    if(!confirm('Remove all custom age groups? Built-in groups will remain.')) return;
+    if(!confirm('Remove ALL age groups? This cannot be undone.')) return;
     _saveCustomAgeGroups([]);
     _refreshAgmBody();
   };
