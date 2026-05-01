@@ -6300,8 +6300,9 @@ function submitCreateOrg(){
   const org = createOrg({ name, sport, city });
   if(!org) return;
   document.getElementById("createOrgOverlay")?.remove();
-  renderHomeContent();
-  showActionBanner(`✅ "${name}" created`, "success");
+  // Re-render the full home screen so the new org banner appears at the top
+  renderHome();
+  showActionBanner(`✅ "${escapeHTML(name)}" created — your organization dashboard is ready.`, "success");
 }
 
 function openEditOrgModal(orgId){
@@ -13433,7 +13434,6 @@ function renderHome(){
           <div class="profileInlineActions">
             <button class="profileInlineBtn ${mobileMode ? 'mobileToggleBtn' : ''}" onclick="toggleMobileMode()" title="${mobileMode ? 'Exit mobile mode' : 'Enable mobile mode for rinkside scoring'}">📱 ${mobileMode ? 'Mobile On' : 'Mobile'}</button>
             <button class="profileInlineBtn" onclick="go('profile')">Profile</button>
-            ${showSuperAdmin ? `<button class="profileSuperAdminBtn" onclick="openSuperAdminFromProfileBar()" aria-label="Open Super Admin Dashboard">🛡 Super Admin</button>` : ``}
             <button class="profileFeedbackBtn ${feedbackSubmitted ? "submitted" : ""}" onclick="openHomeFeedbackFromProfileBar()" aria-label="Give feedback">
               ${escapeHTML(feedbackButtonLabel(feedbackStatus))}
             </button>
@@ -13974,7 +13974,7 @@ function renderHomeContent(){
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="ok" style="width:auto;padding:9px 16px;font-size:13px;font-weight:800;" onclick="startCreateSeason()">+ New Team</button>
-          <button style="width:auto;padding:9px 16px;font-size:13px;font-weight:800;border:none;border-radius:8px;background:rgba(255,255,255,0.18);color:#fff;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'" onclick="window.open('/admin','_blank')">+ New Organization</button>
+          <button style="width:auto;padding:9px 16px;font-size:13px;font-weight:800;border:none;border-radius:8px;background:rgba(255,255,255,0.18);color:#fff;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'" onclick="openCreateOrgModal()">+ New Organization</button>
         </div>
       </div>
       ${(allSeasons.length === 0 && orphanedTeams.length === 0) ? `
