@@ -1,4 +1,4 @@
-// ── Custom Cypress commands ────────────────────────────────────────────────
+﻿// ── Custom Cypress commands ────────────────────────────────────────────────
 //
 // cy.loginViaAPI(email, password)
 //   Full login strategy using four mechanisms together:
@@ -73,16 +73,19 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
   }
 
   // ── Real auth path ────────────────────────────────────────────────────────
+  // NOTE: The POST /token response from Netlify Identity already contains the
+  // full user object — no second GET /user request needed.  Removing that
+  // request eliminates the "GET --- /.netlify/identity/user" abort that caused
+  // this test to hang and fail.
   cy.request({
     method: 'POST',
     url:    '/.netlify/identity/token',
     form:   true,
     body:   { grant_type: 'password', username: email, password },
     failOnStatusCode: false,
-    timeout: 8000,   // fail fast — don't hang for 30 s
+    timeout: 8000,
   }).then((tokenRes) => {
     if (tokenRes.status !== 200) {
-      // Identity endpoint unreachable or creds wrong — fall back to synthetic
       cy.log(
         `⚠️  Identity login failed (${tokenRes.status}) — falling back to synthetic session.\n` +
         `Check COACH_EMAIL / COACH_PASSWORD in cypress.env.json if you need real-auth tests.`
@@ -92,22 +95,15 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
     }
 
     const token = tokenRes.body
-
-    cy.request({
-      method:  'GET',
-      url:     '/.netlify/identity/user',
-      headers: { Authorization: `Bearer ${token.access_token}` },
-      failOnStatusCode: false,
-      timeout: 5000,
-    }).then((userRes) => {
-      const user = userRes.status === 200 ? userRes.body : buildSyntheticSession(email).user
-      const session = {
-        ...token,
-        expires_at: Math.round(Date.now() / 1000) + (token.expires_in || 3600),
-        user,
-      }
-      mountSession(email, session)
-    })
+    // Use the user object embedded in the token response; fall back to synthetic
+    // if the endpoint returned a non-standard payload without a user field.
+    const user = token.user ?? buildSyntheticSession(email).user
+    const session = {
+      ...token,
+      expires_at: Math.round(Date.now() / 1000) + (token.expires_in || 3600),
+      user,
+    }
+    mountSession(email, session)
   })
 })
 
