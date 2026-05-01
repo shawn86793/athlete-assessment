@@ -622,8 +622,6 @@ function adminGenerateDemoRegs(count, opts) {
   target.updatedAt = Date.now();
   db.tryouts[target.id] = target;
   saveLocalAppDb(email, db);
-  // Refresh state so the view shows the new data immediately
-  hydrateStateFromLocalDb(email);
   return newRegs.length;
 }
 
@@ -682,16 +680,25 @@ function runAdminGenDemo() {
 
   if(count <= 300){
     const n = adminGenerateDemoRegs(count, { minYear, maxYear, payMode:'realistic', withSortOut });
-    if(n) { adminToast(`✅ ${n.toLocaleString()} demo registrations generated`, 'success'); navigate('registrations'); }
+    if(n){
+      hydrateStateFromLocalDb(state.email);
+      adminToast(`✅ ${n.toLocaleString()} demo registrations generated`, 'success');
+      navigate('registrations');
+    }
     return;
   }
-  // Chunked async for large counts
+  // Chunked async for large counts — hydrateStateFromLocalDb called ONCE at end
   adminToast(`Generating ${count.toLocaleString()} registrations…`, 'info');
   const CHUNK = 300;
   let done = 0;
   function next(){
     const batch = Math.min(CHUNK, count - done);
-    if(batch <= 0){ adminToast(`✅ ${count.toLocaleString()} demo registrations generated`, 'success'); navigate('registrations'); return; }
+    if(batch <= 0){
+      hydrateStateFromLocalDb(state.email); // single hydrate when all chunks done
+      adminToast(`✅ ${count.toLocaleString()} demo registrations generated`, 'success');
+      navigate('registrations');
+      return;
+    }
     adminGenerateDemoRegs(batch, { minYear, maxYear, payMode:'realistic', withSortOut });
     done += batch;
     setTimeout(next, 0);
@@ -1927,8 +1934,12 @@ function renderRegistrations() {
 
     const tbody = document.getElementById('regTableBody');
     if(!tbody) return;
-    tbody.innerHTML = slice.length ? slice.map(r => `
-      <tr style="border-bottom:1px solid var(--border);">
+    tbody.innerHTML = slice.length ? slice.map(r => {
+      const rid = esc(r.registrationId||'');
+      return `
+      <tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;"
+          onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''"
+          onclick="openAdminRegModal('${rid}')">
         <td style="padding:9px 10px;font-weight:700;">${esc((r.firstName||'')+' '+(r.lastName||''))}</td>
         <td style="padding:9px 10px;color:var(--muted);">${esc(r.dateOfBirth||'—')}</td>
         <td style="padding:9px 10px;">
@@ -1941,7 +1952,7 @@ function renderRegistrations() {
         <td style="padding:9px 10px;font-size:12px;">${esc(r.guardianName||'—')}<br><span style="color:var(--muted);">${esc(r.guardianEmail||'')}</span></td>
         <td style="padding:9px 10px;">${payBadge(r)}</td>
         <td style="padding:9px 10px;color:var(--muted);font-size:11px;">${r.registeredAt ? new Date(r.registeredAt).toLocaleDateString() : '—'}</td>
-      </tr>`).join('') :
+      </tr>`;}).join('') :
       `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--muted);">No registrations match your filters.</td></tr>`;
 
     const pager = document.getElementById('regListPager');
@@ -1957,6 +1968,196 @@ function renderRegistrations() {
 
   window._adminRegFiltered = allRegs;
   _renderRegPage();
+}
+
+// ── Registration Detail / Edit Modal ─────────────────────────────────────────
+function openAdminRegModal(registrationId, editMode) {
+  editMode = !!editMode;
+  const allRegs = state.localRegs || [];
+  const reg = allRegs.find(r => r.registrationId === registrationId);
+  if(!reg){ adminToast('Registration not found.', 'error'); return; }
+  window._adminEditReg = reg;
+  _renderAdminRegModal(reg, editMode);
+}
+
+function _renderAdminRegModal(reg, editMode) {
+  document.getElementById('adminRegDetailOverlay')?.remove();
+
+  const esc2 = v => String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const payColors = { paid:'#059669', partial:'#d97706', unpaid:'#dc2626' };
+  const payLabels = { paid:'✅ Paid', partial:'⚠️ Partial', unpaid:'❌ Unpaid' };
+  const payStatus = reg.paymentStatus || 'unpaid';
+  const ridJS = esc2(reg.registrationId||'');
+
+  // helpers
+  const inp = (id, label, val, type, extra) =>
+    `<div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">${label}</label>
+      <input id="are_${id}" type="${type||'text'}" value="${esc2(val||'')}" ${extra||''}
+        style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;"></div>`;
+  const sel = (id, label, val, opts) =>
+    `<div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">${label}</label>
+      <select id="are_${id}" style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;">
+        ${opts.map(o=>`<option value="${esc2(o)}" ${o===val?'selected':''}>${esc2(o)||'—'}</option>`).join('')}
+      </select></div>`;
+  const ta = (id, label, val) =>
+    `<div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">${label}</label>
+      <textarea id="are_${id}" rows="3" style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;resize:vertical;">${esc2(val||'')}</textarea></div>`;
+  const g2 = (...c) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${c.join('')}</div>`;
+  const g3 = (...c) => `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">${c.join('')}</div>`;
+  const sec = (label, col) => `<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:${col||'var(--muted)'};">${label}</div>`;
+  const tile = (label, val) => val
+    ? `<div style="background:var(--bg);border-radius:8px;padding:8px 10px;">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:2px;">${label}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);">${esc2(val)}</div></div>` : '';
+
+  const viewContent = `
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      ${sec('Personal Information')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        ${tile('Date of Birth', reg.dateOfBirth)}
+        ${tile('Year of Birth', reg.yearOfBirth)}
+        ${tile('Position', reg.positionTryingOutFor)}
+        ${tile('Current Team', reg.currentTeam)}
+        ${tile('Level', reg.currentLevel)}
+        ${tile('Registered', reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : '')}
+      </div>
+      ${reg.guardianName||reg.guardianEmail||reg.guardianPhone ? `
+        ${sec('Guardian / Parent')}
+        <div style="background:var(--bg);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;">
+          ${reg.guardianName  ? `<div style="font-weight:800;font-size:13px;">${esc2(reg.guardianName)}</div>` : ''}
+          ${reg.guardianEmail ? `<div style="font-size:12px;color:var(--muted);">✉️ ${esc2(reg.guardianEmail)}</div>` : ''}
+          ${reg.guardianPhone ? `<div style="font-size:12px;color:var(--muted);">📞 ${esc2(reg.guardianPhone)}</div>` : ''}
+        </div>` : ''}
+      ${sec('Payment')}
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="background:${payColors[payStatus]||'#64748b'}20;color:${payColors[payStatus]||'#64748b'};border-radius:8px;padding:4px 12px;font-size:12px;font-weight:900;">${payLabels[payStatus]||payStatus}</span>
+        ${reg.paymentAmount  ? `<span style="font-size:12px;color:var(--muted);">$${reg.paymentPaid||0} / $${reg.paymentAmount}</span>` : ''}
+        ${reg.paymentDate    ? `<span style="font-size:12px;color:var(--muted);">${reg.paymentDate}</span>` : ''}
+        ${reg.paymentMethod  ? `<span style="font-size:12px;color:var(--muted);">${esc2(reg.paymentMethod)}</span>` : ''}
+      </div>
+      ${reg.aboutChild ? `${sec('About Player')}<div style="background:var(--bg);border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);line-height:1.5;">${esc2(reg.aboutChild)}</div>` : ''}
+      ${reg.medicalInfo ? `${sec('⚕️ Medical Info','#ef4444')}<div style="background:#fef2f220;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:13px;color:var(--text);">${esc2(reg.medicalInfo)}</div>` : ''}
+      ${reg.friendRequest1||reg.friendRequest2 ? `
+        ${sec('🤝 Teammate Requests','#7c3aed')}
+        <div style="background:#f5f3ff20;border:1px solid #ddd6fe;border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;">
+          ${reg.friendRequest1 ? `<div style="font-size:13px;font-weight:600;color:#7c3aed;">1. ${esc2(reg.friendRequest1)}</div>` : ''}
+          ${reg.friendRequest2 ? `<div style="font-size:13px;font-weight:600;color:#7c3aed;">2. ${esc2(reg.friendRequest2)}</div>` : ''}
+        </div>` : ''}
+      ${reg.sortOut ? `<div style="display:inline-block;background:#f9731620;color:#f97316;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:900;">⚠ SORT OUT FLAGGED</div>` : ''}
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;border-top:1px solid var(--border);">
+        <button onclick="document.getElementById('adminRegDetailOverlay').remove()"
+          style="padding:9px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:13px;cursor:pointer;font-weight:700;">Close</button>
+        <button onclick="_renderAdminRegModal(window._adminEditReg, true)"
+          style="padding:9px 22px;border:none;border-radius:8px;background:#6366f1;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">✏️ Edit</button>
+      </div>
+    </div>`;
+
+  const editContent = `
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      ${sec('Player Name')}
+      ${g2(inp('firstName','First Name',reg.firstName), inp('lastName','Last Name',reg.lastName))}
+      ${sec('Birth Information')}
+      ${g2(inp('dateOfBirth','Date of Birth',reg.dateOfBirth,'date'), inp('yearOfBirth','Year of Birth',reg.yearOfBirth,'number','min="1990" max="2025"'))}
+      ${sec('Hockey Details')}
+      ${g3(inp('position','Position',reg.positionTryingOutFor), inp('currentTeam','Current Team',reg.currentTeam), inp('currentLevel','Level',reg.currentLevel))}
+      ${sec('Guardian')}
+      ${inp('guardianName','Guardian Name',reg.guardianName)}
+      ${g2(inp('guardianEmail','Email',reg.guardianEmail,'email'), inp('guardianPhone','Phone',reg.guardianPhone,'tel'))}
+      ${sec('Payment')}
+      ${g2(sel('paymentStatus','Status',payStatus,['unpaid','partial','paid']), inp('paymentAmount','Total ($)',reg.paymentAmount,'number','min="0"'))}
+      ${g3(inp('paymentPaid','Paid ($)',reg.paymentPaid,'number','min="0"'), inp('paymentDate','Payment Date',reg.paymentDate,'date'), sel('paymentMethod','Method',reg.paymentMethod||'',['','credit_card','e-transfer','cash','cheque']))}
+      ${inp('paymentRef','Reference #',reg.paymentRef)}
+      ${sec('Teammate Requests')}
+      ${g2(inp('friendRequest1','Request 1',reg.friendRequest1||''), inp('friendRequest2','Request 2',reg.friendRequest2||''))}
+      ${sec('About Player')}
+      ${ta('aboutChild','Notes / About',reg.aboutChild||'')}
+      ${sec('Medical Info','#ef4444')}
+      ${ta('medicalInfo','Medical Information',reg.medicalInfo||'')}
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--text);">
+        <input type="checkbox" id="are_sortOut" ${reg.sortOut?'checked':''}> Flag as Sort Out
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;border-top:1px solid var(--border);">
+        <button onclick="_renderAdminRegModal(window._adminEditReg, false)"
+          style="padding:9px 18px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font-size:13px;cursor:pointer;font-weight:700;">Cancel</button>
+        <button onclick="_saveAdminRegEdit('${ridJS}')"
+          style="padding:9px 24px;border:none;border-radius:8px;background:#059669;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">💾 Save</button>
+      </div>
+    </div>`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'adminRegDetailOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;box-sizing:border-box;overflow-y:auto;';
+  overlay.innerHTML = `
+    <div style="background:var(--card);border-radius:16px;max-width:560px;width:100%;border:1px solid var(--border);max-height:90vh;overflow-y:auto;position:relative;">
+      <div style="background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 100%);border-radius:16px 16px 0 0;padding:20px 24px 16px;position:relative;">
+        <button onclick="document.getElementById('adminRegDetailOverlay').remove()"
+          style="position:absolute;top:12px;right:14px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer;line-height:1;">&times;</button>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:48px;height:48px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👤</div>
+          <div>
+            <div style="color:#fff;font-size:17px;font-weight:900;">${esc2((reg.firstName||'')+' '+(reg.lastName||'')).trim()||'Unknown'}</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:2px;">
+              ${esc2(reg.positionTryingOutFor||'')}
+              ${reg.source==='demo'?'<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;background:#7c3aed;color:#fff;margin-left:5px;">DEMO</span>':''}
+              ${editMode?'<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;background:#6366f1;color:#fff;margin-left:5px;">EDITING</span>':''}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:20px 24px;">${editMode ? editContent : viewContent}</div>
+    </div>`;
+  overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function _saveAdminRegEdit(registrationId) {
+  const allRegs = state.localRegs || [];
+  const reg = allRegs.find(r => r.registrationId === registrationId);
+  if(!reg){ adminToast('Registration not found.','error'); return; }
+
+  const gv = id => (document.getElementById(`are_${id}`)?.value||'').trim();
+  const gc = id => document.getElementById(`are_${id}`)?.checked||false;
+
+  reg.firstName          = gv('firstName');
+  reg.lastName           = gv('lastName');
+  reg.dateOfBirth        = gv('dateOfBirth');
+  reg.yearOfBirth        = gv('yearOfBirth') || (reg.dateOfBirth?reg.dateOfBirth.slice(0,4):'');
+  reg.positionTryingOutFor = gv('position');
+  reg.currentTeam        = gv('currentTeam');
+  reg.currentLevel       = gv('currentLevel');
+  reg.guardianName       = gv('guardianName');
+  reg.guardianEmail      = gv('guardianEmail');
+  reg.guardianPhone      = gv('guardianPhone');
+  reg.paymentStatus      = gv('paymentStatus');
+  reg.paymentAmount      = parseFloat(gv('paymentAmount'))||reg.paymentAmount;
+  reg.paymentPaid        = parseFloat(gv('paymentPaid'))||0;
+  reg.paymentDate        = gv('paymentDate');
+  reg.paymentMethod      = gv('paymentMethod');
+  reg.paymentRef         = gv('paymentRef');
+  reg.friendRequest1     = gv('friendRequest1');
+  reg.friendRequest2     = gv('friendRequest2');
+  reg.aboutChild         = gv('aboutChild');
+  reg.medicalInfo        = gv('medicalInfo');
+  reg.sortOut            = gc('sortOut');
+  reg.updatedAt          = Date.now();
+
+  // Write back to localStorage
+  const db = loadLocalAppDb(state.email);
+  if(db){
+    const tryouts = Object.values(db.tryouts||{});
+    const target = tryouts.find(t => (t.registrations||[]).some(r=>r.registrationId===registrationId));
+    if(target){
+      target.registrations = (target.registrations||[]).map(r => r.registrationId===registrationId ? reg : r);
+      target.updatedAt = Date.now();
+      db.tryouts[target.id] = target;
+      saveLocalAppDb(state.email, db);
+      hydrateStateFromLocalDb(state.email);
+    }
+  }
+
+  adminToast('✅ Registration updated','success');
+  window._adminEditReg = reg;
+  _renderAdminRegModal(reg, false); // back to view
 }
 
 // ── Age Group Manager Modal ───────────────────────────────────────────────────

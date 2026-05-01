@@ -16011,66 +16011,8 @@ function refreshRegistrations(){
 
 // ── Demo Registration Generator ───────────────────────────────────────────
 
-function openDemoRegistrationGenerator(){
-  const overlay = document.createElement("div");
-  overlay.id = "demoRegOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);max-height:90vh;overflow-y:auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <h3 style="margin:0;font-size:17px;font-weight:900;">🎭 Generate Demo Registrations</h3>
-        <button onclick="document.getElementById('demoRegOverlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;line-height:1;">&times;</button>
-      </div>
-      <p style="color:#64748b;font-size:13px;margin:0 0 18px;">Creates realistic fake registration records for testing the enterprise registration system. All demo records are tagged and can be cleared in bulk.</p>
-
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#475569;margin-bottom:4px;">Number of Registrations</label>
-      <input id="demoRegCount" type="number" min="1" max="200" value="25"
-        style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:15px;margin-bottom:14px;box-sizing:border-box;">
-
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#475569;margin-bottom:4px;">Birth Year Range</label>
-      <div style="display:flex;gap:8px;margin-bottom:14px;">
-        <input id="demoRegMinYear" type="number" min="2000" max="2025" value="2008" placeholder="From year"
-          style="flex:1;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
-        <span style="line-height:36px;color:#94a3b8;">to</span>
-        <input id="demoRegMaxYear" type="number" min="2000" max="2025" value="2016" placeholder="To year"
-          style="flex:1;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:14px;box-sizing:border-box;">
-      </div>
-
-      <label style="display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#475569;margin-bottom:4px;">Payment Simulation</label>
-      <div style="display:flex;gap:8px;margin-bottom:18px;">
-        <label style="flex:1;display:flex;align-items:center;gap:6px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;">
-          <input type="radio" name="demoPayMode" value="realistic" checked> Realistic mix
-        </label>
-        <label style="flex:1;display:flex;align-items:center;gap:6px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;">
-          <input type="radio" name="demoPayMode" value="all_paid"> All paid
-        </label>
-        <label style="flex:1;display:flex;align-items:center;gap:6px;border:1.5px solid #cbd5e1;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;">
-          <input type="radio" name="demoPayMode" value="none"> No payments
-        </label>
-      </div>
-
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:18px;">
-        <input type="checkbox" id="demoRegSortOut"> Include some "Sort Out" flags
-      </label>
-
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button onclick="document.getElementById('demoRegOverlay').remove()" style="padding:9px 18px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-weight:700;color:#475569;">Cancel</button>
-        <button onclick="runDemoRegistrationGenerator()" style="padding:9px 22px;border:none;border-radius:8px;background:#7c3aed;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">Generate</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-function runDemoRegistrationGenerator(){
-  const count     = Math.max(1, Math.min(200, parseInt(document.getElementById("demoRegCount")?.value || "25", 10)));
-  const minYear   = parseInt(document.getElementById("demoRegMinYear")?.value || "2008", 10);
-  const maxYear   = parseInt(document.getElementById("demoRegMaxYear")?.value || "2016", 10);
-  const payMode   = document.querySelector('input[name="demoPayMode"]:checked')?.value || "realistic";
-  const withSortOut = document.getElementById("demoRegSortOut")?.checked || false;
-  document.getElementById("demoRegOverlay")?.remove();
-  generateDemoRegistrations(count, { minYear, maxYear, payMode, withSortOut });
-}
+function openDemoRegistrationGenerator(){ openGenDemoModal(); }
+function runDemoRegistrationGenerator(){ /* legacy — no-op, openDemoRegistrationGenerator now delegates to openGenDemoModal */ }
 
 // ── Registration Hub: Generate Dummy Data modal (up to 2500) ────────────────
 
@@ -16460,148 +16402,286 @@ function clearDemoRegistrations(){
 
 // ── Registration Player Card ───────────────────────────────────────────────
 
-function openRegistrationPlayerCard(registrationId){
-  // Find registration in cache — search by registrationId or by local_N key
+function _findRegistration(registrationId){
   const pending = pendingRegistrations();
   let reg = pending.find(r => r.registrationId === registrationId);
   if(!reg){
-    // Try local_N index fallback
     const m = String(registrationId).match(/^local_(\d+)$/);
     if(m) reg = pending[parseInt(m[1], 10)];
   }
-  if(!reg){ showActionBanner("Registration not found.", "error"); return; }
+  return reg || null;
+}
 
-  const t = getTryout();
+function openRegistrationPlayerCard(registrationId){
+  const reg = _findRegistration(registrationId);
+  if(!reg){ showActionBanner("Registration not found.", "error"); return; }
+  _renderRegCardOverlay(reg, false);
+}
+
+function _renderRegCardOverlay(reg, editMode){
+  document.getElementById("regPlayerCardOverlay")?.remove();
+
+  const t      = getTryout();
   const groups = getAgeGroups(t);
   const ageGroupKey = assignAgeGroup(reg, groups);
   const ageGroup    = ageGroupKey ? (groups.find(g => g.key === ageGroupKey) || null) : null;
+  const positions   = getPositionsForSport(getSportFromTryout(t));
 
-  // Calculate age from full DOB or year of birth
+  // Age display
   let ageDisplay = "";
   if(reg.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(reg.dateOfBirth)){
-    const dob   = new Date(reg.dateOfBirth);
-    const today = new Date();
-    let age     = today.getFullYear() - dob.getFullYear();
-    const mDiff = today.getMonth() - dob.getMonth();
-    if(mDiff < 0 || (mDiff === 0 && today.getDate() < dob.getDate())) age--;
-    ageDisplay  = `${age} years old`;
+    const dob = new Date(reg.dateOfBirth), today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const mD = today.getMonth() - dob.getMonth();
+    if(mD < 0 || (mD === 0 && today.getDate() < dob.getDate())) age--;
+    ageDisplay = `${age} years old`;
   } else if(reg.yearOfBirth){
-    const age  = new Date().getFullYear() - parseInt(reg.yearOfBirth, 10);
-    ageDisplay = `~${age} years old`;
+    ageDisplay = `~${new Date().getFullYear() - parseInt(reg.yearOfBirth, 10)} years old`;
   }
 
-  // Payment badge
   const payColors = { paid:"#059669", partial:"#d97706", unpaid:"#dc2626" };
   const payLabels = { paid:"✅ Paid", partial:"⚠️ Partial", unpaid:"❌ Unpaid" };
   const payStatus = reg.paymentStatus || "";
-  const payBadge  = payStatus
-    ? `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:900;background:${payColors[payStatus]||"#64748b"};color:#fff;">${payLabels[payStatus] || payStatus.toUpperCase()}</span>`
-    : "";
-  const payDetails = payStatus && payStatus !== "unpaid" ? `
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
-      ${reg.paymentAmount   ? `<div style="font-size:12px;color:#64748b;">Amount: <strong>$${reg.paymentPaid ?? reg.paymentAmount}${reg.paymentStatus==="partial"? ` / $${reg.paymentAmount}`:""}</strong></div>` : ""}
-      ${reg.paymentMethod   ? `<div style="font-size:12px;color:#64748b;">Method: <strong>${reg.paymentMethod.replace("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}</strong></div>` : ""}
-      ${reg.paymentDate     ? `<div style="font-size:12px;color:#64748b;">Date: <strong>${reg.paymentDate}</strong></div>` : ""}
-      ${reg.paymentRef      ? `<div style="font-size:12px;color:#64748b;">Ref: <strong>${escapeHTML(reg.paymentRef)}</strong></div>` : ""}
-    </div>` : "";
-
   const ageGroupBadge = ageGroup
     ? `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:900;background:${ageGroup.color||"#6366f1"};color:#fff;margin-left:6px;">${escapeHTML(ageGroup.label)}</span>`
     : "";
 
-  const overlay = document.createElement("div");
-  overlay.id = "regPlayerCardOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
-  overlay.innerHTML = `
-    <div style="background:#fff;border-radius:14px;max-width:500px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);max-height:92vh;overflow-y:auto;position:relative;">
+  const ridJS = escapeJS(reg.registrationId || "");
 
-      <!-- Header strip -->
-      <div style="background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 100%);border-radius:14px 14px 0 0;padding:20px 24px 16px;position:relative;">
-        <button onclick="document.getElementById('regPlayerCardOverlay').remove()" style="position:absolute;top:12px;right:14px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer;line-height:1;">&times;</button>
-        <div style="display:flex;align-items:center;gap:14px;">
-          <div style="width:52px;height:52px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">👤</div>
-          <div>
-            <div style="color:#fff;font-size:20px;font-weight:900;line-height:1.1;">${escapeHTML(`${reg.firstName || ""} ${reg.lastName || ""}`.trim() || "Unknown")}</div>
-            <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:3px;">
-              ${escapeHTML(reg.positionTryingOutFor || "")}${ageGroupBadge}
-              ${reg.source === "demo" ? `<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;background:#7c3aed;color:#fff;margin-left:5px;">DEMO</span>` : ""}
-              ${reg.sortOut ? `<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;background:#f97316;color:#fff;margin-left:5px;">SORT OUT</span>` : ""}
-            </div>
+  // ── INPUT HELPER ────────────────────────────────────────────────────────────
+  const inp = (id, label, val, type="text", extra="") =>
+    `<div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">${label}</label>
+      <input id="rce_${id}" type="${type}" value="${escapeAttr(String(val||""))}" ${extra}
+        style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--field-bg,#f8fafc);color:var(--ink);font-size:13px;"></div>`;
+
+  const sel = (id, label, val, opts) =>
+    `<div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">${label}</label>
+      <select id="rce_${id}" style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--field-bg,#f8fafc);color:var(--ink);font-size:13px;">
+        ${opts.map(o=>`<option value="${escapeAttr(o)}" ${o===val?"selected":""}>${escapeHTML(o)}</option>`).join("")}
+      </select></div>`;
+
+  const ta = (id, label, val) =>
+    `<div><label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#94a3b8;margin-bottom:3px;">${label}</label>
+      <textarea id="rce_${id}" rows="3"
+        style="width:100%;box-sizing:border-box;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--field-bg,#f8fafc);color:var(--ink);font-size:13px;resize:vertical;">${escapeHTML(String(val||""))}</textarea></div>`;
+
+  const g2 = (...cols) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${cols.join("")}</div>`;
+  const g3 = (...cols) => `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">${cols.join("")}</div>`;
+
+  // ── SECTION LABEL ────────────────────────────────────────────────────────────
+  const sec = (label, color="#94a3b8") =>
+    `<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:${color};margin-top:4px;">${label}</div>`;
+
+  // ── VIEW MODE BODY ────────────────────────────────────────────────────────────
+  function viewBody(){
+    const payBadge = payStatus
+      ? `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:900;background:${payColors[payStatus]||"#64748b"};color:#fff;">${payLabels[payStatus]||payStatus.toUpperCase()}</span>` : "";
+    const payDetails = payStatus && payStatus !== "unpaid" ? `
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">
+        ${reg.paymentAmount  ? `<div style="font-size:12px;color:#64748b;">Amount: <strong>$${reg.paymentPaid??reg.paymentAmount}${reg.paymentStatus==="partial"?` / $${reg.paymentAmount}`:""}</strong></div>` : ""}
+        ${reg.paymentMethod  ? `<div style="font-size:12px;color:#64748b;">Method: <strong>${reg.paymentMethod.replace("_"," ").replace(/\b\w/g,c=>c.toUpperCase())}</strong></div>` : ""}
+        ${reg.paymentDate    ? `<div style="font-size:12px;color:#64748b;">Date: <strong>${reg.paymentDate}</strong></div>` : ""}
+        ${reg.paymentRef     ? `<div style="font-size:12px;color:#64748b;">Ref: <strong>${escapeHTML(reg.paymentRef)}</strong></div>` : ""}
+      </div>` : "";
+
+    const tile = (label, val) => val
+      ? `<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:2px;">${label}</div>
+          <div style="font-size:13px;font-weight:700;">${escapeHTML(String(val))}</div>
+        </div>` : "";
+
+    return `
+      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+        <div>
+          ${sec("Personal Information")}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+            ${tile("Date of Birth", reg.dateOfBirth)}
+            ${tile("Age", ageDisplay)}
+            ${tile("Year of Birth", reg.yearOfBirth)}
+            ${tile("Position", reg.positionTryingOutFor)}
+            ${tile("Current Team", reg.currentTeam)}
+            ${tile("Level", reg.currentLevel)}
+            ${tile("Registered", reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "")}
           </div>
         </div>
-      </div>
 
-      <!-- Body -->
-      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
-
-        <!-- Personal Info -->
+        ${reg.guardianName||reg.guardianEmail||reg.guardianPhone ? `
         <div>
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:8px;">Personal Information</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            ${reg.dateOfBirth ? `<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Date of Birth</div><div style="font-size:13px;font-weight:700;">${escapeHTML(reg.dateOfBirth)}</div></div>` : ""}
-            ${ageDisplay ? `<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Age</div><div style="font-size:13px;font-weight:700;">${escapeHTML(ageDisplay)}</div></div>` : ""}
-            ${reg.yearOfBirth ? `<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Year of Birth</div><div style="font-size:13px;font-weight:700;">${escapeHTML(reg.yearOfBirth)}</div></div>` : ""}
-            ${reg.currentTeam ? `<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Current Team</div><div style="font-size:13px;font-weight:700;">${escapeHTML(reg.currentTeam)}</div></div>` : ""}
-            ${reg.currentLevel ? `<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Level</div><div style="font-size:13px;font-weight:700;">${escapeHTML(reg.currentLevel)}</div></div>` : ""}
-            ${reg.registeredAt ? `<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Registered</div><div style="font-size:13px;font-weight:700;">${escapeHTML(new Date(reg.registeredAt).toLocaleDateString())}</div></div>` : ""}
-          </div>
-        </div>
-
-        <!-- Guardian Info -->
-        ${reg.guardianName || reg.guardianEmail || reg.guardianPhone ? `
-        <div>
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:8px;">Guardian / Parent</div>
-          <div style="background:#f0fdf4;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:5px;">
+          ${sec("Guardian / Parent")}
+          <div style="background:#f0fdf4;border-radius:8px;padding:12px 14px;margin-top:6px;display:flex;flex-direction:column;gap:5px;">
             ${reg.guardianName  ? `<div style="font-size:14px;font-weight:800;">${escapeHTML(reg.guardianName)}</div>` : ""}
             ${reg.guardianEmail ? `<div style="font-size:12px;color:#374151;">✉️ ${escapeHTML(reg.guardianEmail)}</div>` : ""}
             ${reg.guardianPhone ? `<div style="font-size:12px;color:#374151;">📞 ${escapeHTML(reg.guardianPhone)}</div>` : ""}
           </div>
         </div>` : ""}
 
-        <!-- Payment -->
         ${payStatus ? `
         <div>
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:8px;">Payment</div>
-          <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;">
-            ${payBadge}${payDetails}
-          </div>
+          ${sec("Payment")}
+          <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;margin-top:6px;">${payBadge}${payDetails}</div>
         </div>` : ""}
 
-        <!-- About Child -->
-        ${reg.aboutChild || reg.aboutPlayer ? `
+        ${reg.aboutChild||reg.aboutPlayer ? `
         <div>
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8;margin-bottom:8px;">About Player</div>
-          <div style="background:#fffbeb;border-radius:8px;padding:12px 14px;font-size:13px;color:#374151;line-height:1.5;">${escapeHTML(reg.aboutChild || reg.aboutPlayer || "")}</div>
+          ${sec("About Player")}
+          <div style="background:#fffbeb;border-radius:8px;padding:12px 14px;margin-top:6px;font-size:13px;color:#374151;line-height:1.5;">${escapeHTML(reg.aboutChild||reg.aboutPlayer||"")}</div>
         </div>` : ""}
 
-        <!-- Medical Info -->
         ${reg.medicalInfo ? `
         <div>
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#ef4444;margin-bottom:8px;">⚕️ Medical Information</div>
-          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;font-size:13px;color:#374151;">${escapeHTML(reg.medicalInfo)}</div>
+          ${sec("⚕️ Medical Information","#ef4444")}
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;margin-top:6px;font-size:13px;color:#374151;">${escapeHTML(reg.medicalInfo)}</div>
         </div>` : ""}
 
-        <!-- Teammate Requests -->
-        ${reg.friendRequest1 || reg.friendRequest2 || reg.friend1Name || reg.friend2Name ? `
+        ${reg.friendRequest1||reg.friendRequest2||reg.friend1Name||reg.friend2Name ? `
         <div>
-          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;color:#7c3aed;margin-bottom:8px;">🤝 Teammate Requests</div>
-          <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;">
+          ${sec("🤝 Teammate Requests","#7c3aed")}
+          <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;margin-top:6px;display:flex;flex-direction:column;gap:6px;">
             ${reg.friendRequest1||reg.friend1Name ? `<div style="font-size:13px;font-weight:600;color:#4c1d95;">1. ${escapeHTML(reg.friendRequest1||reg.friend1Name||"")}</div>` : ""}
             ${reg.friendRequest2||reg.friend2Name ? `<div style="font-size:13px;font-weight:600;color:#4c1d95;">2. ${escapeHTML(reg.friendRequest2||reg.friend2Name||"")}</div>` : ""}
-            <div style="font-size:11px;color:#8b5cf6;margin-top:2px;">Requests are considered but not guaranteed.</div>
           </div>
         </div>` : ""}
 
-        <!-- Footer -->
-        <div style="display:flex;justify-content:flex-end;padding-top:4px;">
-          <button onclick="document.getElementById('regPlayerCardOverlay').remove()" style="padding:9px 22px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-weight:700;color:#475569;">Close</button>
+        <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;">
+          <button onclick="document.getElementById('regPlayerCardOverlay').remove()"
+            style="padding:9px 18px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-weight:700;color:#475569;">Close</button>
+          <button onclick="_renderRegCardOverlay(window._regCardReg, true)"
+            style="padding:9px 22px;border:none;border-radius:8px;background:#6366f1;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">✏️ Edit</button>
+        </div>
+      </div>`;
+  }
+
+  // ── EDIT MODE BODY ────────────────────────────────────────────────────────────
+  function editBody(){
+    const posOpts = ["", ...positions];
+    const payOpts = ["unpaid","partial","paid"];
+    const methodOpts = ["","credit_card","e-transfer","cash","cheque"];
+    return `
+      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+
+        ${sec("Player Name")}
+        ${g2(inp("firstName","First Name", reg.firstName), inp("lastName","Last Name", reg.lastName))}
+
+        ${sec("Birth Information")}
+        ${g2(inp("dateOfBirth","Date of Birth", reg.dateOfBirth,"date"), inp("yearOfBirth","Year of Birth", reg.yearOfBirth,"number","min='1990' max='2025'"))}
+
+        ${sec("Hockey Details")}
+        ${g3(sel("position","Position", reg.positionTryingOutFor, posOpts),
+             inp("currentTeam","Current Team", reg.currentTeam),
+             inp("currentLevel","Level", reg.currentLevel))}
+
+        ${sec("Guardian / Parent")}
+        ${inp("guardianName","Guardian Name", reg.guardianName)}
+        ${g2(inp("guardianEmail","Guardian Email", reg.guardianEmail,"email"),
+             inp("guardianPhone","Guardian Phone", reg.guardianPhone,"tel"))}
+
+        ${sec("Payment")}
+        ${g2(sel("paymentStatus","Status", payStatus||"unpaid", payOpts),
+             inp("paymentAmount","Total Amount ($)", reg.paymentAmount,"number","min='0'"))}
+        ${g3(inp("paymentPaid","Amount Paid ($)", reg.paymentPaid,"number","min='0'"),
+             inp("paymentDate","Payment Date", reg.paymentDate,"date"),
+             sel("paymentMethod","Method", reg.paymentMethod||"", methodOpts))}
+        ${inp("paymentRef","Reference #", reg.paymentRef)}
+
+        ${sec("Teammate Requests")}
+        ${g2(inp("friendRequest1","Request 1", reg.friendRequest1||reg.friend1Name||""),
+             inp("friendRequest2","Request 2", reg.friendRequest2||reg.friend2Name||""))}
+
+        ${sec("About Player")}
+        ${ta("aboutChild","About Player / Notes", reg.aboutChild||reg.aboutPlayer||"")}
+
+        ${sec("Medical Information","#ef4444")}
+        ${ta("medicalInfo","Medical Info (allergies, conditions, etc.)", reg.medicalInfo||"")}
+
+        <div>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;color:var(--ink);">
+            <input type="checkbox" id="rce_sortOut" ${reg.sortOut ? "checked" : ""}> Flag as Sort Out
+          </label>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:4px;border-top:1px solid var(--border);">
+          <button onclick="_renderRegCardOverlay(window._regCardReg, false)"
+            style="padding:9px 18px;border:1.5px solid #cbd5e1;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-weight:700;color:#475569;">Cancel</button>
+          <button onclick="_saveRegistrationEdits('${ridJS}')"
+            style="padding:9px 24px;border:none;border-radius:8px;background:#059669;color:#fff;font-size:13px;font-weight:900;cursor:pointer;">💾 Save Changes</button>
+        </div>
+      </div>`;
+  }
+
+  // ── ASSEMBLE OVERLAY ─────────────────────────────────────────────────────────
+  window._regCardReg = reg; // keep reference for edit↔view toggle
+  const overlay = document.createElement("div");
+  overlay.id = "regPlayerCardOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;";
+  overlay.innerHTML = `
+    <div style="background:var(--card,#fff);border-radius:14px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.35);max-height:92vh;overflow-y:auto;position:relative;">
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg,#0a1e3d 0%,#1e3a5f 100%);border-radius:14px 14px 0 0;padding:20px 24px 16px;position:relative;">
+        <button onclick="document.getElementById('regPlayerCardOverlay').remove()"
+          style="position:absolute;top:12px;right:14px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:18px;width:28px;height:28px;border-radius:50%;cursor:pointer;line-height:1;">&times;</button>
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:52px;height:52px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">👤</div>
+          <div>
+            <div style="color:#fff;font-size:18px;font-weight:900;line-height:1.2;">${escapeHTML(`${reg.firstName||""} ${reg.lastName||""}`.trim()||"Unknown")}</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:3px;">
+              ${escapeHTML(reg.positionTryingOutFor||"")}${ageGroupBadge}
+              ${reg.source==="demo"?`<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;background:#7c3aed;color:#fff;margin-left:5px;">DEMO</span>`:""}
+              ${reg.sortOut?`<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;background:#f97316;color:#fff;margin-left:5px;">SORT OUT</span>`:""}
+              ${editMode?`<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:900;background:#6366f1;color:#fff;margin-left:5px;">EDITING</span>`:""}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  `;
+      <!-- Body (view or edit) -->
+      ${editMode ? editBody() : viewBody()}
+    </div>`;
   document.body.appendChild(overlay);
-  // Close on backdrop click
   overlay.addEventListener("click", e => { if(e.target === overlay) overlay.remove(); });
+}
+
+function _saveRegistrationEdits(registrationId){
+  const reg = _findRegistration(registrationId);
+  if(!reg){ showActionBanner("Registration not found.", "error"); return; }
+
+  const gv = id => (document.getElementById(`rce_${id}`)?.value || "").trim();
+  const gc = id => document.getElementById(`rce_${id}`)?.checked || false;
+
+  reg.firstName          = gv("firstName");
+  reg.lastName           = gv("lastName");
+  reg.dateOfBirth        = gv("dateOfBirth");
+  reg.yearOfBirth        = gv("yearOfBirth") || (reg.dateOfBirth ? reg.dateOfBirth.slice(0,4) : "");
+  reg.positionTryingOutFor = gv("position");
+  reg.currentTeam        = gv("currentTeam");
+  reg.currentLevel       = gv("currentLevel");
+  reg.guardianName       = gv("guardianName");
+  reg.guardianEmail      = gv("guardianEmail");
+  reg.guardianPhone      = gv("guardianPhone");
+  reg.paymentStatus      = gv("paymentStatus");
+  reg.paymentAmount      = parseFloat(gv("paymentAmount")) || reg.paymentAmount;
+  reg.paymentPaid        = parseFloat(gv("paymentPaid")) || 0;
+  reg.paymentDate        = gv("paymentDate");
+  reg.paymentMethod      = gv("paymentMethod");
+  reg.paymentRef         = gv("paymentRef");
+  reg.friendRequest1     = gv("friendRequest1");
+  reg.friendRequest2     = gv("friendRequest2");
+  reg.aboutChild         = gv("aboutChild");
+  reg.medicalInfo        = gv("medicalInfo");
+  reg.sortOut            = gc("sortOut");
+  reg.updatedAt          = Date.now();
+
+  // Persist
+  const t = getTryout();
+  if(t){
+    t.registrations = registrationsCache;
+    saveDB();
+  }
+
+  showActionBanner(`✅ Registration updated`, "success");
+  window._regCardReg = reg;
+  _renderRegCardOverlay(reg, false); // back to view mode
+  // Refresh the list in background
+  if(currentView === "regHub") renderRegistrationHub();
+  else if(currentView === "registrations") renderDemoRegistrationsView();
 }
 
 function toggleRegistrationSelection(registrationId, checked){
