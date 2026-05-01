@@ -13746,6 +13746,14 @@ function renderHomeContent(){
 
   const teamsHTML = allSeasons.map(season => {
     const playerCount = (season.roster || []).length;
+    const scoredPlayers = (season.roster || []).filter(p => p.overall != null && Number(p.overall) > 0);
+    const evaluatedCount = scoredPlayers.length;
+    const evalPct = playerCount > 0 ? Math.round((evaluatedCount / playerCount) * 100) : 0;
+    const avgScore = scoredPlayers.length > 0
+      ? scoredPlayers.reduce((s, p) => s + Number(p.overall), 0) / scoredPlayers.length
+      : null;
+    const healthColor = evalPct >= 70 ? '#10b981' : evalPct >= 30 ? '#f59e0b' : playerCount === 0 ? '#94a3b8' : '#ef4444';
+    const healthLabel = evalPct >= 70 ? 'Great Shape' : evalPct >= 30 ? 'In Progress' : playerCount === 0 ? 'Empty Roster' : 'Needs Attention';
     const events = (season.events || []).slice().sort((a,b)=>{
       const da = a.date ? new Date(a.date + (a.startTime ? "T" + a.startTime : "")).getTime() : 0;
       const db = b.date ? new Date(b.date + (b.startTime ? "T" + b.startTime : "")).getTime() : 0;
@@ -13753,37 +13761,57 @@ function renderHomeContent(){
     });
     const upcoming = events.filter(e => e.date && new Date(e.date + (e.startTime ? "T" + e.startTime : "")).getTime() >= now);
     const nextEvent = upcoming[0] || null;
-    const nextEventStr = nextEvent ? formatSeasonDateCompact(nextEvent.date) + (nextEvent.title ? " — " + nextEvent.title : "") : "No upcoming events";
-    return `
-      <div class="teamCard" onclick="openSeason('${escapeJS(season.id)}')" tabindex="0" role="button" aria-label="Open ${escapeAttr(season.teamName || season.name)}" style="position:relative;">
-        <span class="recordTypeBadge team">TEAM HUB</span>
-        <button class="danger" style="position:absolute;top:8px;right:8px;width:auto;padding:3px 10px;font-size:11px;z-index:2;"
-          onclick="event.stopPropagation();deleteSeasonFromHome('${escapeJS(season.id)}')">Delete</button>
-        <div class="teamCardInfo" style="padding-top:18px;">
-          <div class="teamCardName">${escapeHTML(season.teamName || season.name)}</div>
-          <div class="teamCardMeta">${escapeHTML(season.sport || "Sport")} &bull; ${escapeHTML(season.year || "Year")}</div>
-          <div class="teamCardBadges">
-            <span>👥 ${playerCount} player${playerCount!==1?"s":""}</span>
-            <span>📅 ${events.length} event${events.length!==1?"s":""}</span>
-            <span>⏭ ${escapeHTML(nextEventStr)}</span>
-          </div>
-        </div>
-        <div class="teamCardArrow">&#8594;</div>
-      </div>
-    `;
-  }).join("") + orphanedTeams.map(team=>`
-    <div class="teamCard" onclick="setupOrphanedTeam('${escapeJS(team.id)}')" tabindex="0" role="button" aria-label="Set up ${escapeAttr(team.name)}" style="position:relative;">
-      <span class="recordTypeBadge team">TEAM HUB</span>
-      <button class="danger" style="position:absolute;top:8px;right:8px;width:auto;padding:3px 10px;font-size:11px;z-index:2;"
-        onclick="event.stopPropagation();deleteOrphanedTeamFromHome('${escapeJS(team.id)}')">Delete</button>
-      <div class="teamCardInfo" style="padding-top:18px;">
-        <div class="teamCardName">${escapeHTML(team.name)}</div>
-        <div class="teamCardMeta">${escapeHTML(team.season || "Season")} &bull; Needs setup</div>
-        <div class="teamCardBadges"><span>Tap to complete team setup</span></div>
-      </div>
-      <div class="teamCardArrow">&#8594;</div>
-    </div>
-  `).join("");
+    const nextEventStr = nextEvent ? formatSeasonDateCompact(nextEvent.date) + (nextEvent.title ? " — " + nextEvent.title : "") : null;
+    const scoreStr = avgScore !== null ? avgScore.toFixed(1) : null;
+    return (
+      '<div onclick="openSeason(\'' + escapeJS(season.id) + '\')" tabindex="0" role="button" aria-label="Open ' + escapeAttr(season.teamName || season.name) + '" style="background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:16px;margin-bottom:12px;cursor:pointer;position:relative;transition:border-color 0.15s,box-shadow 0.15s;" onmouseover="this.style.borderColor=\'#4f46e5\';this.style.boxShadow=\'0 4px 20px rgba(79,70,229,0.13)\'" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.boxShadow=\'none\'">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px;">' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:16px;font-weight:900;color:#0f172a;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHTML(season.teamName || season.name) + '</div>' +
+            '<div style="font-size:12px;color:#64748b;margin-top:2px;">' + escapeHTML(season.sport || 'Sport') + ' &bull; ' + escapeHTML(season.year || 'Year') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
+            (scoreStr !== null ? '<div style="background:linear-gradient(135deg,#1e3a5f,#0a1e3d);color:#fff;padding:4px 10px;border-radius:8px;font-size:13px;font-weight:900;">&#9733; ' + scoreStr + '</div>' : '') +
+            '<div style="background:' + healthColor + '20;color:' + healthColor + ';border:1.5px solid ' + healthColor + '60;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;">' + healthLabel + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="margin-bottom:12px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+            '<div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Roster Evaluated</div>' +
+            '<div style="font-size:12px;font-weight:800;color:' + healthColor + ';">' + evaluatedCount + '/' + playerCount + ' (' + evalPct + '%)</div>' +
+          '</div>' +
+          '<div style="height:7px;background:#e2e8f0;border-radius:999px;overflow:hidden;">' +
+            '<div style="height:100%;width:' + evalPct + '%;background:' + healthColor + ';border-radius:999px;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
+          '<div style="background:#f8fafc;border-radius:8px;padding:6px 12px;text-align:center;min-width:56px;">' +
+            '<div style="font-size:16px;font-weight:900;color:#0f172a;">' + playerCount + '</div>' +
+            '<div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">Players</div>' +
+          '</div>' +
+          '<div style="background:#f8fafc;border-radius:8px;padding:6px 12px;text-align:center;min-width:56px;">' +
+            '<div style="font-size:16px;font-weight:900;color:#0f172a;">' + events.length + '</div>' +
+            '<div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.04em;">Events</div>' +
+          '</div>' +
+          (nextEventStr ? '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:6px;flex:1;min-width:120px;"><span style="font-size:14px;">&#128197;</span><div><div style="font-size:10px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Next</div><div style="font-size:12px;color:#0f172a;font-weight:700;">' + escapeHTML(nextEventStr) + '</div></div></div>' : '') +
+        '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;" onclick="event.stopPropagation()">' +
+          '<button onclick="openSeason(\'' + escapeJS(season.id) + '\')" style="flex:1;min-width:80px;padding:8px 6px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'#f1f5f9\'">&#128203; Roster</button>' +
+          '<button onclick="openSeason(\'' + escapeJS(season.id) + '\');setTimeout(function(){go(\'builder\')},120)" style="flex:1;min-width:80px;padding:8px 6px;background:#f1f5f9;border:none;border-radius:8px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;" onmouseover="this.style.background=\'#e2e8f0\'" onmouseout="this.style.background=\'#f1f5f9\'">&#9889; Team Builder</button>' +
+          '<button onclick="deleteSeasonFromHome(\'' + escapeJS(season.id) + '\')" style="padding:8px 12px;background:#fef2f2;border:none;border-radius:8px;font-size:13px;cursor:pointer;" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'#fef2f2\'">&#128465;</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join("") + orphanedTeams.map(team=>(
+    '<div onclick="setupOrphanedTeam(\'' + escapeJS(team.id) + '\')" tabindex="0" role="button" style="background:#fffbeb;border:2px dashed #fcd34d;border-radius:16px;padding:16px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:14px;">' +
+      '<div style="width:42px;height:42px;background:#fef3c7;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">&#9888;</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:15px;font-weight:800;color:#92400e;">' + escapeHTML(team.name) + '</div>' +
+        '<div style="font-size:12px;color:#b45309;margin-top:2px;">Incomplete setup &bull; Tap to finish</div>' +
+      '</div>' +
+      '<button onclick="event.stopPropagation();deleteOrphanedTeamFromHome(\'' + escapeJS(team.id) + '\')" style="padding:6px 10px;background:#fef2f2;border:none;border-radius:8px;font-size:12px;color:#ef4444;cursor:pointer;flex-shrink:0;">&#128465;</button>' +
+    '</div>'
+  )).join("");
 
   const assessmentsHTML = assessments.map(t=>{
     const archived = isArchivedTryout(t);
@@ -13832,6 +13860,65 @@ function renderHomeContent(){
   const allTeamCount   = allSeasons.length + orphanedTeams.length;
   const allPlayerCount = allSeasons.reduce((sum, s) => sum + (s.roster||[]).length, 0);
   const allEventCount  = Object.keys(DB.tryouts||{}).filter(id => !isArchivedTryout(DB.tryouts[id])).length;
+
+  // ── Priority Inbox ────────────────────────────────────────────────────────
+  const _pendingRegs   = pendingRegistrations();
+  const _pendingCount  = _pendingRegs.length;
+  const _sortOutCount  = _pendingRegs.filter(r => r.sortOut === true).length;
+  const _unpaidCount   = _pendingRegs.filter(r => !r.paymentComplete && Number(r.registrationFee||0) > 0).length;
+  const _teamsNoEval   = allSeasons.filter(s => {
+    const p = (s.roster||[]).length;
+    const e = (s.roster||[]).filter(x => x.overall != null && Number(x.overall) > 0).length;
+    return p > 0 && e === 0;
+  }).length;
+  const _inboxItems = [];
+  if (_pendingCount > 0)  _inboxItems.push({ icon:'📝', color:'#4f46e5', bg:'#eef2ff', border:'#c7d2fe', label: _pendingCount + ' Registration' + (_pendingCount!==1?'s':'') + ' Waiting', sub:'Players registered and ready to move to a roster', action:"go('registrations')", btn:'Review' });
+  if (_sortOutCount > 0)  _inboxItems.push({ icon:'🚨', color:'#ea580c', bg:'#fff7ed', border:'#fed7aa', label: _sortOutCount + ' Sort Out' + (_sortOutCount!==1?'s':'') + ' Flagged', sub:'Players flagged — a placement decision is needed', action:"go('registrations')", btn:'View' });
+  if (_teamsNoEval > 0)   _inboxItems.push({ icon:'📊', color:'#0891b2', bg:'#ecfeff', border:'#a5f3fc', label: _teamsNoEval + ' Team' + (_teamsNoEval!==1?'s':'') + ' Without Assessments', sub:'Run your first evaluation to unlock rankings', action:"startCreateSeason()", btn:'Assess' });
+  if (_unpaidCount > 0)   _inboxItems.push({ icon:'💳', color:'#16a34a', bg:'#f0fdf4', border:'#bbf7d0', label: _unpaidCount + ' Unpaid Registration' + (_unpaidCount!==1?'s':''), sub:'Registrations with outstanding fees to follow up on', action:"go('registrations')", btn:'Follow Up' });
+
+  const priorityInboxHTML = _inboxItems.length === 0 ? `` : `
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="font-size:13px;font-weight:900;color:#0f172a;text-transform:uppercase;letter-spacing:0.06em;">What Needs Attention</div>
+        <div style="background:#ef4444;color:#fff;font-size:10px;font-weight:900;padding:1px 7px;border-radius:999px;">${_inboxItems.length}</div>
+      </div>
+      ${_inboxItems.map(item => `
+        <div style="display:flex;align-items:center;gap:12px;background:${item.bg};border:1.5px solid ${item.border};border-radius:12px;padding:12px 14px;margin-bottom:8px;">
+          <div style="font-size:22px;flex-shrink:0;">${item.icon}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:#0f172a;line-height:1.3;">${item.label}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:1px;">${item.sub}</div>
+          </div>
+          <button onclick="${item.action}" style="flex-shrink:0;padding:7px 14px;background:${item.color};color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">${item.btn}</button>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  // ── Season at a Glance strip ─────────────────────────────────────────────
+  const _glanceTotalEval = allSeasons.reduce((s, x) => s + (x.roster||[]).filter(p => p.overall != null && Number(p.overall) > 0).length, 0);
+  const _glancePct = allPlayerCount > 0 ? Math.round((_glanceTotalEval / allPlayerCount) * 100) : 0;
+  const glanceStripHTML = (allSeasons.length === 0 && allPlayerCount === 0) ? `` : `
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:100px;background:linear-gradient(135deg,#1e3a5f,#0a1e3d);border-radius:12px;padding:12px 14px;color:#fff;text-align:center;">
+        <div style="font-size:22px;font-weight:900;line-height:1;">${allPlayerCount}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.06em;margin-top:3px;">Total Players</div>
+      </div>
+      <div style="flex:1;min-width:100px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:12px 14px;text-align:center;">
+        <div style="font-size:22px;font-weight:900;color:#0f172a;line-height:1;">${_glancePct}%</div>
+        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-top:3px;">Evaluated</div>
+      </div>
+      <div style="flex:1;min-width:100px;background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:12px 14px;text-align:center;">
+        <div style="font-size:22px;font-weight:900;color:#0f172a;line-height:1;">${allEventCount}</div>
+        <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-top:3px;">Assessments</div>
+      </div>
+      ${_pendingCount > 0 ? `<div style="flex:1;min-width:100px;background:#eef2ff;border:2px solid #c7d2fe;border-radius:12px;padding:12px 14px;text-align:center;cursor:pointer;" onclick="go('registrations')">
+        <div style="font-size:22px;font-weight:900;color:#4f46e5;line-height:1;">${_pendingCount}</div>
+        <div style="font-size:10px;color:#6366f1;text-transform:uppercase;letter-spacing:0.06em;margin-top:3px;">Pending Regs</div>
+      </div>` : ``}
+    </div>
+  `;
 
   const orgBannerHTML = primaryOrg ? `
     <div style="
@@ -13884,40 +13971,40 @@ function renderHomeContent(){
       </div>
       <div id="globalSearchResults" style="margin-top:6px;"></div>
     </div>
-    <div class="homeSection" style="${teamsSectionStyle}">
-      <div class="card">
-        <div style="
-          background: linear-gradient(135deg, #1e3a5f 0%, #2d4e7a 100%);
-          border-radius: 14px;
-          padding: 14px 16px;
-          margin-bottom: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        ">
-          <div>
-            <div style="font-weight:900;font-size:18px;color:#fff;letter-spacing:-0.01em;">My Teams</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px;">${allSeasons.length} team${allSeasons.length !== 1 ? "s" : ""} • Select to open Team Hub</div>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="ok" style="width:auto;padding:10px 18px;font-size:13px;font-weight:800;" onclick="startCreateSeason()">+ New Team</button>
-            <button style="width:auto;padding:10px 18px;font-size:13px;font-weight:800;border:none;border-radius:8px;background:rgba(255,255,255,0.18);color:#fff;cursor:pointer;backdrop-filter:blur(4px);transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'" onclick="window.open('/admin','_blank')">+ New Organization</button>
-          </div>
+    ${priorityInboxHTML}
+    ${glanceStripHTML}
+    <div style="${teamsSectionStyle}">
+      <div style="
+        background: linear-gradient(135deg, #1e3a5f 0%, #2d4e7a 100%);
+        border-radius: 14px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      ">
+        <div>
+          <div style="font-weight:900;font-size:18px;color:#fff;letter-spacing:-0.01em;">Season Dashboard</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;">${allSeasons.length} team${allSeasons.length !== 1 ? "s" : ""} — tap a card to open Team Hub</div>
         </div>
-        ${(allSeasons.length === 0 && orphanedTeams.length === 0) ? `
-          <div class="emptyStateCard">
-            <span class="emptyStateIcon">🏒</span>
-            <div class="emptyStateTitle">Your first season starts here</div>
-            <div class="emptyStateDesc">Create a team to unlock the Team Hub — schedule games, manage your roster, track attendance, and run assessments all in one place.</div>
-            <div class="emptyStateActions">
-              <button class="ok" onclick="startCreateSeason()">+ Create Your First Team</button>
-              <button class="secondary" onclick="go('upgrade')">View Plans</button>
-            </div>
-            ${teamStepPending ? `<div style="margin-top:14px;font-size:13px;color:#0f766e;font-weight:700;">Step 1 of 5 — Create a team to get started</div>` : ``}
-          </div>
-        ` : teamsHTML}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="ok" style="width:auto;padding:9px 16px;font-size:13px;font-weight:800;" onclick="startCreateSeason()">+ New Team</button>
+          <button style="width:auto;padding:9px 16px;font-size:13px;font-weight:800;border:none;border-radius:8px;background:rgba(255,255,255,0.18);color:#fff;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.18)'" onclick="window.open('/admin','_blank')">+ New Organization</button>
+        </div>
       </div>
+      ${(allSeasons.length === 0 && orphanedTeams.length === 0) ? `
+        <div class="emptyStateCard">
+          <span class="emptyStateIcon">🏒</span>
+          <div class="emptyStateTitle">Your first season starts here</div>
+          <div class="emptyStateDesc">Create a team to unlock the Team Hub — schedule games, manage your roster, track attendance, and run assessments all in one place.</div>
+          <div class="emptyStateActions">
+            <button class="ok" onclick="startCreateSeason()">+ Create Your First Team</button>
+            <button class="secondary" onclick="go('upgrade')">View Plans</button>
+          </div>
+          ${teamStepPending ? `<div style="margin-top:14px;font-size:13px;color:#0f766e;font-weight:700;">Step 1 of 5 — Create a team to get started</div>` : ``}
+        </div>
+      ` : teamsHTML}
     </div>
 
   `;
