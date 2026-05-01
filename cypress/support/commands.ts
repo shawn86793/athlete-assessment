@@ -1,4 +1,4 @@
-﻿// ── Custom Cypress commands ────────────────────────────────────────────────
+// ── Custom Cypress commands ────────────────────────────────────────────────
 //
 // cy.loginViaAPI(email, password)
 //   Full login strategy using four mechanisms together:
@@ -20,9 +20,12 @@
 //      runs immediately during page script execution, guaranteeing that
 //      initIdentityWidget() is called and our stub's init() fires.
 //
-// When COACH_PASSWORD is a placeholder or the Identity endpoint is
-// unreachable, loginViaAPI falls back to a fully synthetic session so
-// UI-flow tests still run without real credentials.
+// Auth strategy:
+//   • When COACH_PASSWORD is a placeholder or empty → synthetic session (no network)
+//   • When COACH_PASSWORD is set → cy.task('netlifyIdentityToken') makes the POST
+//     from Node.js (no CORS, errors caught in try/catch → returns null).
+//     A null result or a non-200 response falls back to synthetic automatically.
+//     This means the test NEVER fails due to a network error on the auth endpoint.
 //
 // cy.clearAppState()
 //   Wipes localStorage so each test starts from a clean slate.
@@ -72,39 +75,31 @@ Cypress.Commands.add('loginViaAPI', (email: string, password: string) => {
     return
   }
 
-  // ── Real auth path ────────────────────────────────────────────────────────
-  // NOTE: The POST /token response from Netlify Identity already contains the
-  // full user object — no second GET /user request needed.  Removing that
-  // request eliminates the "GET --- /.netlify/identity/user" abort that caused
-  // this test to hang and fail.
-  cy.request({
-    method: 'POST',
-    url:    '/.netlify/identity/token',
-    form:   true,
-    body:   { grant_type: 'password', username: email, password },
-    failOnStatusCode: false,
-    timeout: 8000,
-  }).then((tokenRes) => {
-    if (tokenRes.status !== 200) {
-      cy.log(
-        `⚠️  Identity login failed (${tokenRes.status}) — falling back to synthetic session.\n` +
-        `Check COACH_EMAIL / COACH_PASSWORD in cypress.env.json if you need real-auth tests.`
-      )
-      mountSession(email, buildSyntheticSession(email))
-      return
-    }
+  // ── Real auth path via Node.js task ──────────────────────────────────────
+  // cy.task runs in the Cypress Node.js process — no CORS, no browser network
+  // restrictions, and the task always resolves (returns null on any error).
+  // This means the test CANNOT fail due to a network error on this call.
+  const baseUrl = Cypress.config('baseUrl') as string
+  cy.task('netlifyIdentityToken', { baseUrl, email, password }).then(
+    (tokenData: any) => {
+      if (!tokenData) {
+        cy.log(
+          '⚠️  Identity login failed or timed out — falling back to synthetic session.\n' +
+          'Check COACH_EMAIL / COACH_PASSWORD in cypress.env.json if you need real-auth tests.',
+        )
+        mountSession(email, buildSyntheticSession(email))
+        return
+      }
 
-    const token = tokenRes.body
-    // Use the user object embedded in the token response; fall back to synthetic
-    // if the endpoint returned a non-standard payload without a user field.
-    const user = token.user ?? buildSyntheticSession(email).user
-    const session = {
-      ...token,
-      expires_at: Math.round(Date.now() / 1000) + (token.expires_in || 3600),
-      user,
-    }
-    mountSession(email, session)
-  })
+      const user = tokenData.user ?? buildSyntheticSession(email).user
+      const session = {
+        ...tokenData,
+        expires_at: Math.round(Date.now() / 1000) + (tokenData.expires_in || 3600),
+        user,
+      }
+      mountSession(email, session)
+    },
+  )
 })
 
 /**

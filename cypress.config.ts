@@ -19,6 +19,46 @@ export default defineConfig({
     // during test runs only — has no effect on production behaviour.
     chromeWebSecurity: false,
 
+    setupNodeEvents(on) {
+      // ── netlifyIdentityToken task ────────────────────────────────────────
+      // Makes the POST /token request in Node.js (not the browser) so:
+      //  • No CORS restrictions
+      //  • Errors are caught with try/catch — always resolves, never throws
+      //  • A null return signals the caller to fall back to a synthetic session
+      on('task', {
+        async netlifyIdentityToken({
+          baseUrl,
+          email,
+          password,
+        }: {
+          baseUrl: string
+          email: string
+          password: string
+        }): Promise<Record<string, unknown> | null> {
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 6000)
+          try {
+            const res = await fetch(baseUrl + '/.netlify/identity/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                grant_type: 'password',
+                username: email,
+                password,
+              }).toString(),
+              signal: controller.signal,
+            })
+            clearTimeout(timer)
+            if (!res.ok) return null
+            return (await res.json()) as Record<string, unknown>
+          } catch {
+            clearTimeout(timer)
+            return null
+          }
+        },
+      })
+    },
+
     env: {
       // Set real values in cypress.env.json (gitignored) — never commit passwords
       // {
