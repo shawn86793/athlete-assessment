@@ -206,12 +206,15 @@ it('opens the registration detail modal on row click', () => {
 // ── 5. Mark-paid toggle ────────────────────────────────────────────────────
 it('toggles payment status on a registration', () => {
   openDashboard('Registrations')
-  // Click Carlos (Unpaid) — use force:true to bypass Cypress actionability check
+  // Carlos starts unpaid — click his row
   cy.get('.od-reg-row').filter(':contains("Carlos")').first().click({ force: true })
   cy.get('.swgModal', { timeout: 5000 }).should('be.visible')
   cy.get('.swgModal').contains('button', /mark paid|paid/i).click()
 
-  // The modal closes and the DB is updated
+  // saveDB() is debounced 250 ms — wait for the flush before reading localStorage
+  cy.wait(400)
+
+  // Assert via localStorage (after debounce) AND via the re-rendered UI row
   cy.window().then(win => {
     const db = JSON.parse(win.localStorage.getItem(appDbKey(EMAIL)) || '{}')
     const r2 = db.tryouts?.[ORG_ID + '-try-1']?.registrations?.find(
@@ -219,6 +222,8 @@ it('toggles payment status on a registration', () => {
     )
     expect(r2?.paid).to.equal(true)
   })
+  // The re-rendered row should now show Paid
+  cy.get('.od-reg-row').filter(':contains("Carlos")').should('contain', 'Paid')
 })
 
 // ── 6. CSV export ──────────────────────────────────────────────────────────
@@ -263,8 +268,11 @@ it('renders the mobile bottom tab bar at 375px viewport width', () => {
   visitWithOrgSeed(EMAIL, { width: 375, height: 812 })
   cy.contains(ORG_NAME, { timeout: 12000 }).should('be.visible').click()
   cy.get('#orgDashOverlay', { timeout: 8000 }).should('be.visible')
-  // Mobile layout: tab bar has id="odMobileTabBar", sidebar (#odSidebar) is absent
-  cy.get('#odMobileTabBar', { timeout: 5000 }).should('be.visible')
+  // Mobile layout: tab bar has id="odMobileTabBar", sidebar (#odSidebar) is absent.
+  // The org overlay z-index (99000) is now above the app nav bars so the tab bar
+  // is fully visible. Also assert it contains nav buttons for the 5 panels.
+  cy.get('#odMobileTabBar', { timeout: 5000 }).should('exist')
+  cy.get('#odMobileTabBar button').should('have.length', 5)
   cy.get('#odSidebar').should('not.exist')
 })
 
