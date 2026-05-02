@@ -7649,11 +7649,33 @@ async function dbFullSync(){
     if(!res.ok){
       const err = await res.json().catch(()=>({}));
       if(err.notConfigured){
-        // Database not configured – still hydrate seasons/teams from blob snapshot.
+        // Database not configured – hydrate seasons/teams from blob only.
+        // Pull first, then merge local seasons so a second device's push
+        // cannot silently drop seasons that only exist on this device.
         try {
           const seasonCloud = await pullSeasonsCloudSnapshot(token);
           if(seasonCloud && seasonCloud.seasons && typeof seasonCloud.seasons === "object"){
-            DB.seasons = filterPulledSeasonsMap(seasonCloud.seasons);
+            const pulledSeasons = filterPulledSeasonsMap(seasonCloud.seasons);
+            if(!pulledSeasons || typeof pulledSeasons !== "object" || Array.isArray(pulledSeasons)){
+              // invalid — keep local
+            } else {
+              const deletedIds0 = mergedDeletedSeasonIds();
+              for(const sid of Object.keys(localSeasonsBeforeSync)){
+                if(deletedIds0.has(String(sid || "").trim())) continue;
+                const localSeason = localSeasonsBeforeSync[sid];
+                const remoteSeason = pulledSeasons[sid];
+                if(!remoteSeason){
+                  pulledSeasons[sid] = localSeason;
+                } else {
+                  const localUpd  = localSeason.updatedAt  || localSeason.createdAt  || 0;
+                  const remoteUpd = remoteSeason.updatedAt || remoteSeason.createdAt || 0;
+                  if(localUpd > remoteUpd) pulledSeasons[sid] = localSeason;
+                }
+              }
+              DB.seasons = pulledSeasons;
+              // Push merged result back so the blob has the union of all devices.
+              pushSeasonsCloudSnapshot(token).catch(()=>{});
+            }
             if(!DB.seasons || typeof DB.seasons !== "object" || Array.isArray(DB.seasons)){
               DB.seasons = {};
             }
@@ -7751,10 +7773,33 @@ async function dbFullSync(){
           }
         }
       }
+      // Pull the seasons blob and merge — do this AFTER the DB-sync merge so the
+      // local re-apply loop is not silently overwritten by the raw blob response.
+      // Also merge the blob result with localSeasonsBeforeSync again (other device
+      // may have pushed newer seasons that weren't in data.seasons from the DB sync).
       try {
         const seasonCloud = await pullSeasonsCloudSnapshot(token);
         if(seasonCloud && seasonCloud.seasons && typeof seasonCloud.seasons === "object"){
-          DB.seasons = filterPulledSeasonsMap(seasonCloud.seasons);
+          const pulledSeasons = filterPulledSeasonsMap(seasonCloud.seasons);
+          // Start from the pulled blob, then layer in anything local that is newer
+          // or missing on the server — this converges all devices to the union.
+          const deletedIds2 = mergedDeletedSeasonIds();
+          for(const sid of Object.keys(localSeasonsBeforeSync)){
+            if(deletedIds2.has(String(sid || "").trim())) continue;
+            const localSeason = localSeasonsBeforeSync[sid];
+            const remoteSeason = pulledSeasons[sid];
+            if(!remoteSeason){
+              pulledSeasons[sid] = localSeason;
+            } else {
+              const localUpd  = localSeason.updatedAt  || localSeason.createdAt  || 0;
+              const remoteUpd = remoteSeason.updatedAt || remoteSeason.createdAt || 0;
+              if(localUpd > remoteUpd) pulledSeasons[sid] = localSeason;
+            }
+          }
+          DB.seasons = pulledSeasons;
+          // Push the fully-merged result back so the blob has the union of all
+          // devices' seasons — next device pull will see everything.
+          pushSeasonsCloudSnapshot(token).catch(()=>{});
         }
       } catch {}
       if(!DB.seasons || typeof DB.seasons !== "object" || Array.isArray(DB.seasons)){
