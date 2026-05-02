@@ -30143,8 +30143,17 @@ async function deleteSeason(id){
     const hasOtherSeason = Object.values(DB.seasons || {}).some(season =>
       String(season?.teamId || "").trim() === teamId
     );
-    if(!hasOtherSeason && Array.isArray(DB.teams)){
-      DB.teams = DB.teams.filter(t => String(t?.id || "") !== teamId);
+    if(!hasOtherSeason){
+      // Tombstone rather than hard-filter so cloud sync cannot resurrect this team.
+      if(!Array.isArray(DB.teams)) DB.teams = [];
+      const _teamEntry = DB.teams.find(t => String(t?.id || "") === teamId);
+      if(_teamEntry){
+        _teamEntry.tombstone = true;
+        _teamEntry.deletedAt = Date.now();
+      } else {
+        // Not in local array — push a tombstone so the server merge propagates the deletion.
+        DB.teams.push({ id: teamId, tombstone: true, deletedAt: Date.now() });
+      }
       if(currentTeamId === teamId){
         currentTeamId = null;
         saveCurrentTeamId(null);
