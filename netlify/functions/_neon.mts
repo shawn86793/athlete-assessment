@@ -54,4 +54,17 @@ export const ensureSchema = async (sql: SqlClient) => {
     create index if not exists seasons_user_id_idx
     on seasons (user_id)
   `
+  await sql`
+    create table if not exists orgs (
+      user_id text not null,
+      id text not null,
+      payload jsonb not null,
+      updated_at timestamptz not null default now(),
+      primary key (user_id, id)
+    )
+  `
+  await sql`
+    create index if not exists orgs_user_id_idx
+    on orgs (user_id)
+  `
 }

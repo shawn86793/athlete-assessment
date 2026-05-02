@@ -92,6 +92,40 @@ const saveTeams = async (sql: SqlClient, userId: string, teams: Record<string, R
   }
 }
 
+const loadOrgs = async (sql: SqlClient, userId: string) => {
+  const rows = await sql<{ id: string; payload: unknown }[]>`
+    select id, payload
+    from orgs
+    where user_id = ${userId}
+  `
+  const orgs: Record<string, unknown> = {}
+  for (const row of rows) {
+    if (!row?.id) continue
+    if (row.payload && typeof row.payload === 'object') {
+      orgs[row.id] = row.payload as Record<string, unknown>
+    }
+  }
+  return orgs
+}
+
+const saveOrgs = async (sql: SqlClient, userId: string, orgs: Record<string, Record<string, unknown>>) => {
+  for (const [id, payload] of Object.entries(orgs)) {
+    await sql`
+      insert into orgs (user_id, id, payload, updated_at)
+      values (${userId}, ${id}, ${JSON.stringify(payload)}::jsonb, now())
+      on conflict (user_id, id)
+      do update set payload = excluded.payload, updated_at = now()
+    `
+  }
+}
+
+const normalizeOrg = (value: unknown, id: string) => {
+  if (!value || typeof value !== 'object') return null
+  const payload = { ...(value as Record<string, unknown>), id }
+  if (!payload.createdAt) payload.createdAt = Date.now()
+  return payload
+}
+
 const loadSeasons = async (sql: SqlClient, userId: string) => {
   const rows = await sql<{ id: string; payload: unknown }[]>`
     select id, payload
@@ -235,10 +269,20 @@ export default async (req: Request, context: Context) => {
       if (!local && !remote) continue
       if (!local) { mergedTeams[id] = remote as Record<string, unknown>; continue }
       if (!remote) { mergedTeams[id] = local; continue }
-      // Keep whichever was created later (teams are immutable except for potential name edits)
-      const localCreated = typeof local.createdAt === 'number' ? local.createdAt : 0
-      const remoteCreated = typeof remote.createdAt === 'number' ? remote.createdAt : 0
-      mergedTeams[id] = localCreated >= remoteCreated ? local : (remote as Record<string, unknown>)
+      // Tombstone always wins — a deletion from any device propagates everywhere.
+      const localTombstone  = !!(local  as Record<string, unknown>).tombstone
+      const remoteTombstone = !!(remote as Record<string, unknown>).tombstone
+      if (localTombstone || remoteTombstone) {
+        mergedTeams[id] = { ...(remote as Record<string, unknown>), ...local, tombstone: true }
+        continue
+      }
+      // Otherwise keep whichever was updated more recently.
+      const localUpd  = typeof local.updatedAt  === 'number' ? local.updatedAt  :
+                        typeof local.createdAt   === 'number' ? local.createdAt  : 0
+      const remoteUpd = typeof (remote as Record<string,unknown>).updatedAt === 'number'
+                        ? (remote as Record<string,unknown>).updatedAt as number
+                        : typeof remote.createdAt === 'number' ? remote.createdAt : 0
+      mergedTeams[id] = localUpd >= remoteUpd ? local : (remote as Record<string, unknown>)
     }
 
     try {
@@ -280,6 +324,58 @@ export default async (req: Request, context: Context) => {
     }
   }
 
+  // Sync orgs
+  const incomingOrgs = body?.orgs
+  let mergedOrgs: Record<string, Record<string, unknown>> = {}
+  if (incomingOrgs && typeof incomingOrgs === 'object') {
+    let existingOrgs: Record<string, unknown> = {}
+    try {
+      existingOrgs = await loadOrgs(sql, userId)
+    } catch {
+      // Best-effort
+    }
+    const incomingOrgsMap = incomingOrgs as Record<string, unknown>
+    const orgIds = new Set([...Object.keys(existingOrgs), ...Object.keys(incomingOrgsMap)])
+    for (const id of orgIds) {
+      const local  = normalizeOrg(incomingOrgsMap[id], id)
+      const remote = normalizeOrg(existingOrgs[id], id)
+      if (!local && !remote) continue
+      if (!local)  { mergedOrgs[id] = remote as Record<string, unknown>; continue }
+      if (!remote) { mergedOrgs[id] = local; continue }
+      // Keep whichever was updated more recently; deleted orgs (tombstone) always win
+      const localTombstone  = !!(local  as Record<string, unknown>).tombstone
+      const remoteTombstone = !!(remote as Record<string, unknown>).tombstone
+      if (localTombstone || remoteTombstone) {
+        mergedOrgs[id] = { ...(remote as Record<string, unknown>), ...local, tombstone: true }
+        continue
+      }
+      const localUpd  = typeof (local  as Record<string,unknown>).updatedAt === 'number'
+                        ? (local  as Record<string,unknown>).updatedAt as number
+                        : typeof local.createdAt === 'number' ? local.createdAt : 0
+      const remoteUpd = typeof (remote as Record<string,unknown>).updatedAt === 'number'
+                        ? (remote as Record<string,unknown>).updatedAt as number
+                        : typeof remote.createdAt === 'number' ? remote.createdAt : 0
+      mergedOrgs[id] = localUpd >= remoteUpd ? local : (remote as Record<string, unknown>)
+    }
+    try {
+      await saveOrgs(sql, userId, mergedOrgs)
+    } catch {
+      // Best-effort
+    }
+  } else {
+    // No orgs sent — still load from DB so other devices see them
+    try {
+      const existingOrgs = await loadOrgs(sql, userId)
+      for (const [id, payload] of Object.entries(existingOrgs)) {
+        if (payload && typeof payload === 'object') {
+          mergedOrgs[id] = payload as Record<string, unknown>
+        }
+      }
+    } catch {
+      // Best-effort
+    }
+  }
+
   await writeAuditLog({
     action: 'cloud_sync',
     status: 'ok',
@@ -289,12 +385,14 @@ export default async (req: Request, context: Context) => {
     tryoutCount: Object.keys(merged).length,
     teamCount: Object.keys(mergedTeams).length,
     seasonCount: Object.keys(mergedSeasons).length,
+    orgCount: Object.keys(mergedOrgs).length,
   })
 
   return jsonResponse({
     tryouts: merged,
-    ...(Object.keys(mergedTeams).length > 0 ? { teams: mergedTeams } : {}),
-    ...(Object.keys(mergedSeasons).length > 0 ? { seasons: mergedSeasons } : {})
+    ...(Object.keys(mergedTeams).length   > 0 ? { teams:   mergedTeams   } : {}),
+    ...(Object.keys(mergedSeasons).length > 0 ? { seasons: mergedSeasons } : {}),
+    ...(Object.keys(mergedOrgs).length    > 0 ? { orgs:    mergedOrgs    } : {}),
   })
 }
 
