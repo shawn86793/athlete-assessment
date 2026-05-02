@@ -6466,7 +6466,7 @@ function _renderOrgDashboard(orgId, panel, opts){
         + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove()\" style=\"background:rgba(255,255,255,0.1);border:none;border-radius:6px;color:#94b8d4;font-size:12px;padding:7px 12px;cursor:pointer;font-weight:600;\">✕ Close</button>"
       + "</div>"
       + "<div id=\"orgDashBody\" style=\"flex:1;overflow-y:auto;padding:16px;background:#0f1c2e;\">" + panelHTML + "</div>"
-      + "<div style=\"background:#162236;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-shrink:0;\">" + tabs + "</div>";
+      + "<div id=\"odMobileTabBar\" style=\"background:#162236;border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-shrink:0;\">" + tabs + "</div>";
   } else {
     overlay.style.cssText = "position:fixed;inset:0;z-index:9000;display:flex;background:#0f1c2e;font-family:var(--font,system-ui,sans-serif);overflow:hidden;";
     var sidebarNav = navItems.map(function(n){
@@ -6480,7 +6480,7 @@ function _renderOrgDashboard(orgId, panel, opts){
         + "<span>" + n.icon + "</span><span>" + n.label + "</span></button>";
     }).join("");
     overlay.innerHTML =
-      "<div style=\"width:220px;min-width:220px;background:#162236;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);\">"
+      "<div id=\"odSidebar\" style=\"width:220px;min-width:220px;background:#162236;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);\">"
         + "<div style=\"padding:20px 20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);\">"
           + "<div style=\"font-size:10px;color:#6b9dc7;text-transform:uppercase;letter-spacing:1.2px;font-weight:700;margin-bottom:6px;\">Organization</div>"
           + "<div style=\"font-size:15px;font-weight:800;color:#fff;line-height:1.3;\">" + escapeHTML(org.name) + "</div>"
