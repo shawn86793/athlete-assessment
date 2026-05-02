@@ -6350,9 +6350,62 @@ function submitEditOrg(orgId){
 function confirmDeleteOrg(orgId){
   const org = getOrgById(orgId);
   if(!org) return;
-  if(!confirm(`Delete "${org.name}"? Your teams and assessments are not affected.`)) return;
+  // Two-step: type "delete" to confirm
+  swgModal({
+    id: "deleteOrgConfirmOverlay",
+    title: "🗑 Delete Organization",
+    body: `
+      <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:14px 16px;margin-bottom:18px;">
+        <div style="font-size:13px;font-weight:800;color:#f87171;margin-bottom:4px;">This action is permanent</div>
+        <div style="font-size:13px;color:#94b8d4;line-height:1.5;">
+          You are about to delete <strong style="color:#e2eaf2;">${escapeHTML(org.name)}</strong>.<br>
+          Assessments and registrations linked to this org will remain but lose their org connection. This cannot be undone.
+        </div>
+      </div>
+      <label style="font-size:12px;color:#6b9dc7;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">
+        Type <strong style="color:#f87171;">delete</strong> to confirm
+      </label>
+      <input id="deleteOrgConfirmInput" autocomplete="off" spellcheck="false"
+        placeholder="delete"
+        oninput="var v=this.value.trim().toLowerCase();document.getElementById('deleteOrgConfirmBtn').disabled=(v!=='delete');"
+        style="margin-top:6px;background:#0d1b2e;border:1.5px solid rgba(239,68,68,0.35);border-radius:7px;color:#e2eaf2;font-size:15px;padding:10px 12px;width:100%;box-sizing:border-box;">
+    `,
+    footer: `
+      <button class="secondary" onclick="document.getElementById('deleteOrgConfirmOverlay')?.remove()">Cancel</button>
+      <button id="deleteOrgConfirmBtn" disabled
+        onclick="_executeDeleteOrg('${escapeJS(orgId)}')"
+        style="background:#dc2626;border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;opacity:0.4;transition:opacity .15s;"
+        onmouseenter="if(!this.disabled)this.style.background='#b91c1c'"
+        onmouseleave="this.style.background='#dc2626'">
+        🗑 Delete Organization
+      </button>
+    `,
+    maxWidth: "460px",
+  });
+  // Enable button styling when active (CSS :disabled pseudo handles opacity)
+  setTimeout(function(){
+    var btn = document.getElementById("deleteOrgConfirmBtn");
+    if(btn){
+      var inp = document.getElementById("deleteOrgConfirmInput");
+      if(inp) inp.focus();
+      // Live enable/disable with opacity
+      var orig = btn.getAttribute("style")||"";
+      var observer = new MutationObserver(function(){
+        btn.style.opacity = btn.disabled ? "0.4" : "1";
+        btn.style.cursor  = btn.disabled ? "not-allowed" : "pointer";
+      });
+      observer.observe(btn, {attributes:true, attributeFilter:["disabled"]});
+    }
+  }, 80);
+}
+
+function _executeDeleteOrg(orgId){
+  var inp = document.getElementById("deleteOrgConfirmInput");
+  if(!inp || inp.value.trim().toLowerCase() !== "delete") return;
   deleteOrg(orgId);
+  document.getElementById("deleteOrgConfirmOverlay")?.remove();
   document.getElementById("editOrgOverlay")?.remove();
+  document.getElementById("orgDashOverlay")?.remove();
   renderHomeContent();
   showActionBanner("Organization deleted", "success");
 }
@@ -7108,7 +7161,7 @@ function _odPanelSettings(orgId, org, tryouts, regs){
         + fldRow("Year",  org.year)
       + "</div>"
       + "<div style=\"margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);\">"
-        + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();editOrg('" + escapeJS(orgId) + "')\" style=\"background:transparent;border:1px solid rgba(56,189,248,0.3);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;\">✏️ Edit Organization</button>"
+        + "<button onclick=\"document.getElementById('orgDashOverlay')?.remove();openEditOrgModal('" + escapeJS(orgId) + "')\" style=\"background:transparent;border:1px solid rgba(56,189,248,0.3);border-radius:7px;color:#94b8d4;font-size:13px;font-weight:600;padding:9px 16px;cursor:pointer;\">✏️ Edit Organization</button>"
       + "</div>"
     + "</div>"
     + (demoCount > 0
@@ -7118,6 +7171,11 @@ function _odPanelSettings(orgId, org, tryouts, regs){
             + "<button onclick=\"_odDeleteDemoData('" + escapeJS(orgId) + "')\" style=\"background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:7px;color:#f87171;font-size:13px;font-weight:700;padding:9px 16px;cursor:pointer;\">🗑 Clear Demo Data</button>"
           + "</div>"
         : "")
+    + "<div style=\"background:#1a0a0a;border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:18px 22px;max-width:520px;margin-top:8px;\">"
+      + "<div style=\"font-size:13px;font-weight:800;color:#f87171;margin-bottom:6px;\">⚠️ Danger Zone</div>"
+      + "<div style=\"font-size:13px;color:#6b9dc7;margin-bottom:14px;\">Permanently delete this organization. Assessments and registrations remain but lose their org connection.</div>"
+      + "<button onclick=\"confirmDeleteOrg('" + escapeJS(orgId) + "')\" style=\"background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);border-radius:7px;color:#f87171;font-size:13px;font-weight:800;padding:10px 20px;cursor:pointer;transition:background .12s;\" onmouseover=\"this.style.background='rgba(239,68,68,0.2)'\" onmouseout=\"this.style.background='rgba(239,68,68,0.1)'\">🗑 Delete Organization</button>"
+    + "</div>"
   + "</div>";
 }
 
@@ -14701,6 +14759,11 @@ function renderHomeContent(){
       </div>
       <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;">
         ${_orgRegCount > 0 ? `<span style="background:#22c55e;color:#fff;font-size:10px;font-weight:900;padding:2px 8px;border-radius:999px;">${_orgRegCount} reg${_orgRegCount!==1?"s":""}</span>` : ""}
+        <button onclick="event.stopPropagation();confirmDeleteOrg('${escapeJS(primaryOrg.id)}')"
+          title="Delete organization"
+          style="background:transparent;border:none;cursor:pointer;padding:4px 6px;border-radius:6px;color:#86efac;font-size:15px;line-height:1;transition:background .12s,color .12s;"
+          onmouseover="this.style.background='rgba(239,68,68,0.12)';this.style.color='#f87171'"
+          onmouseout="this.style.background='transparent';this.style.color='#86efac'">🗑</button>
         <span style="color:#22c55e;font-size:18px;">›</span>
       </div>
     </div>
