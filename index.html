@@ -6181,7 +6181,8 @@ function getTeams(){
 }
 
 function getTeamById(id){
-  return getTeams().find(t=>t.id === id) || null;
+  const t = getTeams().find(t=>t.id === id);
+  return (t && !t.tombstone) ? t : null;
 }
 
 function getActiveTeam(){
@@ -6206,8 +6207,17 @@ function createTeam(name, season){
 }
 
 function deleteTeam(teamId){
+  // Tombstone rather than hard-filter so cloud sync and reconcileTeamsWithSeasons
+  // cannot resurrect the entry on the next tick.
   const teams = getTeams();
-  DB.teams = teams.filter(t=>t.id !== teamId);
+  const team = teams.find(t => t.id === teamId);
+  if(team){
+    team.tombstone  = true;
+    team.deletedAt  = Date.now();
+    DB.teams = teams; // already mutated in place
+  } else {
+    DB.teams = DB.teams.filter(t => t.id !== teamId);
+  }
   if(currentTeamId === teamId){
     currentTeamId = null;
     saveCurrentTeamId(null);
@@ -7441,6 +7451,13 @@ function mergeTeamLists(...sources){
       const id = String(team.id || "").trim();
       if(!id) continue;
       const existing = map[id] || {};
+      // Once tombstoned, always tombstoned — deletion must survive cloud sync merges.
+      if(existing.tombstone || team.tombstone){
+        map[id] = { ...existing, ...team, id,
+          tombstone: true,
+          deletedAt: existing.deletedAt || team.deletedAt || Date.now() };
+        continue;
+      }
       const existingCreated = Number(existing.createdAt || 0);
       const nextCreated = Number(team.createdAt || 0);
       map[id] = nextCreated >= existingCreated
@@ -7467,6 +7484,8 @@ function reconcileTeamsWithSeasons(baseTeams, seasonsMap){
     const teamId = String(season.teamId || "").trim();
     if(!teamId) continue;
     const existing = teamMap[teamId] || {};
+    // Never overwrite a tombstoned team — the deletion must win over season data.
+    if(existing.tombstone) continue;
     const seasonName = String(season.teamName || season.name || "").trim();
     const seasonYear = String(season.year || "").trim();
     teamMap[teamId] = {
