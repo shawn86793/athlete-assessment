@@ -3444,7 +3444,7 @@
     /* ── Consolidated Modal System (#7) ─────────────────────────────────────── */
     .swgModal{
       position:fixed;inset:0;
-      z-index:10200;
+      z-index:100200; /* above org overlay (99000) so modals opened from the dashboard are visible */
       display:flex;align-items:center;justify-content:center;
       padding:16px;
       background:rgba(8,12,24,0.72);
