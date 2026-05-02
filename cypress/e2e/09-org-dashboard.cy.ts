@@ -211,10 +211,15 @@ it('toggles payment status on a registration', () => {
   cy.get('.swgModal', { timeout: 5000 }).should('be.visible')
   cy.get('.swgModal').contains('button', /mark paid|paid/i).click()
 
-  // saveDB() is debounced 250 ms — wait for the flush before reading localStorage
-  cy.wait(400)
+  // Force the debounced saveDB flush immediately so localStorage is written
+  // before any in-flight cloud sync response can overwrite it.
+  cy.window().then(win => { (win as any)._flushSaveDB?.() })
 
-  // Assert via localStorage (after debounce) AND via the re-rendered UI row
+  // Also wait 600 ms so any concurrent cloud-sync cycle that may have started
+  // just before the click has time to complete and settle.
+  cy.wait(600)
+
+  // Assert via localStorage AND via the re-rendered UI row
   cy.window().then(win => {
     const db = JSON.parse(win.localStorage.getItem(appDbKey(EMAIL)) || '{}')
     const r2 = db.tryouts?.[ORG_ID + '-try-1']?.registrations?.find(

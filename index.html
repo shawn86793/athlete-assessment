@@ -7685,13 +7685,19 @@ async function dbFullSync(){
       (data.seasons && typeof data.seasons === "object")
     ){
       DB.tryouts = data.tryouts;
-      // Cloud-enabled assessments are authored via blob sync; keep local state to avoid
-      // DB poll responses temporarily removing QR registrations from the active roster.
-      // If the server-merged version has a different cloud.id, adopt it so all
-      // devices converge on the same registration QR code.
+      // Merge local tryouts back over the server response:
+      // - Non-cloud-enabled tryouts are local-only; the server version may be a
+      //   previous-cycle snapshot and must NOT overwrite in-flight local changes
+      //   (e.g. a paid-toggle that hasn't been flushed to the server yet).
+      // - Cloud-enabled tryouts are synced via blob; keep local state but adopt
+      //   a server-assigned cloud.id if it changed so all devices converge.
       for(const tid of Object.keys(localTryoutsBeforeSync || {})){
         const localTryout = localTryoutsBeforeSync[tid];
-        if(!isCloudEnabled(localTryout)) continue;
+        if(!isCloudEnabled(localTryout)){
+          // Local-only tryout — always prefer the in-flight local state.
+          DB.tryouts[tid] = localTryout;
+          continue;
+        }
         const mergedTryout = DB.tryouts[tid];
         const mergedCloudId = String(mergedTryout?.cloud?.id || "").trim().toUpperCase();
         const localCloudId = String(localTryout?.cloud?.id || "").trim().toUpperCase();
