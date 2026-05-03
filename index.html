@@ -22382,6 +22382,8 @@ function exportTeamBuilderPDF(ev){
   const getFPLabel = (playerId) => fpLookup.get(playerId) || "";
 
   const teamSections = data.teams.map(team=>{
+    const teamAvg = calcTeamAvgScore(team);
+    const teamAvgStr = teamAvg !== null ? num2(teamAvg) : "—";
     const rows = team.players.map(playerId=>{
       const player = rosterMap.get(playerId);
       const detail = team.details[playerId] || {};
@@ -22415,7 +22417,7 @@ function exportTeamBuilderPDF(ev){
     }).join("");
     return `
       <section class="teamSection">
-        <h2>${escapeHTML(team.name)}</h2>
+        <h2>${escapeHTML(team.name)}<span class="team-avg-badge">Avg&nbsp;${escapeHTML(teamAvgStr)}</span></h2>
         <table>
           <thead>
             <tr>
@@ -22453,7 +22455,8 @@ function exportTeamBuilderPDF(ev){
     h1{font-family: "Space Grotesk", Arial, sans-serif; font-size:24px; margin:0 0 6px;}
     .meta{font-size:13px; color:#5b6b67; margin:2px 0;}
     .teamSection{margin-top:16px; break-inside:avoid;}
-    h2{font-size:18px; margin:0 0 8px;}
+    h2{font-size:18px; margin:0 0 8px; display:flex; align-items:center; gap:10px;}
+    .team-avg-badge{font-size:12px; font-weight:700; color:#ff6b2b; background:#fff3ed; border:1px solid #ffd0b5; border-radius:6px; padding:2px 9px; letter-spacing:0.02em;}
     table{width:100%; border-collapse:collapse; font-size:12px;}
     th,td{border:1px solid #d5d9d7; padding:6px; text-align:left; vertical-align:top;}
     th{background:#eef2f0;}
@@ -22491,39 +22494,44 @@ function exportTeamBuilderCSV(ev){
   const getCSVFPLabel = (playerId) => csvFPLookup.get(playerId) || "";
 
   const headers = [
-    "Team", "Player", "FP", "Position", "Role", "Gender", "Overall Score", "Overall Rank", "Evals",
+    "Team", "Team Avg Score", "Player", "FP", "Position", "Role", "Gender", "Overall Score", "Overall Rank", "Evals",
     ...customRubrics.map(r=>`${r.label || r.key} Avg`),
     ...customRubrics.map(r=>`R-${r.label || r.key}`)
   ];
 
-  const rows = data.teams.flatMap(team=>team.players.map(playerId=>{
-    const player = rosterMap.get(playerId);
-    const detail = team.details[playerId] || {};
-    const rank = data.ranks?.[playerId] || "";
-    const position = player?.pos || detail.position || "";
-    const customAvgs = customRubrics.map(r=>{
-      const avg = customRubricAverageByKey(playerId, r);
-      return avg !== null ? num2(avg) : "";
+  const rows = data.teams.flatMap(team=>{
+    const teamAvg = calcTeamAvgScore(team);
+    const teamAvgStr = teamAvg !== null ? num2(teamAvg) : "";
+    return team.players.map(playerId=>{
+      const player = rosterMap.get(playerId);
+      const detail = team.details[playerId] || {};
+      const rank = data.ranks?.[playerId] || "";
+      const position = player?.pos || detail.position || "";
+      const customAvgs = customRubrics.map(r=>{
+        const avg = customRubricAverageByKey(playerId, r);
+        return avg !== null ? num2(avg) : "";
+      });
+      const customRankVals = customRubrics.map(r=>{
+        const rankData = rankInGroup(pid=>customRubricAverageByKey(pid, r), isSpecialPosition(position, sport) ? "G" : "S", customScaleRankDirection(r.scale));
+        const val = rankData.ranks[playerId];
+        return val ? `${val}/${rankData.total}` : "";
+      });
+      return [
+        team.name,
+        teamAvgStr,
+        playerDisplayName(player),
+        getCSVFPLabel(playerId),
+        position,
+        detail.role || teamBuilderRoleLabelFromPosition(position, sport),
+        detail.gender === "U" ? "" : detail.gender,
+        num2(detail.overall),
+        rank,
+        detail.evals ?? evalsForPlayer(playerId).length,
+        ...customAvgs,
+        ...customRankVals
+      ];
     });
-    const customRankVals = customRubrics.map(r=>{
-      const rankData = rankInGroup(pid=>customRubricAverageByKey(pid, r), isSpecialPosition(position, sport) ? "G" : "S", customScaleRankDirection(r.scale));
-      const val = rankData.ranks[playerId];
-      return val ? `${val}/${rankData.total}` : "";
-    });
-    return [
-      team.name,
-      playerDisplayName(player),
-      getCSVFPLabel(playerId),
-      position,
-      detail.role || teamBuilderRoleLabelFromPosition(position, sport),
-      detail.gender === "U" ? "" : detail.gender,
-      num2(detail.overall),
-      rank,
-      detail.evals ?? evalsForPlayer(playerId).length,
-      ...customAvgs,
-      ...customRankVals
-    ];
-  }));
+  });
 
   const headerInfo1 = ["Assessment", t.name, "Event Type", t.eventType || "Tryout", "Date", t.tryoutDate, "Rink", t.rink, "Sport", sportLabel(t)].map(csvEscape).join(",");
   const genLine = ["Generated", new Date().toISOString()].map(csvEscape).join(",");
