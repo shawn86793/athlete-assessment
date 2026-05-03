@@ -2,7 +2,7 @@
  * AAS Service Worker — network-first for HTML, cache-first for assets
  * Version is embedded so bumping it forces cache invalidation on deploy.
  */
-const SW_VERSION   = "aas-2026-05-03-v23";
+const SW_VERSION   = "aas-2026-05-03-v24";
 const CACHE_HTML   = SW_VERSION + "-html";
 const CACHE_ASSETS = SW_VERSION + "-assets";
 

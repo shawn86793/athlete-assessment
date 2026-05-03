@@ -11528,20 +11528,28 @@ async function pullCloudTryout(t, options = {}){
       return;
     }
 
-    if(remoteUpdated > localUpdated || hasRemoteTimestampMismatch){
-      // Remote is newer with no additional QR adds; replace local with remote.
-      // Carry over tombstones from local so deleted players can't return.
+    if(remoteUpdated > localUpdated){
+      // Remote is genuinely newer — accept it, but MERGE rosters so locally-added
+      // players (e.g. CSV imports, manual adds) are never silently dropped.
       const localTombstones = Array.isArray(t._deletedPlayerIds) ? t._deletedPlayerIds : [];
       const cloud = { ...(remote.cloud || {}), id: t.cloud.id, enabled: true, dirty: false, lastPullAt: Date.now(), lastSyncAt: Date.now(), lastError: null };
       remote.cloud = cloud;
-      // Merge tombstones and strip any re-introduced deleted players
+      // Union tombstones from both sides
       const mergedTombstones = [...new Set([...localTombstones, ...(remote._deletedPlayerIds || [])])];
-      if(mergedTombstones.length){
-        const dead = new Set(mergedTombstones.map(String));
-        remote.roster = (remote.roster || []).filter(p => !dead.has(String(p.id || "")));
-        remote.evaluations = (remote.evaluations || []).filter(e => !dead.has(String(e.playerId || "")));
-        remote._deletedPlayerIds = mergedTombstones;
-      }
+      const dead = new Set(mergedTombstones.map(String));
+      // Merge rosters: keep every local player PLUS any remote player not in local,
+      // then strip tombstoned players. This ensures CSV/manual imports survive even
+      // if the remote blob doesn't reflect them yet.
+      const localRoster  = (t.roster  || []).filter(p => !dead.has(String(p.id || "")));
+      const remoteRoster = (remote.roster || []).filter(p => !dead.has(String(p.id || "")));
+      const localIds = new Set(localRoster.map(p => String(p.id || "")));
+      remote.roster = [...localRoster, ...remoteRoster.filter(p => !localIds.has(String(p.id || "")))];
+      // Same for evals: keep local evals not on remote, add remote-only evals
+      const localEvals  = (t.evals  || []).filter(e => !dead.has(String(e.playerId || "")));
+      const remoteEvals = (remote.evals || remote.evaluations || []).filter(e => !dead.has(String(e.playerId || "")));
+      const localEvalIds = new Set(localEvals.map(e => String(e.id || "")));
+      remote.evals = [...localEvals, ...remoteEvals.filter(e => !localEvalIds.has(String(e.id || "")))];
+      if(mergedTombstones.length) remote._deletedPlayerIds = mergedTombstones;
       DB.tryouts[remote.id] = remote;
       currentTryoutId = remote.id;
       saveDB();
@@ -11549,8 +11557,16 @@ async function pullCloudTryout(t, options = {}){
       return;
     }
 
-    // Nothing changed on remote — if a skeleton is still showing (new/empty
-    // roster), clear it so the user sees the empty-roster add-player form.
+    // Local is ahead of remote (e.g. just after a CSV import before the push
+    // propagated). Push local so the cloud reflects the latest state.
+    if(localUpdated > remoteUpdated){
+      await pushCloudTryout(t, { quiet: true });
+      // No re-render needed — local is already correct.
+      return;
+    }
+
+    // Timestamps are equal (fully in sync).
+    // If a skeleton is still showing (new/empty roster), clear it now.
     if(currentView === "roster" && (getTryout()?.roster || []).length === 0){
       smartRenderAfterSync(softRender);
     }
