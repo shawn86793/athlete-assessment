@@ -7709,26 +7709,68 @@ async function dbFullSync(){
       (data.seasons && typeof data.seasons === "object")
     ){
       DB.tryouts = data.tryouts;
-      // Merge local tryouts back over the server response:
-      // - Non-cloud-enabled tryouts are local-only; the server version may be a
-      //   previous-cycle snapshot and must NOT overwrite in-flight local changes
-      //   (e.g. a paid-toggle that hasn't been flushed to the server yet).
-      // - Cloud-enabled tryouts are synced via blob; keep local state but adopt
-      //   a server-assigned cloud.id if it changed so all devices converge.
+      // ── Neon is the source of truth for cloud-enabled tryouts ─────────────
+      // For each tryout that existed locally before this sync:
+      //   • Local-only (no cloud) → always keep local (server doesn't own it).
+      //   • Cloud-enabled → Neon wins, UNLESS local is strictly newer (meaning
+      //     the user made a change DURING this sync flight, e.g. a CSV import or
+      //     eval save that hasn't been pushed yet).  In that case keep local and
+      //     let the next sync push it.  In both paths we union the rosters so no
+      //     locally-added players are silently dropped.
       for(const tid of Object.keys(localTryoutsBeforeSync || {})){
-        const localTryout = localTryoutsBeforeSync[tid];
+        const localTryout  = localTryoutsBeforeSync[tid];
+        const serverTryout = DB.tryouts[tid]; // Neon's authoritative version
+
         if(!isCloudEnabled(localTryout)){
-          // Local-only tryout — always prefer the in-flight local state.
+          // Local-only tryout — server doesn't own it.
           DB.tryouts[tid] = localTryout;
           continue;
         }
-        const mergedTryout = DB.tryouts[tid];
-        const mergedCloudId = String(mergedTryout?.cloud?.id || "").trim().toUpperCase();
-        const localCloudId = String(localTryout?.cloud?.id || "").trim().toUpperCase();
-        if(mergedCloudId && mergedCloudId !== localCloudId){
-          localTryout.cloud = { ...localTryout.cloud, id: mergedCloudId };
+
+        if(!serverTryout){
+          // Server doesn't have this tryout yet — keep local until it pushes.
+          DB.tryouts[tid] = localTryout;
+          continue;
         }
-        DB.tryouts[tid] = localTryout;
+
+        // Adopt server cloud.id if it changed (ensures all devices converge).
+        const serverCloudId = String(serverTryout?.cloud?.id || "").trim().toUpperCase();
+        const localCloudId  = String(localTryout?.cloud?.id  || "").trim().toUpperCase();
+        if(serverCloudId && serverCloudId !== localCloudId){
+          serverTryout.cloud = { ...(serverTryout.cloud||{}), id: serverCloudId, enabled: true };
+        }
+
+        const localUpdatedAt  = Number(localTryout.updatedAt  || 0);
+        const serverUpdatedAt = Number(serverTryout.updatedAt || 0);
+
+        if(localUpdatedAt > serverUpdatedAt){
+          // Local has an in-flight change not yet pushed — keep local.
+          // Merge server roster in so remote-only players aren't lost.
+          const dead = new Set(
+            [...(localTryout._deletedPlayerIds||[]), ...(serverTryout._deletedPlayerIds||[])].map(String)
+          );
+          const localRoster  = (localTryout.roster ||[]).filter(p=>!dead.has(String(p.id||"")));
+          const serverRoster = (serverTryout.roster||[]).filter(p=>!dead.has(String(p.id||"")));
+          const localIds = new Set(localRoster.map(p=>String(p.id||"")));
+          localTryout.roster = [...localRoster, ...serverRoster.filter(p=>!localIds.has(String(p.id||"")))];
+          DB.tryouts[tid] = localTryout;
+        }
+        // else: serverTryout is already in DB.tryouts[tid] — Neon wins ✓
+      }
+      // Purge ghost tryouts: if a cloud-enabled tryout exists in localStorage but
+      // Neon has no record of it (server never returned it), remove it.  This
+      // prevents deleted/orphaned assessments from haunting the local DB.
+      // Local-only tryouts are always kept; only cloud-enabled orphans are dropped.
+      for(const tid of Object.keys(localTryoutsBeforeSync || {})){
+        if(DB.tryouts[tid]) continue; // server knows about it — keep
+        const localTryout = localTryoutsBeforeSync[tid];
+        if(isCloudEnabled(localTryout)){
+          // Server has no record of this cloud-enabled tryout — drop it.
+          delete DB.tryouts[tid];
+        } else {
+          // Local-only tryout — preserve it.
+          DB.tryouts[tid] = localTryout;
+        }
       }
       // Re-normalize after merge
       for(const tid of Object.keys(DB.tryouts)){
@@ -7751,7 +7793,10 @@ async function dbFullSync(){
       const syncedTeams = (data.teams && typeof data.teams === "object")
         ? teamsFromSyncMap(data.teams)
         : [];
-      DB.teams = mergeTeamLists(localTeamsBeforeSync, syncedTeams);
+      // Teams: server (syncedTeams) wins over local so deletions/tombstones from
+      // Neon take effect.  Local teams that the server doesn't know about yet
+      // (created during this sync flight) are preserved via the union in mergeTeamLists.
+      DB.teams = mergeTeamLists(syncedTeams, localTeamsBeforeSync);
       // ── Neon is the source of truth ──────────────────────────────────────
       // Seasons: Neon's merged result is authoritative. Re-apply any local
       // seasons that were created DURING this sync flight so they aren't lost.
