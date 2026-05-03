@@ -15422,12 +15422,14 @@ function printScoringSheets(){
   if(!t) return;
 
   const sport        = getSportFromTryout(t);
-  const skRubrics    = getSkaterAll(t);
-  const cuRubrics    = (t.settings?.customRubrics||[]).filter(r=>r&&String(r.label||"").trim());
-  const rubrics      = [...skRubrics, ...cuRubrics];
+  // Print ONLY the rubrics the coach explicitly created for this assessment
+  // (the custom rubrics).  Default skater rubrics (IQ, etc.) are NOT printed
+  // unless the coach added them as custom rubrics.  This gives more space on
+  // the page for the rubrics that actually matter to this assessment.
+  const rubrics      = (t.settings?.customRubrics||[]).filter(r=>r&&String(r.label||"").trim());
 
   if(!rubrics.length){
-    showActionBanner("No rubrics configured yet — build your rubric first.", "warn");
+    showActionBanner("No custom rubrics configured for this assessment yet — add rubrics in the Rubric tab first.", "warn");
     return;
   }
 
