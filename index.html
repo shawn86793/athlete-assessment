@@ -15422,14 +15422,31 @@ function printScoringSheets(){
   if(!t) return;
 
   const sport        = getSportFromTryout(t);
-  // Print ONLY the rubrics the coach explicitly created for this assessment
-  // (the custom rubrics).  Default skater rubrics (IQ, etc.) are NOT printed
-  // unless the coach added them as custom rubrics.  This gives more space on
-  // the page for the rubrics that actually matter to this assessment.
-  const rubrics      = (t.settings?.customRubrics||[]).filter(r=>r&&String(r.label||"").trim());
+  // Print ONLY the rubrics the coach actively selected for THIS assessment:
+  //   • Standard rubrics they picked from the library (t.settings.skaterRubrics
+  //     per category) — read RAW, no fallback to defaults.  If a category is
+  //     undefined the coach hasn't touched it = they don't want it printed.
+  //   • Custom rubrics they created (t.settings.customRubrics).
+  // This way "I created 4 rubrics" → the printed sheet has exactly 4 columns.
+  const skSelectionsRaw = t.settings?.skaterRubrics;
+  const skSelected = [];
+  if(skSelectionsRaw && typeof skSelectionsRaw === "object"){
+    const order = (typeof getSportSkCatOrder === "function" ? getSportSkCatOrder(sport) : Object.keys(skSelectionsRaw));
+    for(const catKey of order){
+      const list = skSelectionsRaw[catKey];
+      if(!Array.isArray(list)) continue; // category never customized → skip
+      for(const r of list){
+        if(r && String(r.key||"").trim() && String(r.label||"").trim()){
+          skSelected.push({ key:r.key, label:r.label, scale:r.scale||"1-5" });
+        }
+      }
+    }
+  }
+  const cuRubrics = (t.settings?.customRubrics||[]).filter(r=>r&&String(r.label||"").trim());
+  const rubrics   = [...skSelected, ...cuRubrics];
 
   if(!rubrics.length){
-    showActionBanner("No custom rubrics configured for this assessment yet — add rubrics in the Rubric tab first.", "warn");
+    showActionBanner("No rubrics selected for this assessment yet — pick rubrics from the library or add custom ones in the Rubric tab first.", "warn");
     return;
   }
 
