@@ -21340,7 +21340,11 @@ function teamBuilderTileHTML(t, canManage){
     ? `<div class="tiny" style="color:var(--warn);">${escapeHTML(data.warnings[0])}</div>`
     : "";
   return `
-    <div class="playerTile libraryTile" onclick="${canManage ? "openFreshTeamBuilder(event)" : ""}">
+    <div class="playerTile libraryTile"
+      onclick="${canManage ? "openFreshTeamBuilder(event)" : ""}"
+      ondragover="event.preventDefault();event.stopPropagation();this.style.outline='2.5px dashed #6366f1';this.style.background='rgba(99,102,241,0.07)'"
+      ondragleave="this.style.outline='';this.style.background=''"
+      ondrop="event.preventDefault();event.stopPropagation();this.style.outline='';this.style.background='';openImportResultsModal(event.dataTransfer.files[0])">
       <div class="ptTop">
         <div>
           <div class="ptName">Team Builder</div>
@@ -21354,10 +21358,340 @@ function teamBuilderTileHTML(t, canManage){
       </div>
       <div class="ptCompareRow">
         ${canManage ? `<button class="compareTile" style="background:#f97316;color:#fff;border-color:#f97316;font-weight:900;" onclick="openFreshTeamBuilder(event)">🧠 Team Builder</button>` : ``}
+        ${canManage ? `<button class="compareTile" style="background:#6366f1;color:#fff;border-color:#6366f1;font-weight:900;" onclick="openImportResultsModal(null,event)">📥 Import Results</button>` : ``}
         ${canManage && data ? `<button class="compareTile danger" onclick="deleteTeamBuilderResult(event)">Delete</button>` : ``}
       </div>
     </div>
   `;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ *  IMPORT RESULTS  (CSV / Excel → evaluation records)
+ * ───────────────────────────────────────────────────────────────────────────
+ *  Accepted column layouts (auto-detected):
+ *    A) "Player","Skating","Passing",...          – name + rubric scores
+ *    B) "First Name","Last Name","Skating",...    – split name + rubric scores
+ *    C) "Jersey","First Name","Last Name",...     – jersey + name + rubric scores
+ *    D) AAS scan-sheet export (same structure)
+ *  Rubric columns are fuzzy-matched against the assessment's configured rubrics.
+ * ───────────────────────────────────────────────────────────────────────────*/
+let _importResultsState = null; // {rows, matches, rubricMap, tid}
+
+function openImportResultsModal(file, ev){
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  const t = getTryout();
+  if(!t){ showActionBanner("Open an assessment first.", "warn"); return; }
+
+  const modal = document.createElement("div");
+  modal.id = "importResultsModal";
+  modal.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:16px";
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:520px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <h3 style="margin:0;font-size:18px;font-weight:900">📥 Import Results</h3>
+        <button onclick="document.getElementById('importResultsModal').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+      </div>
+      <p style="font-size:13px;color:#555;margin:0 0 16px;line-height:1.6">
+        Drop a CSV or Excel file with player scores. Column headers must include player names (or first/last name) and rubric names matching this assessment.
+      </p>
+      <div id="importResultsDropZone"
+        onclick="document.getElementById('importResultsFileInput').click()"
+        ondragover="event.preventDefault();this.style.background='#eef2ff'"
+        ondragleave="this.style.background='#f8f7ff'"
+        ondrop="event.preventDefault();_handleImportResultsDrop(event)"
+        style="border:2.5px dashed #6366f1;border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;background:#f8f7ff;transition:background 0.15s">
+        <div style="font-size:36px;margin-bottom:8px">📊</div>
+        <div style="font-size:14px;font-weight:700;color:#6366f1">Click to choose or drag &amp; drop here</div>
+        <div style="font-size:12px;color:#888;margin-top:6px">CSV or Excel (.xlsx)</div>
+      </div>
+      <input type="file" id="importResultsFileInput" accept=".csv,.xlsx,.xls,text/csv" style="display:none"
+        onchange="_processResultsFile(this.files[0])">
+      <div id="importResultsProgress" style="display:none;margin-top:14px;font-size:13px;color:#6366f1;text-align:center;font-weight:700"></div>
+      <div style="margin-top:18px;padding:12px 14px;border-radius:10px;background:#f1f5f9;font-size:11.5px;color:#64748b;line-height:1.6">
+        <b>Expected format:</b><br>
+        Row 1 = headers: <code>Player, Skating, Passing, Shooting, ...</code><br>
+        Or: <code>First Name, Last Name, Skating, Passing, ...</code><br>
+        Score values: 1–5 per rubric column. One player per row.
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  if(file) _processResultsFile(file);
+}
+
+function _handleImportResultsDrop(ev){
+  const file = ev.dataTransfer?.files?.[0];
+  if(file) _processResultsFile(file);
+}
+
+function _processResultsFile(file){
+  if(!file) return;
+  const prog = document.getElementById("importResultsProgress");
+  if(prog){ prog.style.display="block"; prog.textContent="Reading file…"; }
+
+  const name   = (file.name||"").toLowerCase();
+  const isXLSX = name.endsWith(".xlsx")||name.endsWith(".xls");
+
+  const onRows = rows => {
+    if(prog) prog.style.display="none";
+    const result = _parseResultsRows(rows);
+    if(!result){ _importResultsErr("Could not detect player names or rubric score columns. Check that your header row matches the expected format."); return; }
+    document.getElementById("importResultsModal")?.remove();
+    _showResultsImportPreview(result);
+  };
+
+  if(isXLSX){
+    _loadXLSX(()=>{
+      const reader = new FileReader();
+      reader.onload = e=>{
+        try{
+          const wb   = XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+          const ws   = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+          onRows(rows);
+        }catch(err){ _importResultsErr("Could not read Excel file: "+(err.message||err)); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const text = e.target?.result||"";
+      onRows(_csvToRows(text));
+    };
+    reader.readAsText(file);
+  }
+}
+
+// ── Parse rows → [{name, first, last, jersey, scores:{key:val}}] ──────────
+function _parseResultsRows(rows){
+  if(!rows||rows.length<2) return null;
+  const t = getTryout();
+  if(!t) return null;
+
+  // Gather all rubric key→label pairs for fuzzy matching
+  const skRubs = getSkaterAll(t);
+  const cuRubs = (t.settings?.customRubrics||[]).filter(r=>r&&String(r.label||"").trim());
+  const allRubs = [...skRubs,...cuRubs];
+  const norm = s=>String(s||"").toLowerCase().replace(/[\s_\-\.]+/g,"").replace(/[^a-z0-9]/g,"");
+
+  // Find header row (first row with ≥2 non-empty cells)
+  let hdrIdx=0;
+  for(let i=0;i<Math.min(6,rows.length);i++){
+    if(rows[i].filter(c=>String(c).trim()).length>=2){ hdrIdx=i; break; }
+  }
+  const hdrs = rows[hdrIdx].map(h=>String(h||"").trim());
+  const nHdrs = hdrs.map(norm);
+
+  // Detect player identifier columns
+  const colPlayer   = nHdrs.findIndex(h=>h==="player"||h==="name"||h==="playername"||h==="fullname");
+  const colFirst    = nHdrs.findIndex(h=>h==="firstname"||h==="first"||h==="fname");
+  const colLast     = nHdrs.findIndex(h=>h==="lastname"||h==="last"||h==="lname");
+  const colJersey   = nHdrs.findIndex(h=>h==="jersey"||h==="jerseynumber"||h==="jerseynr"||h==="#"||h==="number"||h==="num");
+
+  // Must have at least one player identifier
+  if(colPlayer<0 && colFirst<0 && colLast<0 && colJersey<0) return null;
+
+  // Map each header to a rubric key (fuzzy: exact label match, then key match)
+  const rubricCols = []; // [{colIdx, rubKey, rubLabel}]
+  for(let ci=0;ci<hdrs.length;ci++){
+    if(ci===colPlayer||ci===colFirst||ci===colLast||ci===colJersey) continue;
+    const hn = nHdrs[ci];
+    if(!hn) continue;
+    const match = allRubs.find(r=>norm(r.label||r.key)===hn||norm(r.key)===hn);
+    if(match) rubricCols.push({colIdx:ci, rubKey:match.key, rubLabel:match.label||match.key});
+  }
+  if(!rubricCols.length) return null;
+
+  // Parse data rows
+  const playerRows = [];
+  for(let ri=hdrIdx+1;ri<rows.length;ri++){
+    const row = rows[ri];
+    if(!row||row.every(c=>!String(c).trim())) continue; // skip blanks
+
+    const rawFirst  = colFirst>=0  ? String(row[colFirst]||"").trim() : "";
+    const rawLast   = colLast>=0   ? String(row[colLast]||"").trim()  : "";
+    const rawName   = colPlayer>=0 ? String(row[colPlayer]||"").trim(): "";
+    const rawJersey = colJersey>=0 ? String(row[colJersey]||"").trim(): "";
+
+    const name = rawName || `${rawFirst} ${rawLast}`.trim();
+    if(!name && !rawJersey) continue;
+
+    const scores = {};
+    for(const {colIdx,rubKey} of rubricCols){
+      const raw = parseFloat(String(row[colIdx]||"").replace(/[^0-9.]/g,""));
+      if(!isNaN(raw)&&raw>=1&&raw<=5) scores[rubKey]=Math.round(raw);
+    }
+    if(!Object.keys(scores).length) continue;
+
+    playerRows.push({ name, first:rawFirst, last:rawLast, jersey:rawJersey, scores });
+  }
+
+  if(!playerRows.length) return null;
+  return { playerRows, rubricCols, tid:t.id };
+}
+
+// ── Match imported rows to roster players ─────────────────────────────────
+function _matchImportedPlayers(playerRows, roster){
+  const norm = s=>String(s||"").toLowerCase().replace(/[\s\-'.]/g,"");
+  const rosterNorm = roster.map(p=>({
+    p,
+    fullNorm: norm(`${p.first||""} ${p.last||""}`),
+    lastNorm: norm(p.last||""),
+    jerseyStr: String(p.jersey||"").trim(),
+  }));
+
+  return playerRows.map(row=>{
+    const rowNorm = norm(row.name||`${row.first} ${row.last}`);
+    const rowLast = norm(row.last||row.name.split(" ").pop()||"");
+
+    // 1. Exact full name match
+    let m = rosterNorm.find(r=>r.fullNorm===rowNorm);
+    // 2. Exact jersey match
+    if(!m&&row.jersey) m = rosterNorm.find(r=>r.jerseyStr===row.jersey);
+    // 3. Last-name + approximate first initial
+    if(!m&&rowLast.length>1) m = rosterNorm.find(r=>r.lastNorm===rowLast);
+    // 4. Fuzzy: name contains
+    if(!m&&rowNorm.length>3) m = rosterNorm.find(r=>r.fullNorm.includes(rowNorm)||rowNorm.includes(r.fullNorm));
+
+    return { row, player:m?.p||null, confidence: m ? (m.fullNorm===rowNorm?"exact":"fuzzy") : "unmatched" };
+  });
+}
+
+// ── Preview / review modal ─────────────────────────────────────────────────
+function _showResultsImportPreview(result){
+  const t = DB.tryouts[result.tid];
+  if(!t) return;
+  const roster  = (t.roster||[]).filter(p=>!p.tombstone);
+  const matches = _matchImportedPlayers(result.playerRows, roster);
+  _importResultsState = { matches, rubricCols:result.rubricCols, tid:result.tid };
+
+  const exactCount    = matches.filter(m=>m.confidence==="exact").length;
+  const fuzzyCount    = matches.filter(m=>m.confidence==="fuzzy").length;
+  const unmatchedCount= matches.filter(m=>m.confidence==="unmatched").length;
+
+  const rowsHTML = matches.map((m,idx)=>{
+    const ci = m.confidence;
+    const badge = ci==="exact"
+      ? `<span style="font-size:10px;font-weight:700;background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:10px">✓ matched</span>`
+      : ci==="fuzzy"
+      ? `<span style="font-size:10px;font-weight:700;background:#fef9c3;color:#a16207;padding:1px 6px;border-radius:10px">~ fuzzy</span>`
+      : `<span style="font-size:10px;font-weight:700;background:#fee2e2;color:#dc2626;padding:1px 6px;border-radius:10px">✗ no match</span>`;
+
+    const playerName = m.player
+      ? `${m.player.first||""} ${m.player.last||""}`.trim()
+      : `<span style="color:#dc2626">${escapeHTML(m.row.name||"?")}</span>`;
+
+    const scoresList = result.rubricCols
+      .filter(rc=>m.row.scores[rc.rubKey]!==undefined)
+      .map(rc=>`<span style="font-size:11px;font-weight:700;background:#e0e7ff;color:#3730a3;padding:1px 6px;border-radius:6px">${escapeHTML(rc.rubLabel.slice(0,10))}: ${m.row.scores[rc.rubKey]}</span>`)
+      .join(" ");
+
+    return `<tr data-idx="${idx}" style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:6px 8px;font-size:12px;font-weight:700;white-space:nowrap">${badge}</td>
+      <td style="padding:6px 8px;font-size:12px;font-weight:600">${escapeHTML(m.row.name||`${m.row.first} ${m.row.last}`.trim())}</td>
+      <td style="padding:6px 8px;font-size:12px">${playerName}</td>
+      <td style="padding:6px 8px;font-size:11px;white-space:nowrap">${scoresList||'<span style="color:#aaa">—</span>'}</td>
+    </tr>`;
+  }).join("");
+
+  const modal = document.createElement("div");
+  modal.id = "importResultsReviewModal";
+  modal.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto";
+  modal.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:860px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0;font-size:17px;font-weight:900">Review Import</h3>
+          <div style="font-size:12px;color:#64748b;margin-top:3px">
+            ${escapeHTML(t.name||"")} ·
+            <span style="color:#16a34a;font-weight:700">${exactCount} exact</span>
+            ${fuzzyCount?` · <span style="color:#a16207;font-weight:700">${fuzzyCount} fuzzy</span>`:""}
+            ${unmatchedCount?` · <span style="color:#dc2626;font-weight:700">${unmatchedCount} unmatched</span>`:""}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="document.getElementById('importResultsReviewModal').remove()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+          <button onclick="_confirmImportResults()" ${exactCount+fuzzyCount===0?"disabled":""} style="padding:8px 18px;border-radius:8px;border:none;background:#6366f1;color:#fff;font-size:13px;font-weight:800;cursor:pointer;opacity:${exactCount+fuzzyCount===0?0.45:1}">✅ Import ${exactCount+fuzzyCount} Player${exactCount+fuzzyCount!==1?"s":""}</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#64748b;margin:0 0 14px;line-height:1.5">
+        Matched players will have a new evaluation added with scores from the file. Unmatched rows are skipped — add those players to the roster first.
+      </p>
+      <div style="overflow-x:auto">
+        <table style="border-collapse:collapse;width:100%;font-size:12px">
+          <thead><tr style="background:#f8fafc">
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:800;color:#64748b;white-space:nowrap">Match</th>
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:800;color:#64748b">File Name</th>
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:800;color:#64748b">Roster Player</th>
+            <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:800;color:#64748b">Scores</th>
+          </tr></thead>
+          <tbody>${rowsHTML}</tbody>
+        </table>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function _confirmImportResults(){
+  const state = _importResultsState;
+  if(!state) return;
+  const t = DB.tryouts[state.tid];
+  if(!t) return;
+
+  const today = new Date().toISOString().slice(0,10);
+  let imported=0;
+
+  for(const m of state.matches){
+    if(!m.player||m.confidence==="unmatched") continue;
+    if(!Object.keys(m.row.scores).length) continue;
+    if(!t.evals) t.evals=[];
+    t.evals.push({
+      id: uid(),
+      playerId: m.player.id,
+      date: today,
+      evaluator: "CSV Import",
+      session: "Imported",
+      strengths:"", improve:"", recommendation:"",
+      scores: {...m.row.scores},
+      source:"import",
+      createdAt:Date.now(), updatedAt:Date.now(),
+    });
+    imported++;
+  }
+
+  touchTryout(t);
+  saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  _importResultsState=null;
+
+  document.getElementById("importResultsReviewModal")?.remove();
+  showActionBanner(`✅ Imported scores for ${imported} player${imported!==1?"s":""}`, "success");
+}
+
+function _importResultsErr(msg){
+  document.getElementById("importResultsModal")?.remove();
+  swgModal(`<div style="padding:8px">
+    <h3 style="margin:0 0 12px;color:#dc2626">Import Error</h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 16px;line-height:1.6">${escapeHTML(msg)}</p>
+    <button onclick="closeSWGModal();openImportResultsModal(null)" style="padding:10px 20px;background:#6366f1;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Try Again</button>
+  </div>`);
+}
+
+// Simple CSV text → array of arrays
+function _csvToRows(text){
+  const lines=text.split(/\r?\n/);
+  return lines.map(line=>{
+    const cells=[]; let cur="", inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'){ if(inQ&&line[i+1]==='"'){ cur+='"'; i++; } else inQ=!inQ; }
+      else if(c===','&&!inQ){ cells.push(cur); cur=""; }
+      else cur+=c;
+    }
+    cells.push(cur);
+    return cells.map(s=>s.trim());
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
