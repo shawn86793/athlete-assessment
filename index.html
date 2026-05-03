@@ -10580,6 +10580,28 @@ window.addEventListener("online", async ()=>{
   }
 });
 
+// CRITICAL: Flush any pending debounced save to localStorage before the page
+// unloads (refresh, tab close, navigation).  The 250ms debounce timer is
+// cancelled by page unload, so without this handler a refresh immediately
+// after a large import (CSV, etc.) would silently discard the new players.
+// Note: async operations (Neon PUT) cannot reliably complete in beforeunload;
+// we flush to localStorage synchronously here so the NEXT page load reads
+// the latest data and re-syncs it to Neon via dbFullSync on startup.
+window.addEventListener("beforeunload", function(){
+  if(_saveDbPending){
+    if(_saveDbTimer){ clearTimeout(_saveDbTimer); _saveDbTimer = null; }
+    _saveDbPending = false;
+    try {
+      const modeCheck = typeof shouldShowAdminTestMode === "function" ? shouldShowAdminTestMode() : null;
+      if(!modeCheck || !modeCheck.readOnly){
+        const raw = JSON.stringify(DB);
+        safeStorageSet(STORAGE_KEY, raw);
+        lastDbSnapshot = raw;
+      }
+    } catch(e){}
+  }
+});
+
 // Data isolation model: DB.tryouts is keyed by assessment id; Team Hub access additionally filters by tryout.seasonId.
 let DB = loadDB();
 if(!DB.seasons || typeof DB.seasons !== "object") DB.seasons = {};
@@ -21722,8 +21744,10 @@ function _confirmImportResults(){
   }
 
   touchTryout(t);
-  saveDB();
-  if(authState.user) dbSaveTryout(t.id);
+  // CRITICAL: Flush immediately — same reason as confirmCSVImport.
+  if(_saveDbTimer){ clearTimeout(_saveDbTimer); _saveDbTimer = null; }
+  _saveDbPending = false;
+  _flushSaveDB();
   _importResultsState=null;
 
   document.getElementById("importResultsReviewModal")?.remove();
@@ -23122,8 +23146,13 @@ function confirmCSVImport(){
   if(!Array.isArray(t.roster)) t.roster = [];
   t.roster.push(...players);
   window._csvPendingPlayers = [];
-  touchTryout(t); saveDB();
-  if(authState.user) dbSaveTryout(t.id);
+  touchTryout(t);
+  // CRITICAL: Flush immediately — cancel any pending debounce so all 180+
+  // players reach localStorage and Neon right now, before a page refresh
+  // can cancel the 250ms timer and silently discard the import.
+  if(_saveDbTimer){ clearTimeout(_saveDbTimer); _saveDbTimer = null; }
+  _saveDbPending = false;
+  _flushSaveDB();
   const modal = document.getElementById("csvImportModal");
   if(modal) modal.remove();
   render();
