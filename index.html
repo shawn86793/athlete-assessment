@@ -21475,7 +21475,9 @@ function openImportResultsModal(file, ev){
         <button onclick="document.getElementById('importResultsModal').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#888">✕</button>
       </div>
       <p style="font-size:13px;color:#555;margin:0 0 16px;line-height:1.6">
-        Drop a CSV or Excel file with player scores. Column headers must include player names (or first/last name) and rubric names matching this assessment.
+        Three ways to import scores:
+        <br>• <b>CSV / Excel</b> with player names + rubric columns
+        <br>• <b>Photo or scan</b> of a printed score sheet (the QR code identifies the assessment)
       </p>
       <div id="importResultsDropZone"
         onclick="document.getElementById('importResultsFileInput').click()"
@@ -21483,18 +21485,16 @@ function openImportResultsModal(file, ev){
         ondragleave="this.style.background='#f8f7ff'"
         ondrop="event.preventDefault();_handleImportResultsDrop(event)"
         style="border:2.5px dashed #6366f1;border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;background:#f8f7ff;transition:background 0.15s">
-        <div style="font-size:36px;margin-bottom:8px">📊</div>
+        <div style="font-size:36px;margin-bottom:8px">📊 📷</div>
         <div style="font-size:14px;font-weight:700;color:#6366f1">Click to choose or drag &amp; drop here</div>
-        <div style="font-size:12px;color:#888;margin-top:6px">CSV or Excel (.xlsx)</div>
+        <div style="font-size:12px;color:#888;margin-top:6px">CSV · Excel (.xlsx) · JPG · PNG · HEIC</div>
       </div>
-      <input type="file" id="importResultsFileInput" accept=".csv,.xlsx,.xls,text/csv" style="display:none"
+      <input type="file" id="importResultsFileInput" accept=".csv,.xlsx,.xls,text/csv,image/*" style="display:none"
         onchange="_processResultsFile(this.files[0])">
       <div id="importResultsProgress" style="display:none;margin-top:14px;font-size:13px;color:#6366f1;text-align:center;font-weight:700"></div>
       <div style="margin-top:18px;padding:12px 14px;border-radius:10px;background:#f1f5f9;font-size:11.5px;color:#64748b;line-height:1.6">
-        <b>Expected format:</b><br>
-        Row 1 = headers: <code>Player, Skating, Passing, Shooting, ...</code><br>
-        Or: <code>First Name, Last Name, Skating, Passing, ...</code><br>
-        Score values: 1–5 per rubric column. One player per row.
+        <b>CSV / Excel format:</b> Row 1 = headers: <code>Player, Skating, Passing, ...</code> or <code>First Name, Last Name, Skating, ...</code>. Score values 1–5 per rubric column, one player per row.<br>
+        <b>Scan format:</b> Print blank score sheets from the Rubric tab → fill in the bubbles → upload the photo here.
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -21514,6 +21514,27 @@ function _processResultsFile(file){
 
   const name   = (file.name||"").toLowerCase();
   const isXLSX = name.endsWith(".xlsx")||name.endsWith(".xls");
+  const isImage = (file.type||"").startsWith("image/")
+               || /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i.test(name);
+
+  // ── Image (scanned/photographed score sheet) → route to QR + bubble OMR pipeline ──
+  if(isImage){
+    if(prog) prog.style.display="none";
+    document.getElementById("importResultsModal")?.remove();
+    // processScanSheet handles its own progress/errors and opens the
+    // scan-review modal once the QR + bubbles are decoded.  If the existing
+    // scan modal isn't open we show its progress UI on top so the user
+    // gets feedback during the (sometimes slow) jsQR + OMR pass.
+    if(typeof openScanSheetModal === "function" && !document.getElementById("scanSheetModal")){
+      openScanSheetModal();
+    }
+    if(typeof processScanSheet === "function"){
+      processScanSheet(file);
+    } else {
+      _importResultsErr("Scan pipeline not available. Reload the page and try again.");
+    }
+    return;
+  }
 
   const onRows = rows => {
     if(prog) prog.style.display="none";
