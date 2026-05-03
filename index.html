@@ -435,7 +435,9 @@
         margin-left:0 !important;
         width:100%;
       }
-      #teamBuilderDashboardOverlay button{
+      /* Only header action buttons grow — never player-row info buttons */
+      #teamBuilderDashboardOverlay > div > div:first-child button,
+      #teamBuilderDashboardOverlay > div > div:first-child > div:last-child button{
         flex:1;
         justify-content:center;
       }
@@ -21413,15 +21415,17 @@ function renderTeamBuilderDashboard(){
       const overallStr = hasScore ? num2(overallNum) : "—";
       const overallColor = !hasScore ? 'var(--muted)' : overallNum>=4.5?'var(--score-great-ink)':overallNum>=3.8?'var(--score-good-ink)':overallNum>=3.0?'var(--score-avg-ink)':overallNum>=2.0?'var(--score-low-ink)':'var(--score-poor-ink)';
 
-      // Name: use first+last only; jersey shown only if it looks like a real jersey (≤4 chars, no dashes)
-      const displayName = `${player.first||det.name||""} ${player.last||""}`.trim() || det.name || "Player";
+      // Name: support first/last (manual add, CSV) and firstName/lastName (registration import) fields
+      const displayName = `${player.first||player.firstName||det.name||""} ${player.last||player.lastName||""}`.trim() || player.name || det.name || "Player";
       const rawJersey   = String(player.jersey || det.jersey || "").trim();
       const jerseyIsValid = rawJersey && rawJersey.length <= 4 && /^[0-9A-Za-z]+$/.test(rawJersey);
       const jerseyPrefix  = jerseyIsValid ? `<span style="font-size:10px;font-weight:700;color:var(--muted);margin-right:2px;">#${escapeHTML(rawJersey)}</span>` : "";
 
       const posAvatarBg = _tbAvatarBgMap[getPositionAvatarClass(player.pos||"", _tbSport)] || '#6366f1';
-      const initials = ((player.first||"")[0]||"").toUpperCase() + ((player.last||"")[0]||"").toUpperCase();
-      const rowBg = rowIdx%2===0 ? 'var(--tile)' : 'var(--card)';
+      const initials = ((player.first||player.firstName||"")[0]||"").toUpperCase() + ((player.last||player.lastName||"")[0]||"").toUpperCase();
+      // The team card is always background:#fff — use hardcoded light row colors so
+      // the name text is always readable regardless of the user's dark/light theme.
+      const rowBg = rowIdx%2===0 ? '#f0f4fa' : '#ffffff';
 
       // Find matching registration for this player (fuzzy match by first+last+year)
       const matchReg = (registrationsCache||[]).find(r =>
@@ -21430,11 +21434,12 @@ function renderTeamBuilderDashboard(){
         String(r.yearOfBirth||"") === String(player.yearOfBirth||"")
       );
       const regId = matchReg ? escapeAttr(matchReg.registrationId||"") : "";
+      // flex:none prevents this button from growing (the mobile CSS rule targets header buttons only now)
       const infoBtn = regId
         ? `<button onclick="event.stopPropagation();openRegistrationPlayerCard('${regId}')"
-            style="flex-shrink:0;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;cursor:pointer;line-height:1.6;" title="View registration card">📋</button>`
+            style="flex:none;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;cursor:pointer;line-height:1.6;" title="View registration card">📋</button>`
         : `<button onclick="event.stopPropagation();openRosterPlayerCard('${escapeAttr(pid)}')"
-            style="flex-shrink:0;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;cursor:pointer;line-height:1.6;" title="View player info">👤</button>`;
+            style="flex:none;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;cursor:pointer;line-height:1.6;" title="View player info">👤</button>`;
 
       return `<div class="tbPlayerRow" draggable="true"
         ondragstart="tbDragStart('${escapeAttr(pid)}','${escapeAttr(team.id)}',event)"
@@ -21444,8 +21449,8 @@ function renderTeamBuilderDashboard(){
         title="Click to trade · Drag to move · 📋 to view registration">
         <div style="width:26px;height:26px;border-radius:50%;background:${posAvatarBg};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;">${escapeHTML(initials||"?")}</div>
         <div style="flex:1;min-width:0;overflow:hidden;">
-          <div style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jerseyPrefix}${escapeHTML(displayName)}${pkgTag}</div>
-          <div style="font-size:10px;color:var(--muted);">${escapeHTML(det.position||player.pos||"—")}</div>
+          <div style="font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jerseyPrefix}${escapeHTML(displayName)}${pkgTag}</div>
+          <div style="font-size:10px;color:#64748b;">${escapeHTML(det.position||player.pos||"—")}</div>
         </div>
         <div style="font-size:12px;font-weight:800;color:${overallColor};flex-shrink:0;min-width:28px;text-align:right;">${overallStr}</div>
         ${infoBtn}
