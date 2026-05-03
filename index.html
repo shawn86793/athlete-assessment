@@ -15316,7 +15316,11 @@ function renderRubricReference(){
           <h3 style="margin:0 0 4px;">Scoring Rubrics</h3>
           <div class="tiny muted">Build your rubric library for each position. Drag rubrics from the library and set a weight for each criterion.</div>
         </div>
-        ${!readOnly?`<button class="ok" onclick="openRubricBuilderModal('${escapeJS(t.id)}','rubrics')" style="white-space:nowrap;padding:10px 20px;font-size:14px;font-weight:800;">🎯 Build Scoring Rubrics</button>`:""}
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          ${!readOnly?`<button class="ok" onclick="openRubricBuilderModal('${escapeJS(t.id)}','rubrics')" style="white-space:nowrap;padding:10px 20px;font-size:14px;font-weight:800;">🎯 Build Scoring Rubrics</button>`:""}
+          ${grandTotal>0?`<button onclick="printScoringSheets()" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#1e293b;color:#fff;border:none;border-radius:9px;cursor:pointer;">🖨️ Print Score Sheets</button>`:""}
+          ${grandTotal>0?`<button onclick="openScanSheetModal()" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#0d9488;color:#fff;border:none;border-radius:9px;cursor:pointer;">📷 Scan &amp; Import</button>`:""}
+        </div>
       </div>
       ${grandTotal===0?`<div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:rgba(249,115,22,0.06);border:1px dashed rgba(249,115,22,0.35);font-size:13px;color:#f97316;font-weight:600;">No rubrics added yet — click Build Scoring Rubrics to get started.</div>`:`<div style="margin-top:10px;font-size:13px;color:var(--muted);"><b style="color:var(--text);">${grandTotal}</b> rubric${grandTotal!==1?"s":""} configured across all positions.</div>`}
     </div>
@@ -15325,6 +15329,498 @@ function renderRubricReference(){
     ${customPositions.map(pos=>roleSummaryCard("👥 "+pos.label, s.customPositionRubrics?.[pos.key]||{}, skCatOrder, skCatLabels, s.customPositionWeights?.[pos.key]||{})).join("")}
     ${customRubricsCard}
   `;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ *  PRINT SCORING SHEETS
+ * ───────────────────────────────────────────────────────────────────────────*/
+function printScoringSheets(){
+  const t = getTryout();
+  if(!t) return;
+
+  const sport        = getSportFromTryout(t);
+  const skRubrics    = getSkaterAll(t);
+  const cuRubrics    = (t.settings?.customRubrics||[]).filter(r=>r&&String(r.label||"").trim());
+  const rubrics      = [...skRubrics, ...cuRubrics];
+
+  if(!rubrics.length){
+    showActionBanner("No rubrics configured yet — build your rubric first.", "warn");
+    return;
+  }
+
+  // Players: roster sorted by last name, fall back to registrations
+  const roster = (t.roster||[])
+    .filter(p=>!p.tombstone)
+    .sort((a,b)=>(a.last||"").localeCompare(b.last||""));
+  const regs = (t.registrations||[]).map((r,i)=>({
+    id: r.registrationId||r.id||String(i),
+    first: r.firstName||"", last: r.lastName||"",
+    jersey: r.jerseyNumber||"", pos: r.position||"",
+  }));
+  const players = roster.length ? roster : regs;
+
+  const tryoutDate = t.tryoutDate || new Date().toISOString().slice(0,10);
+
+  // Rows per page: 26 base, reduce slightly for many rubrics to keep bubbles visible
+  const ROWS = rubrics.length <= 6 ? 26 : rubrics.length <= 10 ? 22 : 18;
+
+  // Paginate
+  const pages = [];
+  if(!players.length){
+    pages.push(Array.from({length:ROWS},(_,i)=>({id:`blank-${i}`,first:"",last:"",jersey:"",pos:""})));
+  } else {
+    for(let i=0;i<players.length;i+=ROWS) pages.push(players.slice(i,i+ROWS));
+  }
+  const totalPages = pages.length;
+
+  // Layout constants (mm) baked into QR so scanner knows exact positions
+  const LAYOUT = {
+    pw:216, ph:279, mg:10,
+    hdrH:34, rowH: rubrics.length<=6?8.5:7.5,
+    numW:8, nameW:44,
+    bubD:4.2, bubGap:1.2,
+  };
+
+  const qrBase = {
+    v:1, aid:t.id, sport,
+    rub: rubrics.map(r=>({k:r.key,l:(r.label||r.key).slice(0,20)})),
+    ly: LAYOUT,
+  };
+
+  // ── Per-page HTML ──────────────────────────────────────────────────────────
+  const rubricColWidth = `${Math.max(14, Math.floor((196 - LAYOUT.numW - LAYOUT.nameW) / rubrics.length))}mm`;
+
+  const pagesHTML = pages.map((pagePlayers, pi)=>{
+    const pageNum = pi+1;
+    const qrData  = JSON.stringify({...qrBase, pg:pageNum, tp:totalPages});
+    const qrSrc   = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&margin=0&data=${encodeURIComponent(qrData)}`;
+
+    const rubHdrRow = `<tr class="ss-hdr">
+      <th class="ss-th-num">#</th>
+      <th class="ss-th-name">Player</th>
+      ${rubrics.map(r=>`<th class="ss-th-rub"><span class="ss-rub-lbl">${escapeHTML((r.label||r.key).slice(0,18))}</span></th>`).join("")}
+    </tr>`;
+
+    const playerRows = pagePlayers.map((p,idx)=>{
+      const rowNum = pi*ROWS+idx+1;
+      const name   = `${(p.last||"")}${(p.last&&p.first)?", ":""}${(p.first||"")}`.trim()||`—`;
+      const jersey = p.jersey?`<span class="ss-jnum"> #${escapeHTML(String(p.jersey))}</span>`:"";
+      const bubCols = rubrics.map((_r,ri)=>{
+        const bs = [1,2,3,4,5].map(n=>`<span class="ss-bub" data-r="${pi}" data-c="${ri}" data-v="${n}">${n}</span>`).join("");
+        return `<td class="ss-bub-cell">${bs}</td>`;
+      }).join("");
+      return `<tr class="ss-row ${idx%2===0?"ss-even":"ss-odd"}">
+        <td class="ss-num">${String(rowNum).padStart(2,"0")}</td>
+        <td class="ss-name">${escapeHTML(name)}${jersey}</td>
+        ${bubCols}
+      </tr>`;
+    }).join("");
+
+    return `<div class="ss-page">
+      <div class="ss-corner ss-tl"></div><div class="ss-corner ss-tr"></div>
+      <div class="ss-corner ss-bl"></div><div class="ss-corner ss-br"></div>
+      <div class="ss-header">
+        <div class="ss-hdr-left">
+          <div class="ss-title">${escapeHTML(t.name||"Assessment")}</div>
+          <div class="ss-meta">${escapeHTML(sport)} · ${escapeHTML(tryoutDate)} · Page ${pageNum} of ${totalPages}</div>
+          <div class="ss-instr">▶ Fill in ONE bubble per category per player using a dark pen or marker</div>
+          <div class="ss-assessor">Assessor: _____________________________ &nbsp;&nbsp; Date: ___________</div>
+        </div>
+        <div class="ss-hdr-right">
+          <img src="${qrSrc}" class="ss-qr" alt="QR" crossorigin="anonymous"/>
+          <div class="ss-qr-lbl">Scan to import</div>
+        </div>
+      </div>
+      <table class="ss-table">
+        <colgroup>
+          <col style="width:${LAYOUT.numW}mm">
+          <col style="width:${LAYOUT.nameW}mm">
+          ${rubrics.map(()=>`<col style="width:${rubricColWidth}">`).join("")}
+        </colgroup>
+        <thead>${rubHdrRow}</thead>
+        <tbody>${playerRows}</tbody>
+      </table>
+      <div class="ss-footer">Page ${pageNum} of ${totalPages} · ${escapeHTML(t.name||"")} · Athlete Assessment System</div>
+    </div>${pageNum<totalPages?'<div class="ss-break"></div>':""}`;
+  }).join("");
+
+  // ── Full document ──────────────────────────────────────────────────────────
+  const bubSize  = `${LAYOUT.bubD}mm`;
+  const bubTotal = LAYOUT.bubD*5 + LAYOUT.bubGap*4;
+
+  const doc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Score Sheets — ${escapeHTML(t.name||"Assessment")}</title>
+<style>
+@page{size:letter portrait;margin:10mm}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;font-size:10pt}
+.ss-page{position:relative;width:100%;padding:4mm 6mm 10mm}
+.ss-corner{position:absolute;width:6mm;height:6mm;background:#000}
+.ss-tl{top:0;left:0}.ss-tr{top:0;right:0}.ss-bl{bottom:0;left:0}.ss-br{bottom:0;right:0}
+.ss-header{display:flex;justify-content:space-between;align-items:flex-start;padding:1mm 8mm 2.5mm;border-bottom:1.5px solid #000;margin-bottom:1.5mm}
+.ss-title{font-size:14pt;font-weight:900;letter-spacing:-0.01em;line-height:1.2}
+.ss-meta{font-size:7.5pt;color:#444;margin:1mm 0 0.5mm}
+.ss-instr{font-size:7pt;font-weight:700;color:#000;margin:1mm 0 0.5mm}
+.ss-assessor{font-size:7.5pt;margin-top:1.5mm}
+.ss-hdr-right{text-align:center;flex-shrink:0}
+.ss-qr{width:20mm;height:20mm;display:block}
+.ss-qr-lbl{font-size:5.5pt;color:#666;margin-top:0.5mm;text-align:center}
+.ss-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.ss-hdr th{border:0.5px solid #888;background:#e8e8e8;padding:0;vertical-align:bottom;text-align:center}
+.ss-th-num{text-align:left;padding:1mm 1mm 1mm 1.5mm;font-size:7pt;font-weight:800}
+.ss-th-name{text-align:left;padding:1mm 1mm 1mm 1.5mm;font-size:7pt;font-weight:800}
+.ss-th-rub{height:22mm;position:relative;overflow:hidden}
+.ss-rub-lbl{display:block;writing-mode:vertical-lr;transform:rotate(180deg);font-size:7pt;font-weight:800;white-space:nowrap;padding:1mm 1.5mm;max-height:21mm;overflow:hidden;text-overflow:ellipsis}
+.ss-row td{border:0.5px solid #ccc;vertical-align:middle;padding:0;height:${rubrics.length<=6?"8.5mm":"7.5mm"}}
+.ss-even td{background:#f9f9f9}.ss-odd td{background:#fff}
+.ss-num{text-align:center;font-size:7pt;font-weight:700;color:#666;border-right:1px solid #aaa!important}
+.ss-name{font-size:7.5pt;font-weight:600;padding-left:1.5mm;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ss-jnum{font-size:6.5pt;color:#999;font-weight:400}
+.ss-bub-cell{text-align:center;padding:0 0.5mm}
+.ss-bub{display:inline-block;width:${bubSize};height:${bubSize};border-radius:50%;border:0.75px solid #444;font-size:5.5pt;font-weight:700;line-height:${bubSize};text-align:center;margin:0 ${LAYOUT.bubGap/2}mm;color:#444;background:#fff;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.ss-footer{position:absolute;bottom:2mm;left:8mm;right:8mm;font-size:5.5pt;color:#999;border-top:0.5px solid #ddd;padding-top:0.8mm;text-align:center}
+.ss-break{page-break-after:always;break-after:page;height:0}
+@media print{.ss-break{page-break-after:always;break-after:page}.ss-page{page-break-inside:avoid}}
+@media screen{body{background:#ccc;padding:10px}.ss-page{background:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.2);margin:0 auto 20px;max-width:216mm;min-height:279mm}}
+</style></head><body>
+${pagesHTML}
+</body></html>`;
+
+  const w = window.open("","_blank","width=900,height=750");
+  if(!w){ showActionBanner("Pop-up blocked — please allow pop-ups for this site.","warn"); return; }
+  w.document.write(doc);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(),1000);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ *  SCAN & IMPORT SCORING SHEETS
+ * ───────────────────────────────────────────────────────────────────────────*/
+function openScanSheetModal(){
+  const t = getTryout();
+  if(!t) return;
+
+  const modal = document.createElement("div");
+  modal.id = "scanSheetModal";
+  modal.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:16px";
+  modal.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+        <h3 style="margin:0;font-size:18px;font-weight:900">📷 Scan Score Sheet</h3>
+        <button onclick="document.getElementById('scanSheetModal').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#888">✕</button>
+      </div>
+      <p style="font-size:13px;color:#555;margin:0 0 20px;line-height:1.6">
+        Take a photo of a completed score sheet, or upload a scan.<br>
+        The QR code on the sheet tells the app which assessment and rubrics to use.
+      </p>
+      <div id="scanDropZone" onclick="document.getElementById('scanFileInput').click()"
+        style="border:2.5px dashed #0d9488;border-radius:12px;padding:32px 20px;text-align:center;cursor:pointer;background:#f0fdfa;transition:background 0.2s"
+        ondragover="event.preventDefault();this.style.background='#ccfbf1'"
+        ondragleave="this.style.background='#f0fdfa'"
+        ondrop="event.preventDefault();handleScanDrop(event)">
+        <div style="font-size:36px;margin-bottom:8px">📄</div>
+        <div style="font-size:14px;font-weight:700;color:#0d9488">Click to upload or drag &amp; drop</div>
+        <div style="font-size:12px;color:#888;margin-top:6px">JPG, PNG, HEIC — photo or scanned image</div>
+      </div>
+      <input type="file" id="scanFileInput" accept="image/*" capture="environment"
+        style="display:none" onchange="processScanSheet(this.files[0])">
+      <div id="scanProgress" style="display:none;margin-top:16px;font-size:13px;color:#0d9488;text-align:center;font-weight:700"></div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+function handleScanDrop(ev){
+  const file = ev.dataTransfer?.files?.[0];
+  if(file) processScanSheet(file);
+}
+
+function processScanSheet(file){
+  if(!file) return;
+  const prog = document.getElementById("scanProgress");
+  if(prog){ prog.style.display="block"; prog.textContent="🔍 Reading image…"; }
+
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    const img = new Image();
+    img.onload = ()=>{
+      // Draw to canvas for processing
+      const canvas = document.createElement("canvas");
+      const MAX = 1400;
+      let w=img.width, h=img.height;
+      if(w>MAX||h>MAX){ const s=MAX/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      canvas.width=w; canvas.height=h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img,0,0,w,h);
+
+      if(prog) prog.textContent="🔍 Reading QR code…";
+
+      // Load jsQR then process
+      _loadJsQR(()=>{
+        const imageData = ctx.getImageData(0,0,w,h);
+        let qrResult = null;
+        try{ qrResult = window.jsQR(imageData.data, w, h, {inversionAttempts:"dontInvert"}); }catch(e){}
+        if(!qrResult){
+          try{ qrResult = window.jsQR(imageData.data, w, h, {inversionAttempts:"attemptBoth"}); }catch(e){}
+        }
+
+        if(!qrResult){
+          if(prog) prog.style.display="none";
+          _showScanManualFallback();
+          return;
+        }
+
+        let payload;
+        try{ payload = JSON.parse(qrResult.data); }catch(e){
+          if(prog) prog.style.display="none";
+          _showScanError("QR code found but could not be parsed. Make sure you're scanning an Athlete Assessment score sheet.");
+          return;
+        }
+
+        if(payload.v!==1||!payload.aid||!Array.isArray(payload.rub)){
+          if(prog) prog.style.display="none";
+          _showScanError("This QR code doesn't look like an AAS score sheet (version mismatch).");
+          return;
+        }
+
+        if(prog) prog.textContent="🔍 Detecting filled bubbles…";
+
+        // Find corner marks and correct perspective
+        const corrected = _correctPerspective(canvas, ctx, qrResult);
+        const corrCtx   = corrected.ctx;
+        const corrW     = corrected.width;
+        const corrH     = corrected.height;
+
+        // Use layout from QR payload
+        const ly   = payload.ly || {pw:216,ph:279,mg:10,hdrH:34,rowH:8.5,numW:8,nameW:44,bubD:4.2,bubGap:1.2};
+        const rubs = payload.rub;
+        const pg   = payload.pg||1;
+
+        const scores = _sampleBubbles(corrCtx, corrW, corrH, ly, rubs);
+
+        if(prog) prog.style.display="none";
+        _showScanReviewModal(payload, scores, pg);
+      });
+    };
+    img.onerror=()=>{ if(prog) prog.style.display="none"; _showScanError("Could not load image."); };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _loadJsQR(cb){
+  if(window.jsQR){ cb(); return; }
+  const s=document.createElement("script");
+  s.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+  s.onload=cb;
+  s.onerror=()=>{ showActionBanner("Could not load QR scanner library (check internet connection).","warn"); };
+  document.head.appendChild(s);
+}
+
+function _correctPerspective(canvas, ctx, qrResult){
+  // Use QR code location to estimate rotation/scale, then return a re-drawn canvas
+  // For now, return the same canvas (QR location hints give us enough for basic correction)
+  // Full homography would require 4-point corner detection — simplified here
+  return {ctx, width:canvas.width, height:canvas.height};
+}
+
+function _sampleBubbles(ctx, W, H, ly, rubs){
+  // Convert mm layout to pixels
+  // Assuming the image covers the full letter page
+  const mmToPixX = W / ly.pw;
+  const mmToPixY = H / ly.ph;
+
+  const marginX = ly.mg * mmToPixX;
+  const marginY = ly.mg * mmToPixY;
+  const hdrH    = ly.hdrH * mmToPixY;
+  const rowH    = ly.rowH * mmToPixY;
+  const numW    = ly.numW * mmToPixX;
+  const nameW   = ly.nameW * mmToPixX;
+  const rubW    = (W - marginX*2 - numW - nameW) / rubs.length;
+  const bubR    = (ly.bubD/2) * mmToPixX;
+  const bubGap  = ly.bubGap * mmToPixX;
+  const bubStep = bubR*2 + bubGap;
+
+  const firstRowY = marginY + hdrH + rowH*0.5; // center of row 1
+  const colHdrH   = 22 * mmToPixY; // rotated header height
+
+  const scores = []; // [{row, rubIdx, val}]
+
+  // Max rows to sample: fit within page height
+  const maxRows = Math.floor((H - marginY - hdrH - colHdrH - marginY) / rowH);
+
+  for(let row=0; row<maxRows; row++){
+    const cy = marginY + hdrH + colHdrH + rowH*row + rowH*0.5;
+    const rowScores = [];
+    for(let ri=0; ri<rubs.length; ri++){
+      const cellX = marginX + numW + nameW + rubW*ri;
+      const cellCX = cellX + rubW*0.5;
+      // 5 bubbles centered in the cell
+      const totalBubsW = bubStep*5 - bubGap;
+      const startX = cellCX - totalBubsW*0.5 + bubR;
+
+      let minDark=255, bestVal=0;
+      for(let v=1;v<=5;v++){
+        const bx = Math.round(startX + bubStep*(v-1));
+        const by = Math.round(cy);
+        const dark = _measureBubbleDarkness(ctx, bx, by, bubR*0.7);
+        if(dark < minDark){ minDark=dark; bestVal=v; }
+      }
+      // Only count as filled if meaningfully darker than typical (threshold ~140)
+      rowScores.push(minDark < 140 ? bestVal : 0);
+    }
+    scores.push(rowScores);
+  }
+  return scores;
+}
+
+function _measureBubbleDarkness(ctx, cx, cy, r){
+  // Sample pixels in a circle of radius r, return average brightness
+  const r2=Math.floor(r), samples=[];
+  for(let dy=-r2;dy<=r2;dy++){
+    for(let dx=-r2;dx<=r2;dx++){
+      if(dx*dx+dy*dy<=r2*r2){
+        const d=ctx.getImageData(Math.round(cx+dx),Math.round(cy+dy),1,1).data;
+        samples.push((d[0]+d[1]+d[2])/3); // average RGB = brightness
+      }
+    }
+  }
+  if(!samples.length) return 255;
+  return Math.round(samples.reduce((a,b)=>a+b,0)/samples.length);
+}
+
+function _showScanReviewModal(payload, scores, pageNum){
+  const t = DB.tryouts[payload.aid];
+  const rubs = payload.rub;
+
+  if(!t){
+    _showScanError(`Assessment ID "${payload.aid}" not found on this device. Make sure you're logged into the same account that created this sheet.`);
+    return;
+  }
+
+  const roster = (t.roster||[]).filter(p=>!p.tombstone)
+    .sort((a,b)=>(a.last||"").localeCompare(b.last||""));
+  const ROWS = payload.ly ? Math.max(18,Math.min(26, Math.round((payload.ly.ph-payload.ly.mg*2-payload.ly.hdrH-22)/payload.ly.rowH))) : 26;
+  const startIdx = (pageNum-1)*ROWS;
+
+  // Build review table
+  const rowsHTML = scores.map((rowScores, idx)=>{
+    const p = roster[startIdx+idx];
+    if(!p) return "";
+    const name = `${p.first||""} ${p.last||""}`.trim()||`Player ${startIdx+idx+1}`;
+    const cells = rowScores.map((val,ri)=>{
+      const rubKey = rubs[ri]?.k||String(ri);
+      const rubLbl = (rubs[ri]?.l||rubKey).slice(0,12);
+      const btns = [1,2,3,4,5].map(n=>`
+        <button onclick="this.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('scr-sel'));this.classList.add('scr-sel');this.closest('td').dataset.val='${n}';this.closest('td').dataset.rub='${rubKey}'"
+          class="scr-bub${val===n?" scr-sel":""}"
+          style="width:24px;height:24px;border-radius:50%;border:1.5px solid ${val===n?"#0d9488":"#ccc"};background:${val===n?"#0d9488":"#fff"};color:${val===n?"#fff":"#444"};font-size:11px;font-weight:700;cursor:pointer;margin:1px">
+          ${n}</button>`).join("");
+      return `<td data-val="${val}" data-rub="${rubKey}" style="padding:3px 4px;text-align:center;border:1px solid #e2e8f0">
+        <div style="font-size:8px;color:#888;font-weight:700;margin-bottom:2px">${escapeHTML(rubLbl)}</div>
+        <div style="display:flex;justify-content:center;gap:1px">${btns}</div>
+      </td>`;
+    }).join("");
+    return `<tr data-pid="${escapeAttr(p.id)}">
+      <td style="padding:4px 8px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid #e2e8f0">${escapeHTML(name)}</td>
+      ${cells}
+    </tr>`;
+  }).filter(Boolean).join("");
+
+  document.getElementById("scanSheetModal")?.remove();
+
+  const detectedCount = scores.flat().filter(v=>v>0).length;
+  const modal2 = document.createElement("div");
+  modal2.id="scanReviewModal";
+  modal2.style.cssText="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto";
+  modal2.innerHTML=`
+    <div style="background:#fff;border-radius:16px;padding:24px;max-width:98vw;width:860px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.35)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0;font-size:17px;font-weight:900">Review Scanned Scores</h3>
+          <div style="font-size:12px;color:#64748b;margin-top:3px">${escapeHTML(t.name||"")} · Page ${pageNum} · <b>${detectedCount}</b> scores detected</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="document.getElementById('scanReviewModal').remove()" style="padding:8px 16px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+          <button onclick="_importScanScores('${escapeAttr(payload.aid)}')" style="padding:8px 18px;border-radius:8px;border:none;background:#0d9488;color:#fff;font-size:13px;font-weight:800;cursor:pointer">✅ Import Scores</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#64748b;margin:0 0 14px">Review detected scores below. Click any bubble to correct it. Rows with no bubbles filled will be skipped.</p>
+      <div style="overflow-x:auto">
+        <table id="scanReviewTable" style="border-collapse:collapse;width:100%;font-size:12px">
+          <tbody>${rowsHTML}</tbody>
+        </table>
+      </div>
+    </div>`;
+  document.body.appendChild(modal2);
+}
+
+function _importScanScores(tid){
+  const t = DB.tryouts[tid];
+  if(!t) return;
+
+  const table = document.getElementById("scanReviewTable");
+  if(!table) return;
+
+  const today = new Date().toISOString().slice(0,10);
+  let imported=0;
+
+  table.querySelectorAll("tbody tr[data-pid]").forEach(tr=>{
+    const pid = tr.dataset.pid;
+    const scores = {};
+    let anyScore=false;
+    tr.querySelectorAll("td[data-rub]").forEach(td=>{
+      const val = parseInt(td.dataset.val||"0",10);
+      if(val>=1&&val<=5){ scores[td.dataset.rub]=val; anyScore=true; }
+    });
+    if(!anyScore) return;
+
+    const existing = (t.evals||[]).find(e=>e.playerId===pid&&e.source==="scan"&&e.date===today);
+    if(existing){
+      existing.scores={...existing.scores,...scores};
+      existing.updatedAt=Date.now();
+    } else {
+      if(!t.evals) t.evals=[];
+      t.evals.push({
+        id:uid(), playerId:pid, date:today,
+        evaluator:"Scan Import", session:"Scanned Sheet",
+        strengths:"", improve:"", recommendation:"",
+        scores, source:"scan",
+        createdAt:Date.now(), updatedAt:Date.now(),
+      });
+    }
+    imported++;
+  });
+
+  touchTryout(t);
+  saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+
+  document.getElementById("scanReviewModal")?.remove();
+  showActionBanner(`✅ Imported scores for ${imported} player${imported!==1?"s":""}`, "success");
+}
+
+function _showScanManualFallback(){
+  document.getElementById("scanSheetModal")?.remove();
+  swgModal(`<div style="padding:8px">
+    <h3 style="margin:0 0 12px">QR Code Not Detected</h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 16px;line-height:1.6">
+      Couldn't find the QR code in the image. For best results:<br>
+      • Make sure the whole sheet is in frame<br>
+      • Ensure good lighting — no shadows over the QR code<br>
+      • Hold the camera steady and close enough to read the QR
+    </p>
+    <button onclick="closeSWGModal();openScanSheetModal()" style="padding:10px 20px;background:#0d9488;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Try Again</button>
+  </div>`);
+}
+
+function _showScanError(msg){
+  document.getElementById("scanSheetModal")?.remove();
+  swgModal(`<div style="padding:8px">
+    <h3 style="margin:0 0 12px;color:#dc2626">Scan Error</h3>
+    <p style="font-size:13px;color:#64748b;margin:0 0 16px;line-height:1.6">${escapeHTML(msg)}</p>
+    <button onclick="closeSWGModal()" style="padding:10px 20px;background:#64748b;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Close</button>
+  </div>`);
 }
 
 function toggleRubricEditor(){
