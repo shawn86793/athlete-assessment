@@ -11549,6 +11549,12 @@ async function pullCloudTryout(t, options = {}){
       return;
     }
 
+    // Nothing changed on remote — if a skeleton is still showing (new/empty
+    // roster), clear it so the user sees the empty-roster add-player form.
+    if(currentView === "roster" && (getTryout()?.roster || []).length === 0){
+      smartRenderAfterSync(softRender);
+    }
+
   } catch(err){
     t.cloud.lastError = "Cloud sync error.";
     saveDB();
