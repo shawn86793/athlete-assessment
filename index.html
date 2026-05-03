@@ -10294,25 +10294,17 @@ function loadDB(){
 let _saveDbTimer = null;
 let _saveDbPending = false;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// REFRESH-SAFE PERSISTENCE ARCHITECTURE (v26+)
-//
-// Every saveDB() call writes to localStorage SYNCHRONOUSLY.  No debounce, no
-// race window — the moment any caller anywhere in the app calls saveDB(),
-// the data is on disk before the next event loop tick.  A page refresh
-// 1ms later will still see the data.
-//
-// Network sync (Neon DB push, Netlify Blobs cloud push) IS still debounced
-// 250ms to coalesce rapid edits (slider drags, etc.) and avoid hammering
-// the server.  If the user refreshes during that 250ms window, the network
-// push is lost — but on next page load, dbFullSync() reads localStorage and
-// re-pushes everything to Neon, so nothing is permanently lost.
-//
-// This means the 115+ saveDB() callers across the codebase are ALL
-// automatically refresh-safe; no per-caller changes required.
-// ─────────────────────────────────────────────────────────────────────────────
 function saveDB(){
-  // ── 1. localStorage: ALWAYS synchronous, never debounced ──
+  _saveDbPending = true;
+  if(_saveDbTimer) return;
+  _saveDbTimer = setTimeout(()=>{
+    _saveDbTimer = null;
+    _saveDbPending = false;
+    _flushSaveDB();
+  }, 250);
+}
+
+function _flushSaveDB(){
   try {
     const mode = typeof shouldShowAdminTestMode === "function" ? shouldShowAdminTestMode() : null;
     if(mode && mode.readOnly) return;
@@ -10324,20 +10316,6 @@ function saveDB(){
     showStorageWarning();
   }
   lastDbSnapshot = raw;
-
-  // ── 2. Network sync: debounce 250ms to coalesce rapid edits ──
-  _saveDbPending = true;
-  if(_saveDbTimer) return;
-  _saveDbTimer = setTimeout(()=>{
-    _saveDbTimer = null;
-    _saveDbPending = false;
-    _flushNetworkSync();
-  }, 250);
-}
-
-// Push the current tryout to Neon and the cloud blob (if applicable).
-// localStorage is NOT touched here — saveDB() already handled that.
-function _flushNetworkSync(){
   const t = getTryout();
   if(t?.cloud?.enabled && t.cloud?.dirty){
     scheduleCloudPush();
@@ -10345,29 +10323,6 @@ function _flushNetworkSync(){
   if(currentTryoutId && authState.user){
     dbSaveTryout(currentTryoutId);
   }
-}
-
-// Force everything to disk + network RIGHT NOW (skip the 250ms debounce).
-// Writes localStorage synchronously and immediately fires the Neon /
-// cloud-blob pushes.  Use after big batch operations (CSV import, bulk
-// scoring import) when you want zero delay before the data is durable.
-function _flushSaveDB(){
-  if(_saveDbTimer){ clearTimeout(_saveDbTimer); _saveDbTimer = null; }
-  _saveDbPending = false;
-  // Write localStorage synchronously (same as saveDB does).
-  try {
-    const mode = typeof shouldShowAdminTestMode === "function" ? shouldShowAdminTestMode() : null;
-    if(mode && mode.readOnly) return;
-  } catch {}
-  pendingSaveCount++;
-  if(!navigator.onLine){ updateOfflineBanner(); }
-  const raw = JSON.stringify(DB);
-  if(!safeStorageSet(STORAGE_KEY, raw)){
-    showStorageWarning();
-  }
-  lastDbSnapshot = raw;
-  // Fire network sync immediately (don't wait for the debounce).
-  _flushNetworkSync();
 }
 
 /* ─── OFFLINE / SYNC BANNER ─── */
@@ -10625,14 +10580,13 @@ window.addEventListener("online", async ()=>{
   }
 });
 
-// Belt-and-suspenders safety net for page unload (refresh, tab close, nav).
-// As of v26 saveDB() writes localStorage synchronously on every call, so
-// localStorage is normally already up-to-date.  This handler is a paranoid
-// final check: if a network sync is still pending (meaning the user did
-// something within the last 250ms), we re-snapshot DB to localStorage just
-// in case some edit-then-immediately-refresh path skipped saveDB().
-// Async network calls (Neon PUT) cannot reliably complete in beforeunload;
-// the next page load's dbFullSync() will push localStorage to Neon.
+// CRITICAL: Flush any pending debounced save to localStorage before the page
+// unloads (refresh, tab close, navigation).  The 250ms debounce timer is
+// cancelled by page unload, so without this handler a refresh immediately
+// after a large import (CSV, etc.) would silently discard the new players.
+// Note: async operations (Neon PUT) cannot reliably complete in beforeunload;
+// we flush to localStorage synchronously here so the NEXT page load reads
+// the latest data and re-syncs it to Neon via dbFullSync on startup.
 window.addEventListener("beforeunload", function(){
   if(_saveDbPending){
     if(_saveDbTimer){ clearTimeout(_saveDbTimer); _saveDbTimer = null; }
