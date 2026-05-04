@@ -21868,11 +21868,31 @@ function openFreshTeamBuilder(ev){
 
 // Resolve the tryout the user opened the Team Builder for, even if some
 // background sync / render() team-gate has reset currentTryoutId to null.
-// Falls back to getTryout() if no stash is available (defensive).
+// Defensive cascade:
+//   1. window._ftb.tryoutId (stashed when Team Builder opened)
+//   2. currentTryoutId (the normal app state)
+//   3. The first cloud-enabled Sort Outs tryout in DB (last-resort)
 function _ftbGetTryout(){
   const stashed = window._ftb?.tryoutId;
   if(stashed && DB.tryouts?.[stashed]) return DB.tryouts[stashed];
-  return getTryout();
+  const cur = (typeof getTryout === "function") ? getTryout() : null;
+  if(cur) return cur;
+  // Last-resort: if the Team Builder overlay is on screen but state
+  // got nuked, find ANY Sort Outs tryout (most-recently-updated wins).
+  if(document.getElementById("freshTBOverlay") || document.getElementById("teamBuilderDashboardOverlay")){
+    const candidates = Object.values(DB?.tryouts || {})
+      .filter(x => x && (typeof isTeamSortEvent !== "function" || isTeamSortEvent(x)))
+      .sort((a,b)=>(Number(b?.updatedAt||0))-(Number(a?.updatedAt||0)));
+    if(candidates[0]){
+      console.warn("[_ftbGetTryout] Recovered from null state — using most-recent Sort Outs tryout:", candidates[0].id, candidates[0].name);
+      return candidates[0];
+    }
+  }
+  console.warn("[_ftbGetTryout] No tryout found.", {
+    stashed, currentTryoutId, dbTryoutCount: Object.keys(DB?.tryouts || {}).length,
+    overlayOpen: !!document.getElementById("freshTBOverlay")
+  });
+  return null;
 }
 
 function _ftbRefreshScanBanner(){
@@ -22307,10 +22327,22 @@ function ftbFilterPlayers(){
 function ftbBuildTeams(){
   try {
     const t = _ftbGetTryout();
-    if(!t){ showActionBanner("No assessment open. Try again from the Sort Outs tile.","error"); return; }
+    if(!t){
+      const stashed = window._ftb?.tryoutId || "(none)";
+      const cur = currentTryoutId || "(none)";
+      const dbCount = Object.keys(DB?.tryouts || {}).length;
+      showActionBanner(
+        `Cannot find assessment. stash=${stashed} cur=${cur} dbCount=${dbCount}. Close & reopen Team Builder.`,
+        "error"
+      );
+      return;
+    }
     // Restore currentTryoutId in case a background sync nulled it while
     // the Team Builder was open — downstream renders depend on it.
     currentTryoutId = t.id;
+    // Also re-stash in case something cleared it.
+    if(!window._ftb) window._ftb = {};
+    window._ftb.tryoutId = t.id;
     if(!checkFeature("canUseTeamBuilder","Team Builder Locked","Team Builder is available on Club plans and above.","🧠")) return;
     const sport = getSportFromTryout(t);
     const teamCount      = Math.max(2, Number(document.getElementById("ftbTeamCount")?.value||4));
