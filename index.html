@@ -21010,37 +21010,45 @@ window._fiToggle = function(key, decision){
 };
 
 window._fiImportAll = function(){
-  const t=getTryout(); if(!t||!_fiState) return;
-  if(!Array.isArray(t.friendPackages)) t.friendPackages=[];
-  const rosterMap=new Map((t.roster||[]).map(p=>[p.id,p]));
-  let added=0;
+  try {
+    const t=getTryout();
+    if(!t){ showActionBanner("No assessment open. Try again from the Sort Outs tile.","error"); return; }
+    if(!_fiState){ showActionBanner("Friend import session lost. Please re-open the scanner.","error"); return; }
+    if(!Array.isArray(t.friendPackages)) t.friendPackages=[];
+    const rosterMap=new Map((t.roster||[]).map(p=>[p.id,p]));
+    let added=0;
 
-  // Import certain groups
-  _fiState.certGroups.forEach(g=>{
-    const existingSets=t.friendPackages.map(pk=>new Set(pk.playerIds||[]));
-    if(existingSets.some(s=>g.playerIds.every(id=>s.has(id)))) return;
-    const names=g.playerIds.slice(0,2).map(id=>{ const p=rosterMap.get(id); return p?String(p.last||""):"?"; });
-    t.friendPackages.push({ id:uid(), name:`${names.join(" & ")}`, playerIds:g.playerIds, highlighted:false });
-    added++;
-  });
+    // Import certain groups
+    _fiState.certGroups.forEach(g=>{
+      const existingSets=t.friendPackages.map(pk=>new Set(pk.playerIds||[]));
+      if(existingSets.some(s=>g.playerIds.every(id=>s.has(id)))) return;
+      const names=g.playerIds.slice(0,2).map(id=>{ const p=rosterMap.get(id); return p?String(p.last||""):"?"; });
+      t.friendPackages.push({ id:uid(), name:`${names.join(" & ")}`, playerIds:g.playerIds, highlighted:false });
+      added++;
+    });
 
-  // Import confirmed uncertain pairs
-  (_fiState.scan?.uncertain||[]).forEach(u=>{
-    if((_fiState.decisions[u.key]||"skip")!=="include") return;
-    const existingSets=t.friendPackages.map(pk=>new Set(pk.playerIds||[]));
-    const ids=[u.requesterId, u.candidateId];
-    if(existingSets.some(s=>ids.every(id=>s.has(id)))) return;
-    const names=ids.map(id=>{ const p=rosterMap.get(id); return p?String(p.last||""):"?"; });
-    t.friendPackages.push({ id:uid(), name:`${names.join(" & ")}?`, playerIds:ids, highlighted:false });
-    added++;
-  });
+    // Import confirmed uncertain pairs
+    (_fiState.scan?.uncertain||[]).forEach(u=>{
+      if((_fiState.decisions[u.key]||"skip")!=="include") return;
+      const existingSets=t.friendPackages.map(pk=>new Set(pk.playerIds||[]));
+      const ids=[u.requesterId, u.candidateId];
+      if(existingSets.some(s=>ids.every(id=>s.has(id)))) return;
+      const names=ids.map(id=>{ const p=rosterMap.get(id); return p?String(p.last||""):"?"; });
+      t.friendPackages.push({ id:uid(), name:`${names.join(" & ")}?`, playerIds:ids, highlighted:false });
+      added++;
+    });
 
-  touchTryout(t); saveDB();
-  if(authState.user) dbSaveTryout(t.id);
-  document.getElementById("fiModalOverlay")?.remove();
-  _fiState=null;
-  ftbRenderPkgs();
-  showActionBanner(added ? `${added} friend package${added!==1?"s":""} imported ✓` : "No new packages to import", added?"success":"info");
+    touchTryout(t); saveDB();
+    if(authState.user) dbSaveTryout(t.id);
+    document.getElementById("fiModalOverlay")?.remove();
+    _fiState=null;
+    // ftbRenderPkgs may be a no-op if the team builder isn't open — that's fine.
+    if(typeof ftbRenderPkgs === "function") ftbRenderPkgs();
+    showActionBanner(added ? `✓ ${added} friend package${added!==1?"s":""} imported` : "No new packages to import", added?"success":"info");
+  } catch(err){
+    console.error("[_fiImportAll]", err);
+    showActionBanner("Import failed: " + (err?.message || err), "error");
+  }
 };
 
 /* ── Friend-package builder (union-find) ── */
@@ -22277,32 +22285,37 @@ function ftbFilterPlayers(){
 
 // ── Build Teams ───────────────────────────────────────────────────────────────
 function ftbBuildTeams(){
-  const t = getTryout();
-  if(!t) return;
-  if(!checkFeature("canUseTeamBuilder","Team Builder Locked","Team Builder is available on Club plans and above.","🧠")) return;
-  const sport = getSportFromTryout(t);
-  const teamCount      = Math.max(2, Number(document.getElementById("ftbTeamCount")?.value||4));
-  const skatersPerTeam = Math.max(1, Number(document.getElementById("ftbSkaters")?.value||10));
-  const goaliesPerTeam = sportHasSpecialPosition(sport) ? Math.max(0, Number(document.getElementById("ftbGoalies")?.value||1)) : 0;
-  const sortMethod     = document.querySelector('input[name="ftbSort"]:checked')?.value || 'average';
+  try {
+    const t = getTryout();
+    if(!t){ showActionBanner("No assessment open. Try again from the Sort Outs tile.","error"); return; }
+    if(!checkFeature("canUseTeamBuilder","Team Builder Locked","Team Builder is available on Club plans and above.","🧠")) return;
+    const sport = getSportFromTryout(t);
+    const teamCount      = Math.max(2, Number(document.getElementById("ftbTeamCount")?.value||4));
+    const skatersPerTeam = Math.max(1, Number(document.getElementById("ftbSkaters")?.value||10));
+    const goaliesPerTeam = sportHasSpecialPosition(sport) ? Math.max(0, Number(document.getElementById("ftbGoalies")?.value||1)) : 0;
+    const sortMethod     = document.querySelector('input[name="ftbSort"]:checked')?.value || 'average';
 
-  if(isNaN(teamCount)||isNaN(skatersPerTeam)) return showActionBanner("Enter valid whole numbers for team setup.","error");
+    if(isNaN(teamCount)||isNaN(skatersPerTeam)) return showActionBanner("Enter valid whole numbers for team setup.","error");
 
-  const data = buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sortMethod);
-  t.teamBuilder = data;
-  touchTryout(t); saveDB();
-  if(authState.user) dbSaveTryout(t.id);
+    const data = buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sortMethod);
+    t.teamBuilder = data;
+    touchTryout(t); saveDB();
+    if(authState.user) dbSaveTryout(t.id);
 
-  _closeFreshTB();
-  renderRosterTiles();
+    _closeFreshTB();
+    renderRosterTiles();
 
-  if(data.warnings?.length){
-    showActionBanner(`Teams created with ${data.warnings.length} warning${data.warnings.length>1?"s":""}. Check dashboard.`,"error");
-  } else {
-    showActionBanner(`✅ ${teamCount} teams built!`,"success");
+    if(data.warnings?.length){
+      showActionBanner(`Teams created with ${data.warnings.length} warning${data.warnings.length>1?"s":""}. Check dashboard.`,"error");
+    } else {
+      showActionBanner(`✅ ${teamCount} teams built!`,"success");
+    }
+    // Open the dashboard automatically
+    setTimeout(() => renderTeamBuilderDashboard(), 120);
+  } catch(err){
+    console.error("[ftbBuildTeams]", err);
+    showActionBanner("Team build failed: " + (err?.message || err), "error");
   }
-  // Open the dashboard automatically
-  setTimeout(() => renderTeamBuilderDashboard(), 120);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
