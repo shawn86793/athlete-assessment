@@ -21146,6 +21146,43 @@ function _pickLeastFull(candidates, role){
   return chosen;
 }
 
+// Average team score.  Returns 0 for empty teams so the first singleton
+// always goes to the least-full / lowest-score team.
+function _teamAvgScore(team){
+  const details = team.details || {};
+  const scores = (team.players||[])
+    .map(pid => Number(details[pid]?.overall))
+    .filter(v => Number.isFinite(v) && v > 0);
+  if(!scores.length) return 0;
+  return scores.reduce((s,v)=>s+v, 0) / scores.length;
+}
+
+// Pick the team that will benefit MOST from getting this singleton next:
+//   1. Filter to teams with capacity (within ±1 of others, smallest first)
+//   2. Among those, pick the team with the LOWEST current AVERAGE score
+//      so high-rated singletons compensate for weak teams.
+//   3. Tiebreak by total score, then round-robin.
+function _pickForBalance(candidates, role){
+  if(!candidates.length) return null;
+  const sizeOf = t => (t[role]?.length || 0);
+  // Hard size cap: only consider teams that are at the smallest current
+  // size — keeps roster counts within ±1 across the board.
+  const minSize = Math.min(...candidates.map(sizeOf));
+  const sameSize = candidates.filter(t => sizeOf(t) === minSize);
+  if(sameSize.length === 1) return sameSize[0];
+  // Among same-size teams, pick the one with the lowest current AVG.
+  const avgs = sameSize.map(t => _teamAvgScore(t));
+  const minAvg = Math.min(...avgs);
+  const lowestAvg = sameSize.filter((_, i) => avgs[i] === minAvg);
+  if(lowestAvg.length === 1) return lowestAvg[0];
+  // Tiebreak: lowest total score, then round-robin
+  const minTotal = Math.min(...lowestAvg.map(t => getTeamTotalScore(t)));
+  const tied = lowestAvg.filter(t => getTeamTotalScore(t) === minTotal);
+  const chosen = tied[_assignRRIdx % tied.length];
+  _assignRRIdx++;
+  return chosen;
+}
+
 function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
   // ── Step 1: Friend packages (size > 1) go FIRST so they get first pick of space.
   //            Within each group sort by size desc then score desc.
@@ -21189,12 +21226,12 @@ function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
       pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     } else {
       // Singleton — place on the team with the FEWEST players (so package
-      // overflows on other teams get balanced out).  Tiebreak by lowest
-      // score, then round-robin.  Skip teams that are already at or over
-      // their target capacity unless every team is over (avoids piling
-      // singletons onto a team that already overflowed from a big package).
+      // overflows on other teams get balanced out), THEN among those teams
+      // pick the one with the LOWEST current AVG score so the next high-
+      // rated player compensates for a weak team.  This is what tightens
+      // the avg-score spread across teams without splitting packages.
       const underTarget = teams.filter(t => remaining(t) > 0);
-      const target = _pickLeastFull(underTarget.length ? underTarget : teams, role);
+      const target = _pickForBalance(underTarget.length ? underTarget : teams, role);
       if(target) pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     }
   });
@@ -22528,7 +22565,11 @@ function renderTeamBuilderDashboard(){
       const teamColor = TB_COLORS[ti % TB_COLORS.length];
       const row = teamRows[r];
       if(!row){
-        return `<td style="vertical-align:top;padding:0;border:none;background:transparent;">
+        return `<td class="tbTeamDropZone" data-team-id="${escapeAttr(team.id)}"
+          ondragover="tbDragOver(event)"
+          ondragleave="tbDragLeave(event)"
+          ondrop="tbDrop('${escapeAttr(team.id)}',event)"
+          style="vertical-align:top;padding:0;border:none;background:transparent;">
           <div style="background:#fff;border-left:1.5px solid ${teamColor}33;border-right:1.5px solid ${teamColor}33;border-top:1px solid #e2e8f0;height:54px;"></div>
         </td>`;
       }
@@ -22543,7 +22584,11 @@ function renderTeamBuilderDashboard(){
       const cellBgHover = teamColor + "1a";
       const pos = String(row.det.position || row.player.pos || "").trim();
 
-      return `<td style="vertical-align:top;padding:0;border:none;background:transparent;">
+      return `<td class="tbTeamDropZone" data-team-id="${escapeAttr(team.id)}"
+        ondragover="tbDragOver(event)"
+        ondragleave="tbDragLeave(event)"
+        ondrop="tbDrop('${escapeAttr(team.id)}',event)"
+        style="vertical-align:top;padding:0;border:none;background:transparent;">
         <div class="tbCell" draggable="true"
           data-pid="${escapeAttr(row.pid)}" data-team-id="${escapeAttr(team.id)}"
           ondragstart="tbDragStart('${escapeAttr(row.pid)}','${escapeAttr(team.id)}',event)"
@@ -22647,35 +22692,73 @@ function tbDragLeave(ev){
 
 function tbDrop(toTeamId, ev){
   ev.preventDefault();
-  ev.currentTarget.closest(".tbTeamDropZone")?.classList.remove("dragover");
+  ev.stopPropagation();
+  document.querySelectorAll(".tbTeamDropZone.dragover").forEach(el => el.classList.remove("dragover"));
   const pid = _tbDragPid;
   const fromTeamId = _tbDragFromTeam;
   _tbDragPid = null; _tbDragFromTeam = null;
   if(!pid || !fromTeamId || fromTeamId === toTeamId) return;
 
-  const t = getTryout();
-  if(!t?.teamBuilder?.teams) return;
+  // Use the same defensive cascade as Create Teams so a background sync
+  // that nulled currentTryoutId doesn't silently drop the move.
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
+  if(!t?.teamBuilder?.teams){
+    showActionBanner("Could not save move — assessment context lost. Reopen Team Builder.", "error");
+    return;
+  }
+  // Re-anchor in case currentTryoutId was nulled
+  currentTryoutId = t.id;
 
-  // Move player from source team to target team
   const teams = t.teamBuilder.teams;
   const fromTeam = teams.find(tm => tm.id === fromTeamId);
   const toTeam   = teams.find(tm => tm.id === toTeamId);
-  if(!fromTeam || !toTeam) return;
-
-  fromTeam.players = (fromTeam.players||[]).filter(id => id !== pid);
-  if(fromTeam.details) delete fromTeam.details[pid];
-  if(!(toTeam.players||[]).includes(pid)){
-    if(!toTeam.players) toTeam.players = [];
-    toTeam.players.push(pid);
+  if(!fromTeam || !toTeam){
+    showActionBanner("Could not save move — team not found.", "error");
+    return;
   }
 
-  saveCurrentTryout();
-  showBannerTemporary("synced", `✓ Player moved to ${toTeam.name}`);
+  // Move player record
+  fromTeam.players = (fromTeam.players||[]).filter(id => id !== pid);
+  if(!Array.isArray(fromTeam.skaters)) fromTeam.skaters = [];
+  if(!Array.isArray(fromTeam.goalies)) fromTeam.goalies = [];
+  fromTeam.skaters = fromTeam.skaters.filter(id => id !== pid);
+  fromTeam.goalies = fromTeam.goalies.filter(id => id !== pid);
+
+  // Move the detail row too — preserves score / position / FP context on the new team
+  let movedDetail = null;
+  if(fromTeam.details && fromTeam.details[pid]){
+    movedDetail = fromTeam.details[pid];
+    delete fromTeam.details[pid];
+  }
+  if(!Array.isArray(toTeam.players)) toTeam.players = [];
+  if(!Array.isArray(toTeam.skaters)) toTeam.skaters = [];
+  if(!Array.isArray(toTeam.goalies)) toTeam.goalies = [];
+  if(!toTeam.details) toTeam.details = {};
+  if(!toTeam.players.includes(pid)){
+    toTeam.players.push(pid);
+    // Place into the right pool on the new team
+    const player = (t.roster||[]).find(p => p.id === pid);
+    const sport = getSportFromTryout(t);
+    if(player && typeof isSpecialPosition === "function" && isSpecialPosition(player.pos, sport)){
+      toTeam.goalies.push(pid);
+    } else {
+      toTeam.skaters.push(pid);
+    }
+  }
+  if(movedDetail) toTeam.details[pid] = movedDetail;
+
+  // Persist
+  touchTryout(t);
+  saveDB();
+  if(authState.user && typeof dbSaveTryout === "function") dbSaveTryout(t.id);
+
+  showActionBanner(`✓ Moved to ${toTeam.name}`, "success");
   renderTeamBuilderDashboard();
-  // Flash the destination zone green
+
+  // Flash the destination zone briefly
   requestAnimationFrame(function(){
-    const zone = document.querySelector('[data-team-id="' + toTeamId + '"]');
-    if(zone){ zone.classList.add("dropSuccess"); setTimeout(function(){ zone.classList.remove("dropSuccess"); }, 600); }
+    const zones = document.querySelectorAll('[data-team-id="' + toTeamId + '"]');
+    zones.forEach(z => { z.classList.add("dropSuccess"); setTimeout(()=>z.classList.remove("dropSuccess"), 600); });
   });
 }
 
