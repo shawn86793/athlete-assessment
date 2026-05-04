@@ -10957,6 +10957,14 @@ function applyButtonIntentStyles(root = document){
   for(const btn of buttons){
     btn.classList.remove("intent-primary", "intent-nav", "intent-positive", "intent-edit", "intent-danger");
     if(btn.disabled) continue;
+    // ESCAPE HATCH: any button with the `noIntent` class or `data-no-intent`
+    // attribute opts out of automatic intent styling.  Use this for buttons
+    // whose text would trigger the wrong style (eg. friend-import "Yes/No"
+    // toggles where "yes" matches the primary regex but inline green/red
+    // styles are intentional).
+    if(btn.classList.contains("noIntent") || btn.dataset.noIntent === "1"){
+      continue;
+    }
     const label = String(btn.textContent || "").trim().toLowerCase();
     if(btn.classList.contains("danger") || /\b(delete|remove|reset|archive|cancel|no|end|log out|sign out)\b/.test(label)){
       btn.classList.add("intent-danger");
@@ -20942,8 +20950,8 @@ function _renderFriendImportModal(){
                       </div>
                     </div>
                     <div style="display:flex;gap:5px;flex-shrink:0;margin-top:2px;">
-                      <button onclick="window._fiToggle('${escapeAttr(u.key)}','include')" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${isInc?"#16a34a":"#e2e8f0"};background:${isInc?"#dcfce7":"#fff"};color:${isInc?"#15803d":"#64748b"};">✓ Yes</button>
-                      <button onclick="window._fiToggle('${escapeAttr(u.key)}','skip')" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${!isInc?"#dc2626":"#e2e8f0"};background:${!isInc?"#fee2e2":"#fff"};color:${!isInc?"#991b1b":"#64748b"};">✗ No</button>
+                      <button class="noIntent" onclick="window._fiToggle('${escapeAttr(u.key)}','include')" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${isInc?"#16a34a":"#e2e8f0"};background:${isInc?"#dcfce7":"#fff"} !important;color:${isInc?"#15803d":"#64748b"} !important;">✓ Yes</button>
+                      <button class="noIntent" onclick="window._fiToggle('${escapeAttr(u.key)}','skip')" style="padding:5px 11px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:2px solid ${!isInc?"#dc2626":"#e2e8f0"};background:${!isInc?"#fee2e2":"#fff"} !important;color:${!isInc?"#991b1b":"#64748b"} !important;">✗ No</button>
                     </div>
                   </div>
                 </div>`;
@@ -22504,11 +22512,11 @@ function renderTeamBuilderDashboard(){
         style="display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:7px;margin-bottom:2px;background:${rowBg};cursor:pointer;transition:background 0.15s;"
         title="Click to trade · Drag to move · 📋 to view registration">
         <div style="width:28px;height:28px;border-radius:50%;background:${posAvatarBg};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;letter-spacing:0.02em;">${escapeHTML(initials||"?")}</div>
-        <div style="flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;">
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden;">
           <div style="font-size:13px;font-weight:800;color:#0f172a;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${jerseyPrefix}${escapeHTML(displayName)}${pkgTag}</div>
-          <div style="font-size:10px;color:#64748b;margin-top:2px;line-height:1;">${escapeHTML(det.position||player.pos||"—")}</div>
+          <div style="font-size:10px;color:#64748b;margin-top:2px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(det.position||player.pos||"—")}</div>
         </div>
-        <div style="font-size:14px;font-weight:900;color:${overallColor};flex-shrink:0;min-width:36px;text-align:right;">${overallStr}</div>
+        <div style="font-size:14px;font-weight:900;color:${overallColor};flex-shrink:0;min-width:38px;text-align:right;">${overallStr}</div>
         ${infoBtn}
         <span style="flex-shrink:0;font-size:10px;color:#94a3b8;cursor:grab;">⠿</span>
       </div>`;
