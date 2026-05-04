@@ -21104,6 +21104,24 @@ function _pickLowest(candidates){
   return chosen;
 }
 
+// Pick the team with the FEWEST players (smallest roster).
+// Tiebreak by lowest total score, then round-robin.  Used for singleton
+// placement so we move players to under-filled teams first — keeping
+// roster sizes as even as possible after big friend packages have been
+// placed whole.
+function _pickLeastFull(candidates, role){
+  if(!candidates.length) return null;
+  const sizeOf = t => (t[role]?.length || 0);
+  const minSize = Math.min(...candidates.map(sizeOf));
+  const sameSize = candidates.filter(t => sizeOf(t) === minSize);
+  if(sameSize.length === 1) return sameSize[0];
+  const minScore = Math.min(...sameSize.map(t => getTeamTotalScore(t)));
+  const tied = sameSize.filter(t => getTeamTotalScore(t) === minScore);
+  const chosen = tied[_assignRRIdx % tied.length];
+  _assignRRIdx++;
+  return chosen;
+}
+
 function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
   // ── Step 1: Friend packages (size > 1) go FIRST so they get first pick of space.
   //            Within each group sort by size desc then score desc.
@@ -21133,36 +21151,27 @@ function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
     const eligible = teams.filter(team => remaining(team) >= pkg.length);
 
     if(eligible.length > 0){
-      // Pick lowest-score team with enough room; round-robin breaks ties for even spread
+      // Lowest-score team with enough room — keeps score balance even
       const target = _pickLowest(eligible);
       pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     } else if(pkg.length > 1){
-      // ── Friend package but no single team has enough room.
-      //    Strict-equal mode: NEVER overflow a team beyond its capacity.
-      //    Place as many of the package as fit on the lowest-score team
-      //    that still has room, then split the remainder onto the next
-      //    lowest-score teams in turn.  Coaches who want every member
-      //    of a package together must size their teams accordingly.
-      let remainingMembers = pkg.slice();
-      while(remainingMembers.length){
-        const withRoom = teams.filter(t => remaining(t) > 0);
-        if(!withRoom.length) break; // all teams full — abandon excess (rare)
-        const target = _pickLowest(withRoom);
-        const slot   = Math.min(remaining(target), remainingMembers.length);
-        const chunk  = remainingMembers.slice(0, slot);
-        chunk.forEach(p => assignPlayerToTeam(target, p, role, sport));
-        remainingMembers = remainingMembers.slice(slot);
-      }
+      // ── Friend package larger than any team's remaining room ──
+      //    NEVER split a friend package.  Place the whole group on the
+      //    team that currently has the FEWEST players — that team will
+      //    end up larger than the per-team target, and singleton
+      //    placement (below) automatically moves singletons to the
+      //    smaller teams to even things out as much as possible.
+      const target = _pickLeastFull(teams, role);
+      pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     } else {
-      // Singleton — place on lowest-score team with capacity.  No overflow.
-      const hasRoom = teams.filter(t => remaining(t) > 0);
-      if(hasRoom.length){
-        const target = _pickLowest(hasRoom);
-        pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
-      }
-      // If literally every team is full, the singleton is dropped (caller
-      // already truncated selectedSkaters to skaterTarget so this should
-      // not normally happen in equal-distribution mode).
+      // Singleton — place on the team with the FEWEST players (so package
+      // overflows on other teams get balanced out).  Tiebreak by lowest
+      // score, then round-robin.  Skip teams that are already at or over
+      // their target capacity unless every team is over (avoids piling
+      // singletons onto a team that already overflowed from a big package).
+      const underTarget = teams.filter(t => remaining(t) > 0);
+      const target = _pickLeastFull(underTarget.length ? underTarget : teams, role);
+      if(target) pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     }
   });
 }
