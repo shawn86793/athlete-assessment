@@ -22421,13 +22421,26 @@ function renderTeamBuilderDashboard(){
       const overallStr = hasScore ? num2(overallNum) : "—";
       const overallColor = !hasScore ? 'var(--muted)' : overallNum>=4.5?'var(--score-great-ink)':overallNum>=3.8?'var(--score-good-ink)':overallNum>=3.0?'var(--score-avg-ink)':overallNum>=2.0?'var(--score-low-ink)':'var(--score-poor-ink)';
 
-      // Name: support first/last (manual add, CSV) and firstName/lastName (registration import) fields.
-      // Compute first/last separately so a player with only one of them still shows that one,
-      // and always fall back to a never-blank string so the row isn't visually empty.
-      const _first = player.first || player.firstName || "";
-      const _last  = player.last  || player.lastName  || "";
+      // Name: support all known field shapes. If we can't find one, fall
+      // back to a never-blank string so the row is never visually empty,
+      // and log once per render so the cause can be traced.
+      const _first = String(player.first || player.firstName || player.firstname || "").trim();
+      const _last  = String(player.last  || player.lastName  || player.lastname  || "").trim();
       const _fromParts = `${_first} ${_last}`.trim();
-      const displayName = _fromParts || det.name || player.name || `Player #${rowIdx+1}`;
+      const _detName   = String(det.name || "").trim();
+      const _plName    = String(player.name || "").trim();
+      const _athleteId = String(player.athleteId || "").trim();
+      const displayName = _fromParts
+        || _detName
+        || _plName
+        || (_athleteId ? `Athlete ${_athleteId}` : "")
+        || `Player #${rowIdx+1}`;
+      // One-time diagnostic if a roster has lots of nameless players —
+      // helps identify CSV/registration imports that didn't populate name fields.
+      if(!_fromParts && !_detName && !_plName && !window._tbNamelessWarned){
+        window._tbNamelessWarned = true;
+        console.warn("[TeamBuilder] Player has no first/last/firstName/lastName/name/det.name fields:", player, det);
+      }
       const rawJersey   = String(player.jersey || det.jersey || "").trim();
       const jerseyIsValid = rawJersey && rawJersey.length <= 4 && /^[0-9A-Za-z]+$/.test(rawJersey);
       const jerseyPrefix  = jerseyIsValid ? `<span style="font-size:10px;font-weight:700;color:var(--muted);margin-right:2px;">#${escapeHTML(rawJersey)}</span>` : "";
@@ -22459,13 +22472,11 @@ function renderTeamBuilderDashboard(){
         style="display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:7px;margin-bottom:2px;background:${rowBg};cursor:pointer;transition:background 0.15s;"
         title="Click to trade · Drag to move · 📋 to view registration">
         <div style="width:28px;height:28px;border-radius:50%;background:${posAvatarBg};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;letter-spacing:0.02em;">${escapeHTML(initials||"?")}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-            <div style="font-size:12px;font-weight:700;color:#1e293b;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${jerseyPrefix}${escapeHTML(displayName)}${pkgTag}</div>
-            <div style="font-size:12px;font-weight:800;color:${overallColor};flex-shrink:0;">${overallStr}</div>
-          </div>
-          <div style="font-size:10px;color:#64748b;margin-top:1px;">${escapeHTML(det.position||player.pos||"—")}</div>
+        <div style="flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;">
+          <div style="font-size:13px;font-weight:800;color:#0f172a;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${jerseyPrefix}${escapeHTML(displayName)}${pkgTag}</div>
+          <div style="font-size:10px;color:#64748b;margin-top:2px;line-height:1;">${escapeHTML(det.position||player.pos||"—")}</div>
         </div>
+        <div style="font-size:14px;font-weight:900;color:${overallColor};flex-shrink:0;min-width:36px;text-align:right;">${overallStr}</div>
         ${infoBtn}
         <span style="flex-shrink:0;font-size:10px;color:#94a3b8;cursor:grab;">⠿</span>
       </div>`;
