@@ -13599,14 +13599,20 @@ function render(){
   if(authState.ready && !authState.user && !isAssessorInviteSession() && currentView !== "home"){
     currentView = "home";
   }
-  // Team gate: after login, require team selection only for assessment-related views
+  // Team gate: after login, require team selection only for assessment-related views.
+  // EXCEPTION: if the user has an active assessment open (currentTryoutId resolves
+  // to a real tryout), skip the bounce.  Background sync can transiently make a
+  // team look "missing" (tombstone race, season reconcile, etc.) — bouncing the
+  // coach to home mid-scoring or mid-team-build is the bug they keep hitting.
+  // The presence of an open assessment is proof enough that they have a context.
   if(currentView !== "teamSelect" && currentView !== "home" && currentView !== "seasonList"
      && currentView !== "seasonRoster" && currentView !== "seasonSchedule" && currentView !== "seasonCalendar"
      && currentView !== "seasonPlayer" && currentView !== "seasonAvailability"
      && currentView !== "seasonSettings" && currentView !== "seasonDashboard"
      && currentView !== "addEvent" && currentView !== "editEvent"
      && currentView !== "upgrade" && currentView !== "profile" && currentView !== "archived"
-     && needsTeamSelection()){
+     && needsTeamSelection()
+     && !(currentTryoutId && DB?.tryouts?.[currentTryoutId])){
     currentView = "home";
   }
   if(currentView !== lastRenderedView){
@@ -21011,8 +21017,10 @@ window._fiToggle = function(key, decision){
 
 window._fiImportAll = function(){
   try {
-    const t=getTryout();
+    const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : getTryout());
     if(!t){ showActionBanner("No assessment open. Try again from the Sort Outs tile.","error"); return; }
+    // Restore currentTryoutId so downstream save/sync resolves correctly.
+    currentTryoutId = t.id;
     if(!_fiState){ showActionBanner("Friend import session lost. Please re-open the scanner.","error"); return; }
     if(!Array.isArray(t.friendPackages)) t.friendPackages=[];
     const rosterMap=new Map((t.roster||[]).map(p=>[p.id,p]));
@@ -21848,11 +21856,23 @@ function openFreshTeamBuilder(ev){
   if(!t) return;
   if(!checkFeature("canUseTeamBuilder","Team Builder Locked","Team Builder is available on Club plans and above.","🧠")) return;
   if(!isTeamSortEvent(t)) return showActionBanner("Team Builder is only available for Sort Outs assessments.","error");
-  window._ftb = { search:'', pkgSearch:'', minScore:0, topN:0, selectedPkgId:null };
+  // Stash the tryout id so background sync / team-gate kick-outs can't
+  // null currentTryoutId from under us while the modal is open.  Every
+  // ftb* helper resolves the tryout via _ftbGetTryout() instead.
+  window._ftb = { tryoutId: t.id, search:'', pkgSearch:'', minScore:0, topN:0, selectedPkgId:null };
   if(!Array.isArray(t.friendPackages)) t.friendPackages = [];
   _renderFreshTB();
   // Auto-scan friend requests and show badge if there are results
   setTimeout(()=>{ _ftbRefreshScanBanner(); }, 60);
+}
+
+// Resolve the tryout the user opened the Team Builder for, even if some
+// background sync / render() team-gate has reset currentTryoutId to null.
+// Falls back to getTryout() if no stash is available (defensive).
+function _ftbGetTryout(){
+  const stashed = window._ftb?.tryoutId;
+  if(stashed && DB.tryouts?.[stashed]) return DB.tryouts[stashed];
+  return getTryout();
 }
 
 function _ftbRefreshScanBanner(){
@@ -22286,8 +22306,11 @@ function ftbFilterPlayers(){
 // ── Build Teams ───────────────────────────────────────────────────────────────
 function ftbBuildTeams(){
   try {
-    const t = getTryout();
+    const t = _ftbGetTryout();
     if(!t){ showActionBanner("No assessment open. Try again from the Sort Outs tile.","error"); return; }
+    // Restore currentTryoutId in case a background sync nulled it while
+    // the Team Builder was open — downstream renders depend on it.
+    currentTryoutId = t.id;
     if(!checkFeature("canUseTeamBuilder","Team Builder Locked","Team Builder is available on Club plans and above.","🧠")) return;
     const sport = getSportFromTryout(t);
     const teamCount      = Math.max(2, Number(document.getElementById("ftbTeamCount")?.value||4));
