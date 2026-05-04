@@ -22406,31 +22406,74 @@ function closeTeamBuilderDashboard(){
 
 function renderTeamBuilderDashboard(){
   closeTeamBuilderDashboard();
-  const t = getTryout();
+  const t = getTryout() || _ftbGetTryout?.();
   if(!t?.teamBuilder) return;
   const data = t.teamBuilder;
+  const teams = (data.teams || []);
   const rosterMap = new Map((t.roster||[]).map(p => [p.id, p]));
-  const dashFPLookup = buildFPLookupForExport(t);
-  // Keep explicit package refs for highlight colour
-  const explicitPkgsByPlayerId = new Map();
-  (Array.isArray(t.friendPackages) ? t.friendPackages : []).forEach(pkg => {
-    (pkg.playerIds||[]).forEach(id => { if(!explicitPkgsByPlayerId.has(id)) explicitPkgsByPlayerId.set(id, pkg); });
-  });
+  const dashFPLookup = buildFPLookupForExport(t); // pid -> "FP1" / "FP2" / …
+
+  // FP color palette — each package number gets a stable colour so coaches
+  // can spot package members across teams at a glance.
+  const FP_COLORS = [
+    {bg:'#fef3c7', border:'#fbbf24', text:'#92400e'}, // amber
+    {bg:'#dbeafe', border:'#60a5fa', text:'#1e40af'}, // blue
+    {bg:'#dcfce7', border:'#4ade80', text:'#15803d'}, // green
+    {bg:'#fce7f3', border:'#f472b6', text:'#9d174d'}, // pink
+    {bg:'#ede9fe', border:'#a78bfa', text:'#5b21b6'}, // violet
+    {bg:'#fee2e2', border:'#f87171', text:'#991b1b'}, // red
+    {bg:'#cffafe', border:'#22d3ee', text:'#0e7490'}, // cyan
+    {bg:'#ffedd5', border:'#fb923c', text:'#9a3412'}, // orange
+    {bg:'#f3e8ff', border:'#c084fc', text:'#6b21a8'}, // purple
+    {bg:'#ccfbf1', border:'#2dd4bf', text:'#115e59'}, // teal
+  ];
+  function _fpColor(label){
+    if(!label) return null;
+    const num = parseInt(String(label).replace(/\D/g,''), 10) || 0;
+    return FP_COLORS[(num-1) % FP_COLORS.length] || FP_COLORS[0];
+  }
 
   const TB_COLORS = ['#f97316','#3b82f6','#10b981','#8b5cf6','#ef4444','#eab308','#06b6d4','#ec4899','#84cc16','#14b8a6'];
   const _tbSport  = getSportFromTryout(t);
-  const _tbAvatarBgMap = {'pos-forward':'#ff6b2b','pos-defence':'#0d9488','pos-goalie':'#f97316','pos-other':'#6366f1'};
 
-  const teamsHTML = (data.teams||[]).map((team, teamIdx) => {
-    const avg       = calcTeamAvgScore(team);
-    const avgStr    = avg !== null ? num2(avg) : "—";
+  // Robust name extraction — covers all known import shapes.
+  function _tbGetName(player, det){
+    const f = String(player?.first || player?.firstName || player?.firstname || "").trim();
+    const l = String(player?.last  || player?.lastName  || player?.lastname  || "").trim();
+    const dn = String(det?.name || player?.name || "").trim();
+    if(f || l) return { first: f || "—", last: l };
+    if(dn){ const parts = dn.split(/\s+/); return { first: parts[0]||dn, last: parts.slice(1).join(" ") }; }
+    return { first: "Unknown", last: "" };
+  }
+  function _tbGetOverall(team, pid){
+    const det = (team.details || {})[pid];
+    const n = Number(det?.overall);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  // Build per-team sorted player rows (best score first).
+  const teamRosters = teams.map(team => {
+    const rows = (team.players||[]).map(pid => {
+      const player = rosterMap.get(pid) || {};
+      const det = (team.details||{})[pid] || {};
+      const overall = _tbGetOverall(team, pid);
+      const name = _tbGetName(player, det);
+      return { pid, player, det, overall, name, fp: dashFPLookup.get(pid) || "" };
+    });
+    rows.sort((a,b) => (b.overall ?? -1) - (a.overall ?? -1));
+    return rows;
+  });
+  const maxRows = Math.max(0, ...teamRosters.map(r => r.length));
+
+  // ── HEADER ROW (per team) ───────────────────────────────────────────────────
+  const headerCells = teams.map((team, teamIdx) => {
     const teamColor = TB_COLORS[teamIdx % TB_COLORS.length];
-    const avgColor    = avg===null?'var(--muted)':avg>=4.5?'var(--score-great-ink)':avg>=3.8?'var(--score-good-ink)':avg>=3.0?'var(--score-avg-ink)':avg>=2.0?'var(--score-low-ink)':'var(--score-poor-ink)';
+    const players = team.players || [];
+    const avg = calcTeamAvgScore(team);
+    const avgStr = avg !== null ? num2(avg) : "—";
     const avgColorHex = avg===null?'#94a3b8':avg>=4.5?'#22c55e':avg>=3.8?'#10b981':avg>=3.0?'#f59e0b':avg>=2.0?'#f97316':'#ef4444';
-
-    // Positional breakdown
     const posG = {fwd:0,def:0,gol:0,oth:0};
-    (team.players||[]).forEach(pid=>{
+    players.forEach(pid=>{
       const pl = rosterMap.get(pid); if(!pl) return;
       const cls = getPositionAvatarClass(pl.pos||"", _tbSport);
       if(cls==="pos-forward") posG.fwd++;
@@ -22439,149 +22482,126 @@ function renderTeamBuilderDashboard(){
       else posG.oth++;
     });
     const posTags = [
-      posG.fwd?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(255,107,43,0.18);color:#f97316;">F·${posG.fwd}</span>`:"",
-      posG.def?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(13,148,136,0.18);color:#0d9488;">D·${posG.def}</span>`:"",
-      posG.gol?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(249,115,22,0.18);color:#ea580c;">G·${posG.gol}</span>`:"",
-      posG.oth?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:8px;background:rgba(99,102,241,0.18);color:#6366f1;">O·${posG.oth}</span>`:"",
+      posG.fwd?`<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:rgba(255,107,43,0.18);color:#f97316;">F·${posG.fwd}</span>`:"",
+      posG.def?`<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:rgba(13,148,136,0.18);color:#0d9488;">D·${posG.def}</span>`:"",
+      posG.gol?`<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:rgba(249,115,22,0.18);color:#ea580c;">G·${posG.gol}</span>`:"",
+      posG.oth?`<span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;background:rgba(99,102,241,0.18);color:#6366f1;">O·${posG.oth}</span>`:"",
     ].filter(Boolean).join(" ");
 
-    const playersHTML = (team.players||[]).map((pid, rowIdx) => {
-      const player = rosterMap.get(pid);
-      if(!player) return "";
-      const det = (team.details||{})[pid] || {};
-      const fpLabel = dashFPLookup.get(pid) || "";
-      const explicitPkg = explicitPkgsByPlayerId.get(pid);
-      const pkgTag = fpLabel
-        ? `<span style="font-size:9px;font-weight:900;padding:1px 6px;border-radius:999px;color:#fff;background:${explicitPkg?.highlighted?'#f97316':'#334e7a'};margin-left:4px;" title="${escapeAttr(explicitPkg?.name||fpLabel)}">${escapeHTML(fpLabel)}</span>`
-        : "";
-
-      // Score: treat 0 as "not yet scored" — show — in muted, not 0.00 in red
-      const overallNum = Number(det.overall);
-      const hasScore   = Number.isFinite(overallNum) && overallNum > 0;
-      const overallStr = hasScore ? num2(overallNum) : "—";
-      const overallColor = !hasScore ? 'var(--muted)' : overallNum>=4.5?'var(--score-great-ink)':overallNum>=3.8?'var(--score-good-ink)':overallNum>=3.0?'var(--score-avg-ink)':overallNum>=2.0?'var(--score-low-ink)':'var(--score-poor-ink)';
-
-      // Name: support all known field shapes. If we can't find one, fall
-      // back to a never-blank string so the row is never visually empty,
-      // and log once per render so the cause can be traced.
-      const _first = String(player.first || player.firstName || player.firstname || "").trim();
-      const _last  = String(player.last  || player.lastName  || player.lastname  || "").trim();
-      const _fromParts = `${_first} ${_last}`.trim();
-      const _detName   = String(det.name || "").trim();
-      const _plName    = String(player.name || "").trim();
-      const _athleteId = String(player.athleteId || "").trim();
-      const displayName = _fromParts
-        || _detName
-        || _plName
-        || (_athleteId ? `Athlete ${_athleteId}` : "")
-        || `Player #${rowIdx+1}`;
-      // One-time diagnostic if a roster has lots of nameless players —
-      // helps identify CSV/registration imports that didn't populate name fields.
-      if(!_fromParts && !_detName && !_plName && !window._tbNamelessWarned){
-        window._tbNamelessWarned = true;
-        console.warn("[TeamBuilder] Player has no first/last/firstName/lastName/name/det.name fields:", player, det);
-      }
-      const rawJersey   = String(player.jersey || det.jersey || "").trim();
-      const jerseyIsValid = rawJersey && rawJersey.length <= 4 && /^[0-9A-Za-z]+$/.test(rawJersey);
-      const jerseyPrefix  = jerseyIsValid ? `<span style="font-size:10px;font-weight:700;color:var(--muted);margin-right:2px;">#${escapeHTML(rawJersey)}</span>` : "";
-
-      const posAvatarBg = _tbAvatarBgMap[getPositionAvatarClass(player.pos||"", _tbSport)] || '#6366f1';
-      const initials = ((player.first||player.firstName||"")[0]||"").toUpperCase() + ((player.last||player.lastName||"")[0]||"").toUpperCase();
-      // The team card is always background:#fff — use hardcoded light row colors so
-      // the name text is always readable regardless of the user's dark/light theme.
-      const rowBg = rowIdx%2===0 ? '#f0f4fa' : '#ffffff';
-
-      // Find matching registration for this player (fuzzy match by first+last+year)
-      const matchReg = (registrationsCache||[]).find(r =>
-        String(r.firstName||"").toLowerCase() === String(player.first||"").toLowerCase() &&
-        String(r.lastName||"").toLowerCase()  === String(player.last||"").toLowerCase() &&
-        String(r.yearOfBirth||"") === String(player.yearOfBirth||"")
-      );
-      const regId = matchReg ? escapeAttr(matchReg.registrationId||"") : "";
-      // flex:none prevents this button from growing (the mobile CSS rule targets header buttons only now)
-      const infoBtn = regId
-        ? `<button onclick="event.stopPropagation();openRegistrationPlayerCard('${regId}')"
-            style="flex:none;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;cursor:pointer;line-height:1.6;" title="View registration card">📋</button>`
-        : `<button onclick="event.stopPropagation();openRosterPlayerCard('${escapeAttr(pid)}')"
-            style="flex:none;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#6366f1;border-radius:6px;padding:2px 7px;font-size:10px;font-weight:800;cursor:pointer;line-height:1.6;" title="View player info">👤</button>`;
-
-      return `<div class="tbPlayerRow" draggable="true"
-        ondragstart="tbDragStart('${escapeAttr(pid)}','${escapeAttr(team.id)}',event)"
-        ondragend="tbDragEnd(event)"
-        onclick="openTradeModal('${escapeAttr(pid)}','${escapeAttr(team.id)}')"
-        style="display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:7px;margin-bottom:2px;background:${rowBg};cursor:pointer;transition:background 0.15s;"
-        title="Click to trade · Drag to move · 📋 to view registration">
-        <div style="width:28px;height:28px;border-radius:50%;background:${posAvatarBg};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;letter-spacing:0.02em;">${escapeHTML(initials||"?")}</div>
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden;">
-          <div style="font-size:13px;font-weight:800;color:#0f172a;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${jerseyPrefix}${escapeHTML(displayName)}${pkgTag}</div>
-          <div style="font-size:10px;color:#64748b;margin-top:2px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(det.position||player.pos||"—")}</div>
-        </div>
-        <div style="font-size:14px;font-weight:900;color:${overallColor};flex-shrink:0;min-width:38px;text-align:right;">${overallStr}</div>
-        ${infoBtn}
-        <span style="flex-shrink:0;font-size:10px;color:#94a3b8;cursor:grab;">⠿</span>
-      </div>`;
-    }).join("");
-
-    return `<div class="tbTeamDropZone" data-team-id="${escapeAttr(team.id)}"
+    return `<th class="tbTeamDropZone tbHead" data-team-id="${escapeAttr(team.id)}"
       ondragover="tbDragOver(event)"
       ondragleave="tbDragLeave(event)"
       ondrop="tbDrop('${escapeAttr(team.id)}',event)"
-      style="background:#fff;border:1.5px solid ${teamColor}44;border-radius:14px;overflow:hidden;box-shadow:0 3px 14px rgba(0,0,0,0.14);">
-      <div style="height:5px;background:linear-gradient(90deg,${teamColor},${teamColor}77);"></div>
-      <div style="padding:12px 14px 0;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:7px;min-width:0;">
-            <div style="width:10px;height:10px;border-radius:50%;background:${teamColor};flex-shrink:0;box-shadow:0 0 6px ${teamColor}88;"></div>
-            <div style="font-size:14px;font-weight:900;color:#0a1e3d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(team.name)}</div>
+      style="vertical-align:top;padding:0;border:none;background:transparent;text-align:left;">
+      <div style="background:#fff;border:1.5px solid ${teamColor}55;border-radius:12px 12px 0 0;border-bottom:none;overflow:hidden;">
+        <div style="height:6px;background:linear-gradient(90deg,${teamColor},${teamColor}77);"></div>
+        <div style="padding:10px 12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;">
+            <div style="font-size:13px;font-weight:900;color:#0a1e3d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">
+              <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${teamColor};margin-right:5px;vertical-align:middle;"></span>${escapeHTML(team.name||("Team "+(teamIdx+1)))}
+            </div>
+            <button onclick="renameTBTeam('${escapeAttr(team.id)}')" style="font-size:10px;padding:2px 7px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;cursor:pointer;flex-shrink:0;" title="Rename team">✏️</button>
           </div>
-          <button onclick="renameTBTeam('${escapeAttr(team.id)}')" style="font-size:10px;padding:2px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;cursor:pointer;flex-shrink:0;" title="Rename team">✏️</button>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;padding:8px 10px;background:var(--tile);border-radius:10px;border:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:8px;">
-            ${miniOuraRingHTML(avg||0,5,avgColorHex,56,avgStr,'avg',avg!==null)}
-            <div style="font-size:10px;color:var(--muted);font-weight:700;">${(team.players||[]).length} player${(team.players||[]).length!==1?'s':''}</div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px;">
+            <div style="display:flex;align-items:baseline;gap:5px;">
+              <span style="font-size:18px;font-weight:900;color:${avgColorHex};line-height:1;">${avgStr}</span>
+              <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;font-weight:800;">avg</span>
+            </div>
+            <div style="font-size:11px;color:#64748b;font-weight:800;">${players.length} ${players.length===1?'player':'players'}</div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:5px;">Positions</div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">${posTags||'<span style="font-size:10px;color:#94a3b8;">—</span>'}</div>
-          </div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;">${posTags||'<span style="font-size:9px;color:#94a3b8;">no positions</span>'}</div>
         </div>
       </div>
-      <div style="padding:0 10px 12px;">
-        ${playersHTML||'<div style="color:#94a3b8;font-size:12px;padding:8px 0;text-align:center;border:1.5px dashed #e2e8f0;border-radius:8px;">Drop a player here or use ↔ Trade</div>'}
-      </div>
-    </div>`;
+    </th>`;
   }).join("");
 
+  // ── BODY ROWS (one per rank slot) ──────────────────────────────────────────
+  const bodyRows = [];
+  for(let r = 0; r < maxRows; r++){
+    const cells = teamRosters.map((teamRows, ti) => {
+      const team = teams[ti];
+      const teamColor = TB_COLORS[ti % TB_COLORS.length];
+      const row = teamRows[r];
+      if(!row){
+        return `<td style="vertical-align:top;padding:0;border:none;background:transparent;">
+          <div style="background:#fff;border-left:1.5px solid ${teamColor}33;border-right:1.5px solid ${teamColor}33;border-top:1px solid #e2e8f0;height:54px;"></div>
+        </td>`;
+      }
+      const fp = row.fp;
+      const fpc = _fpColor(fp);
+      const fpPill = fp ? `<span style="font-size:9.5px;font-weight:900;padding:2px 7px;border-radius:999px;background:${fpc.bg};color:${fpc.text};border:1px solid ${fpc.border};letter-spacing:0.04em;">${escapeHTML(fp)}</span>` : "";
+      const ovr = row.overall;
+      const ovrStr = ovr === null ? "—" : num2(ovr);
+      const ovrColor = ovr===null?'#94a3b8':ovr>=4.5?'#16a34a':ovr>=3.8?'#10b981':ovr>=3.0?'#f59e0b':ovr>=2.0?'#f97316':'#dc2626';
+      const cellBg = fpc ? fpc.bg + "55" : (r%2===0 ? '#f8fafc' : '#ffffff');
+      const cellBgHover = teamColor + "22";
+      const pos = String(row.det.position || row.player.pos || "").trim();
+
+      return `<td style="vertical-align:top;padding:0;border:none;background:transparent;">
+        <div class="tbCell" draggable="true"
+          data-pid="${escapeAttr(row.pid)}" data-team-id="${escapeAttr(team.id)}"
+          ondragstart="tbDragStart('${escapeAttr(row.pid)}','${escapeAttr(team.id)}',event)"
+          ondragend="tbDragEnd(event)"
+          onclick="openTradeModal('${escapeAttr(row.pid)}','${escapeAttr(team.id)}')"
+          onmouseover="this.style.background='${cellBgHover}'"
+          onmouseout="this.style.background='${cellBg}'"
+          style="cursor:pointer;background:${cellBg};border-left:1.5px solid ${teamColor}33;border-right:1.5px solid ${teamColor}33;border-top:1px solid #e2e8f0;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-height:54px;transition:background 0.12s,transform 0.12s;"
+          title="Click to trade · drag to move">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+            <div style="flex:1;min-width:0;line-height:1.18;">
+              <div style="font-size:13px;font-weight:800;color:#0a1e3d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(row.name.first)}</div>
+              <div style="font-size:13px;font-weight:800;color:#0a1e3d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(row.name.last)}</div>
+            </div>
+            <div style="font-size:16px;font-weight:900;color:${ovrColor};flex-shrink:0;line-height:1;padding-top:2px;">${ovrStr}</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:2px;">
+            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;min-height:14px;">${fpPill}</div>
+            ${pos ? `<div style="font-size:9px;font-weight:800;color:#64748b;letter-spacing:0.04em;">${escapeHTML(pos)}</div>` : ''}
+          </div>
+        </div>
+      </td>`;
+    }).join("");
+    bodyRows.push(`<tr>${cells}</tr>`);
+  }
+
+  // ── FOOTER (rounded bottom of column) ──────────────────────────────────────
+  const footerCells = teams.map((team, ti) => {
+    const teamColor = TB_COLORS[ti % TB_COLORS.length];
+    return `<td style="vertical-align:top;padding:0;border:none;background:transparent;">
+      <div style="background:#fff;border:1.5px solid ${teamColor}55;border-top:none;border-radius:0 0 12px 12px;height:8px;"></div>
+    </td>`;
+  }).join("");
+
+  // ── BUILD OVERLAY (table layout, no flex tricks, no cards) ────────────────
   const overlay = document.createElement("div");
   overlay.id = "teamBuilderDashboardOverlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:#0a1e3d;z-index:1500;overflow-y:auto;padding:20px;box-sizing:border-box;";
+  overlay.style.cssText = "position:fixed;inset:0;background:#0a1e3d;z-index:1500;overflow-y:auto;padding:18px;box-sizing:border-box;";
+  const minTableWidth = Math.max(800, teams.length * 180);
   overlay.innerHTML = `
-    <div style="max-width:1400px;margin:0 auto;">
-      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+    <div style="max-width:1700px;margin:0 auto;">
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
         <div style="color:#fff;">
           <div style="font-size:20px;font-weight:900;">🧠 Team Builder Dashboard</div>
-          <div style="font-size:12px;opacity:0.65;margin-top:2px;">${escapeHTML(t.name||"")} &nbsp;·&nbsp; Sort: <strong>${data.sortMethod === 'serpentine' ? '🐍 Serpentine' : '📊 Combine Score Avg'}</strong> &nbsp;·&nbsp; ${(data.teams||[]).length} teams</div>
+          <div style="font-size:12px;opacity:0.65;margin-top:2px;">${escapeHTML(t.name||"")} · ${teams.length} teams · sorted by combine score (best first)</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
-          <button onclick="openImportCSVModal()" style="padding:8px 14px;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📂 Import CSV</button>
           <button onclick="exportTeamBuilderCSV(event)" style="padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Export CSV</button>
           <button onclick="exportTeamBuilderPDF(event)" style="padding:8px 14px;background:#ff6b2b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📄 Export PDF</button>
           <button onclick="shareTeamBuilderResults(event)" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">🔗 Share Link</button>
-          <button onclick="closeTeamBuilderDashboard()" style="padding:8px 14px;background:rgba(220,38,38,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✕ Close</button>
+          <button onclick="closeTeamBuilderDashboard()" style="padding:8px 14px;background:rgba(220,38,38,0.85);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">✕ Close</button>
         </div>
       </div>
       ${(data.warnings||[]).length ? `<div style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);border-radius:8px;padding:10px 14px;color:#fbbf24;font-size:12px;margin-bottom:12px;">⚠️ ${escapeHTML(data.warnings.join(" · "))}</div>` : ""}
-      <div id="tbDragHint" style="display:flex;align-items:center;gap:10px;background:rgba(255,107,43,0.1);border:1px solid rgba(255,107,43,0.3);border-radius:10px;padding:10px 16px;margin-bottom:14px;cursor:default;">
-        <span style="font-size:18px;display:inline-block;animation:tbDragHintBounce 1.4s ease-in-out 1s 2;">👆</span>
-        <div style="flex:1;">
-          <div style="font-size:12px;font-weight:800;color:#ff6b2b;">Drag &amp; Drop Players</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.65);margin-top:1px;">Drag any player row to move them between teams — or tap a row to use the trade modal</div>
-        </div>
-        <button onclick="document.getElementById('tbDragHint').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,0.45);font-size:16px;cursor:pointer;line-height:1;padding:2px;">✕</button>
+      <div style="background:rgba(255,107,43,0.10);border:1px solid rgba(255,107,43,0.30);border-radius:10px;padding:9px 14px;margin-bottom:14px;font-size:11.5px;color:rgba(255,255,255,0.78);">
+        💡 <strong style="color:#ff9a5c;">Click any player</strong> to open the trade modal · <strong style="color:#ff9a5c;">drag</strong> to move between teams · friend-package badges (FP1, FP2, …) show which players were grouped together — same colour = same package across teams
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
-        ${teamsHTML}
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <table style="border-collapse:separate;border-spacing:6px 0;width:100%;min-width:${minTableWidth}px;table-layout:fixed;">
+          <colgroup>${teams.map(()=>'<col style="width:'+Math.floor(100/teams.length)+'%;min-width:160px;">').join('')}</colgroup>
+          <thead><tr>${headerCells}</tr></thead>
+          <tbody>${bodyRows.join('')}</tbody>
+          <tfoot><tr>${footerCells}</tr></tfoot>
+        </table>
       </div>
     </div>
   `;
