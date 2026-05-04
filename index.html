@@ -12001,8 +12001,12 @@ function mergeRubricCats(tryouts, role){
 function playerDisplayName(p){
   if(!p) return "";
   if(p.anonymous) return `#${p.jersey || "—"}`;
-  const full = `${p.first||""} ${p.last||""}`.trim();
-  return full || `#${p.jersey || "—"}`;
+  // Support both manual/CSV imports (first/last) AND registration imports
+  // (firstName/lastName) so names always show in team builder & exports.
+  const first = p.first || p.firstName || "";
+  const last  = p.last  || p.lastName  || "";
+  const full  = `${first} ${last}`.trim();
+  return full || p.name || `#${p.jersey || "—"}`;
 }
 function getHeadAssessor(t){
   if(!t) return "";
@@ -21133,36 +21137,32 @@ function assignPackagesToTeams(teams, packages, role, capacityFn, sport){
       const target = _pickLowest(eligible);
       pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
     } else if(pkg.length > 1){
-      // ── Friend package but no single team has enough contiguous room.
-      //    Overflow: place the whole package on the team with the MOST remaining
-      //    space (even if it exceeds the target). This keeps friends together.
-      //    Only split if the package is larger than any team's full capacity.
-      const maxCap = Math.max(...teams.map(t => capacityFn(t)));
-      if(pkg.length <= maxCap){
-        // Overflow to team with most remaining space (ties broken by lowest score + round-robin)
-        const withRoom = teams.filter(t => remaining(t) > 0 || capacityFn(t) > 0);
-        const ovfCandidates = withRoom.length ? withRoom : teams;
-        const maxRem = Math.max(...ovfCandidates.map(t => remaining(t)));
-        const target = _pickLowest(ovfCandidates.filter(t => remaining(t) === maxRem));
-        pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
-      } else {
-        // Package larger than any team — must split, keep as many together as possible
-        const chunks = [];
-        let i = 0;
-        while(i < pkg.length){
-          chunks.push(pkg.slice(i, i + maxCap));
-          i += maxCap;
-        }
-        chunks.forEach(chunk => {
-          const t2 = _pickLowest(teams);
-          chunk.forEach(p => assignPlayerToTeam(t2, p, role, sport));
-        });
+      // ── Friend package but no single team has enough room.
+      //    Strict-equal mode: NEVER overflow a team beyond its capacity.
+      //    Place as many of the package as fit on the lowest-score team
+      //    that still has room, then split the remainder onto the next
+      //    lowest-score teams in turn.  Coaches who want every member
+      //    of a package together must size their teams accordingly.
+      let remainingMembers = pkg.slice();
+      while(remainingMembers.length){
+        const withRoom = teams.filter(t => remaining(t) > 0);
+        if(!withRoom.length) break; // all teams full — abandon excess (rare)
+        const target = _pickLowest(withRoom);
+        const slot   = Math.min(remaining(target), remainingMembers.length);
+        const chunk  = remainingMembers.slice(0, slot);
+        chunk.forEach(p => assignPlayerToTeam(target, p, role, sport));
+        remainingMembers = remainingMembers.slice(slot);
       }
     } else {
-      // Singleton — place on any team with capacity, or overflow to least-full team
+      // Singleton — place on lowest-score team with capacity.  No overflow.
       const hasRoom = teams.filter(t => remaining(t) > 0);
-      const target = _pickLowest(hasRoom.length ? hasRoom : teams);
-      pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
+      if(hasRoom.length){
+        const target = _pickLowest(hasRoom);
+        pkg.forEach(p => assignPlayerToTeam(target, p, role, sport));
+      }
+      // If literally every team is full, the singleton is dropped (caller
+      // already truncated selectedSkaters to skaterTarget so this should
+      // not normally happen in equal-distribution mode).
     }
   });
 }
@@ -22376,8 +22376,13 @@ function renderTeamBuilderDashboard(){
       const overallStr = hasScore ? num2(overallNum) : "—";
       const overallColor = !hasScore ? 'var(--muted)' : overallNum>=4.5?'var(--score-great-ink)':overallNum>=3.8?'var(--score-good-ink)':overallNum>=3.0?'var(--score-avg-ink)':overallNum>=2.0?'var(--score-low-ink)':'var(--score-poor-ink)';
 
-      // Name: support first/last (manual add, CSV) and firstName/lastName (registration import) fields
-      const displayName = `${player.first||player.firstName||det.name||""} ${player.last||player.lastName||""}`.trim() || player.name || det.name || "Player";
+      // Name: support first/last (manual add, CSV) and firstName/lastName (registration import) fields.
+      // Compute first/last separately so a player with only one of them still shows that one,
+      // and always fall back to a never-blank string so the row isn't visually empty.
+      const _first = player.first || player.firstName || "";
+      const _last  = player.last  || player.lastName  || "";
+      const _fromParts = `${_first} ${_last}`.trim();
+      const displayName = _fromParts || det.name || player.name || `Player #${rowIdx+1}`;
       const rawJersey   = String(player.jersey || det.jersey || "").trim();
       const jerseyIsValid = rawJersey && rawJersey.length <= 4 && /^[0-9A-Za-z]+$/.test(rawJersey);
       const jerseyPrefix  = jerseyIsValid ? `<span style="font-size:10px;font-weight:700;color:var(--muted);margin-right:2px;">#${escapeHTML(rawJersey)}</span>` : "";
