@@ -21986,6 +21986,8 @@ function _renderFreshTB(){
       <span style="font-size:18px;font-weight:900;letter-spacing:-0.02em;">🧠 Team Builder</span>
       <span style="font-size:12px;opacity:0.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${escapeHTML(t.name||"")}</span>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <button onclick="tbOpenLoadDialog()" title="Restore a previously saved team layout"
+          style="padding:8px 13px;background:rgba(255,255,255,0.10);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;cursor:pointer;font-size:12px;font-weight:800;">📂 Saved Builds${(Array.isArray(t.teamBuilder?.savedVersions)&&t.teamBuilder.savedVersions.length)?' ('+t.teamBuilder.savedVersions.length+')':''}</button>
         <button onclick="ftbBuildTeams()" style="padding:8px 22px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:900;font-size:14px;letter-spacing:-0.01em;">⚡ Create Teams</button>
         <button onclick="_closeFreshTB()" style="padding:8px 13px;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;cursor:pointer;font-size:13px;">✕</button>
       </div>
@@ -22398,7 +22400,11 @@ function ftbBuildTeams(){
     if(isNaN(teamCount)||isNaN(skatersPerTeam)) return showActionBanner("Enter valid whole numbers for team setup.","error");
 
     const data = buildTeamAssignments(t, teamCount, skatersPerTeam, goaliesPerTeam, sortMethod);
+    // Preserve savedVersions across rebuilds — coaches expect their named
+    // saves to survive a "Create Teams" run.
+    const _preservedSaves = Array.isArray(t.teamBuilder?.savedVersions) ? t.teamBuilder.savedVersions : [];
     t.teamBuilder = data;
+    if(_preservedSaves.length) t.teamBuilder.savedVersions = _preservedSaves;
     touchTryout(t); saveDB();
     if(authState.user) dbSaveTryout(t.id);
 
@@ -22725,12 +22731,19 @@ function tbSaveCurrentBuild(){
       id: (typeof uid === "function" ? uid() : ("save-" + Date.now())),
       name: trimmed,
       savedAt: Date.now(),
-      teams: snap
+      teams: snap,
+      config: t.teamBuilder.config ? JSON.parse(JSON.stringify(t.teamBuilder.config)) : null,
+      sortMethod: t.teamBuilder.sortMethod || null
     });
     touchTryout(t); saveDB();
     if(authState.user) dbSaveTryout(t.id);
     showActionBanner(`✓ Saved as "${trimmed}"`, "success");
-    renderTeamBuilderDashboard(); // refresh so the Load button count updates
+    // Re-render whichever surface the coach is on — dashboard or setup page.
+    if(document.getElementById("teamBuilderDashboardOverlay")){
+      renderTeamBuilderDashboard();
+    } else if(document.getElementById("freshTBOverlay") && typeof _renderFreshTB === "function"){
+      _renderFreshTB();
+    }
   } catch(e){
     console.error("[tbSaveCurrentBuild]", e);
     showActionBanner("Could not save: " + (e?.message || e), "error");
@@ -22775,12 +22788,22 @@ function tbRestoreSave(saveId){
   if(!t?.teamBuilder) return;
   const save = (t.teamBuilder.savedVersions||[]).find(s => s.id === saveId);
   if(!save) return;
-  _tbPushUndo(`restore "${save.name}"`); // current state goes onto undo
+  // Only push to undo if there's actually a current build to revert to.
+  if(Array.isArray(t.teamBuilder.teams) && t.teamBuilder.teams.length){
+    _tbPushUndo(`restore "${save.name}"`);
+  }
   try {
     t.teamBuilder.teams = JSON.parse(JSON.stringify(save.teams));
+    // Restore the original config metadata if it was stored alongside.
+    if(save.config) t.teamBuilder.config = JSON.parse(JSON.stringify(save.config));
+    if(save.sortMethod) t.teamBuilder.sortMethod = save.sortMethod;
     touchTryout(t); saveDB();
     if(authState.user) dbSaveTryout(t.id);
     document.getElementById("tbLoadModal")?.remove();
+    // If the user invoked Restore from the Team Builder SETUP page, close it
+    // so the dashboard (which renderTeamBuilderDashboard opens) isn't hidden
+    // behind the higher-z-index setup overlay.
+    if(typeof _closeFreshTB === "function") _closeFreshTB();
     showActionBanner(`✓ Restored "${save.name}" — use ↩ Undo to revert`, "success");
     renderTeamBuilderDashboard();
   } catch(e){
