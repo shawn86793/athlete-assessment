@@ -15468,15 +15468,30 @@ function printScoringSheets(){
     return;
   }
 
-  // Players: roster sorted by last name, fall back to registrations
+  // Robust name extraction — supports every import shape so names print
+  // for any sport (manual add, CSV, Excel, registration, scan, …).
+  function _ssPickFirst(p){ return String(p?.first||p?.firstName||p?.firstname||"").trim(); }
+  function _ssPickLast (p){ return String(p?.last ||p?.lastName ||p?.lastname ||"").trim(); }
+  function _ssPickJersey(p){ return String(p?.jersey||p?.jerseyNumber||p?.number||"").trim(); }
+  function _ssPickPos(p){ return String(p?.pos||p?.position||"").trim(); }
+  function _ssNormalize(p){
+    return { id:p?.id||"", first:_ssPickFirst(p), last:_ssPickLast(p), jersey:_ssPickJersey(p), pos:_ssPickPos(p) };
+  }
+
+  // Players: roster sorted by last (then first) name, fall back to registrations
   const roster = (t.roster||[])
     .filter(p=>!p.tombstone)
-    .sort((a,b)=>(a.last||"").localeCompare(b.last||""));
-  const regs = (t.registrations||[]).map((r,i)=>({
-    id: r.registrationId||r.id||String(i),
-    first: r.firstName||"", last: r.lastName||"",
-    jersey: r.jerseyNumber||"", pos: r.position||"",
-  }));
+    .map(_ssNormalize)
+    .sort((a,b)=>{
+      const byLast = a.last.localeCompare(b.last);
+      if(byLast !== 0) return byLast;
+      return a.first.localeCompare(b.first);
+    });
+  const regs = (t.registrations||[]).map((r,i)=>{
+    const norm = _ssNormalize(r);
+    return { id: r.registrationId||r.id||norm.id||String(i),
+             first: norm.first, last: norm.last, jersey: norm.jersey, pos: norm.pos };
+  });
   const players = roster.length ? roster : regs;
 
   const tryoutDate = t.tryoutDate || new Date().toISOString().slice(0,10);
@@ -15523,8 +15538,14 @@ function printScoringSheets(){
 
     const playerRows = pagePlayers.map((p,idx)=>{
       const rowNum = pi*ROWS+idx+1;
-      const name   = `${(p.last||"")}${(p.last&&p.first)?", ":""}${(p.first||"")}`.trim()||`—`;
-      const jersey = p.jersey?`<span class="ss-jnum"> #${escapeHTML(String(p.jersey))}</span>`:"";
+      // Defensive: re-pick from every known shape in case caller passed
+      // a raw record (registrations / cloud merge / etc.).
+      const _f = String(p?.first||p?.firstName||p?.firstname||"").trim();
+      const _l = String(p?.last ||p?.lastName ||p?.lastname ||"").trim();
+      const _name = (_l && _f) ? `${_l}, ${_f}` : (_l || _f || (p?.name ? String(p.name).trim() : "") || "—");
+      const name   = _name;
+      const _jraw  = String(p?.jersey || p?.jerseyNumber || p?.number || "").trim();
+      const jersey = _jraw ? `<span class="ss-jnum"> #${escapeHTML(_jraw)}</span>` : "";
       const bubCols = rubrics.map((_r,ri)=>{
         const bs = [1,2,3,4,5].map(n=>`<span class="ss-bub" data-r="${pi}" data-c="${ri}" data-v="${n}">${n}</span>`).join("");
         return `<td class="ss-bub-cell">${bs}</td>`;
