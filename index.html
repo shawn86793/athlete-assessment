@@ -22634,9 +22634,20 @@ function renderTeamBuilderDashboard(){
   overlay.innerHTML = `
     <div style="max-width:100%;margin:0 auto;">
       <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-        <div style="color:#fff;">
-          <div style="font-size:20px;font-weight:900;">🧠 Team Builder Dashboard</div>
-          <div style="font-size:12px;opacity:0.65;margin-top:2px;">${escapeHTML(t.name||"")} · ${teams.length} teams · sorted by combine score (best first)</div>
+        <div style="color:#fff;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:20px;font-weight:900;">🧠 Team Builder Dashboard</div>
+            <div style="font-size:12px;opacity:0.65;margin-top:2px;">${escapeHTML(t.name||"")} · ${teams.length} teams · sorted by combine score (best first)</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <button onclick="tbSaveCurrentBuild()" title="Save the current team layout under a name"
+              style="padding:7px 12px;background:#0a1e3d;color:#fff;border:1.5px solid rgba(255,255,255,0.25);border-radius:7px;cursor:pointer;font-size:12px;font-weight:800;">💾 Save</button>
+            <button onclick="tbOpenLoadDialog()" title="Restore a previously saved layout"
+              style="padding:7px 12px;background:rgba(255,255,255,0.10);color:#fff;border:1.5px solid rgba(255,255,255,0.25);border-radius:7px;cursor:pointer;font-size:12px;font-weight:800;">📂 Load${(Array.isArray(t.teamBuilder.savedVersions)&&t.teamBuilder.savedVersions.length)?' ('+t.teamBuilder.savedVersions.length+')':''}</button>
+            <button onclick="tbUndoFromStack()" title="Reverse the last trade or move"
+              ${(window._tbUndoStack||[]).length ? '' : 'disabled'}
+              style="padding:7px 12px;background:${(window._tbUndoStack||[]).length?'#f97316':'#475569'};color:#fff;border:1.5px solid ${(window._tbUndoStack||[]).length?'#fb923c':'rgba(255,255,255,0.18)'};border-radius:7px;cursor:${(window._tbUndoStack||[]).length?'pointer':'not-allowed'};font-size:12px;font-weight:800;opacity:${(window._tbUndoStack||[]).length?1:0.55};">↩ Undo${(window._tbUndoStack||[]).length>1?' ('+window._tbUndoStack.length+')':''}</button>
+          </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
           <button onclick="exportTeamBuilderCSV(event)" style="padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Export CSV</button>
@@ -22660,6 +22671,139 @@ function renderTeamBuilderDashboard(){
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+// ── Team Builder Undo Stack + Saved Versions ─────────────────────────────────
+// In-memory stack — survives renders within a session, cleared on page reload.
+// Each entry is a deep clone of t.teamBuilder.teams + a human-readable label.
+window._tbUndoStack = window._tbUndoStack || [];
+const TB_UNDO_LIMIT = 30;
+
+function _tbPushUndo(label){
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
+  if(!t?.teamBuilder?.teams) return;
+  try {
+    const snap = JSON.parse(JSON.stringify(t.teamBuilder.teams));
+    window._tbUndoStack.push({ snap, label, ts: Date.now() });
+    if(window._tbUndoStack.length > TB_UNDO_LIMIT) window._tbUndoStack.shift();
+  } catch(e){ console.warn("[_tbPushUndo] could not snapshot:", e); }
+}
+
+function tbUndoFromStack(){
+  if(!window._tbUndoStack?.length){
+    showActionBanner("Nothing to undo.","info");
+    return;
+  }
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
+  if(!t?.teamBuilder){
+    showActionBanner("Cannot undo — assessment context lost.","error");
+    return;
+  }
+  const { snap, label } = window._tbUndoStack.pop();
+  t.teamBuilder.teams = snap;
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  showActionBanner(`↩ Undid: ${label}`, "success");
+  renderTeamBuilderDashboard();
+}
+
+// ── Saved Versions (named snapshots, persisted with the assessment) ──────────
+function tbSaveCurrentBuild(){
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
+  if(!t?.teamBuilder?.teams){
+    showActionBanner("Build teams before saving.","error");
+    return;
+  }
+  if(!Array.isArray(t.teamBuilder.savedVersions)) t.teamBuilder.savedVersions = [];
+  const defaultName = `Save ${t.teamBuilder.savedVersions.length + 1}`;
+  const name = prompt("Name this save:", defaultName);
+  if(name === null) return; // user cancelled
+  const trimmed = String(name || "").trim() || defaultName;
+  try {
+    const snap = JSON.parse(JSON.stringify(t.teamBuilder.teams));
+    t.teamBuilder.savedVersions.push({
+      id: (typeof uid === "function" ? uid() : ("save-" + Date.now())),
+      name: trimmed,
+      savedAt: Date.now(),
+      teams: snap
+    });
+    touchTryout(t); saveDB();
+    if(authState.user) dbSaveTryout(t.id);
+    showActionBanner(`✓ Saved as "${trimmed}"`, "success");
+    renderTeamBuilderDashboard(); // refresh so the Load button count updates
+  } catch(e){
+    console.error("[tbSaveCurrentBuild]", e);
+    showActionBanner("Could not save: " + (e?.message || e), "error");
+  }
+}
+
+function tbOpenLoadDialog(){
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
+  if(!t?.teamBuilder){ showActionBanner("Open Team Builder first.","error"); return; }
+  const saves = Array.isArray(t.teamBuilder.savedVersions) ? t.teamBuilder.savedVersions : [];
+  document.getElementById("tbLoadModal")?.remove();
+  const modal = document.createElement("div");
+  modal.id = "tbLoadModal";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:2200;padding:20px;";
+  const rows = saves.length ? saves.slice().reverse().map(sv => {
+    const date = new Date(sv.savedAt || 0).toLocaleString();
+    const teamCount = (sv.teams||[]).length;
+    const totalPlayers = (sv.teams||[]).reduce((n,tm) => n + (tm.players?.length || 0), 0);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:9px;margin-bottom:6px;background:#fff;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:800;color:#0a1e3d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(sv.name||"Untitled save")}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">${date} · ${teamCount} teams · ${totalPlayers} players</div>
+      </div>
+      <button onclick="tbRestoreSave('${escapeAttr(sv.id)}')" style="padding:7px 14px;background:#0a1e3d;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:12px;font-weight:800;">Restore</button>
+      <button onclick="tbDeleteSave('${escapeAttr(sv.id)}',event)" title="Delete this save" style="padding:7px 10px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:7px;cursor:pointer;font-size:12px;font-weight:800;">✕</button>
+    </div>`;
+  }).join("") : '<div style="text-align:center;padding:24px;color:#94a3b8;font-size:13px;">No saves yet. Click 💾 Save to capture the current build.</div>';
+  modal.innerHTML = `<div style="background:#f8fafc;border-radius:14px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.45);">
+    <div style="padding:16px 20px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
+      <h3 style="margin:0;font-size:16px;font-weight:900;color:#0a1e3d;">📂 Saved Builds (${saves.length})</h3>
+      <button onclick="document.getElementById('tbLoadModal')?.remove()" style="background:#f1f5f9;border:1.5px solid #94a3b8;color:#475569;border-radius:7px;width:30px;height:30px;cursor:pointer;font-size:14px;font-weight:700;">✕</button>
+    </div>
+    <div style="padding:14px 20px;overflow-y:auto;">${rows}</div>
+    <div style="padding:12px 20px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;">Restoring will replace the CURRENT teams.  The current state is added to undo (↩) so you can revert.</div>
+  </div>`;
+  modal.addEventListener("click", e => { if(e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function tbRestoreSave(saveId){
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
+  if(!t?.teamBuilder) return;
+  const save = (t.teamBuilder.savedVersions||[]).find(s => s.id === saveId);
+  if(!save) return;
+  _tbPushUndo(`restore "${save.name}"`); // current state goes onto undo
+  try {
+    t.teamBuilder.teams = JSON.parse(JSON.stringify(save.teams));
+    touchTryout(t); saveDB();
+    if(authState.user) dbSaveTryout(t.id);
+    document.getElementById("tbLoadModal")?.remove();
+    showActionBanner(`✓ Restored "${save.name}" — use ↩ Undo to revert`, "success");
+    renderTeamBuilderDashboard();
+  } catch(e){
+    console.error("[tbRestoreSave]", e);
+    showActionBanner("Restore failed: " + (e?.message || e), "error");
+  }
+}
+
+function tbDeleteSave(saveId, ev){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
+  if(!t?.teamBuilder) return;
+  if(!Array.isArray(t.teamBuilder.savedVersions)) return;
+  const save = t.teamBuilder.savedVersions.find(s => s.id === saveId);
+  if(!save) return;
+  if(!confirm(`Delete saved build "${save.name}"?`)) return;
+  t.teamBuilder.savedVersions = t.teamBuilder.savedVersions.filter(s => s.id !== saveId);
+  touchTryout(t); saveDB();
+  if(authState.user) dbSaveTryout(t.id);
+  showActionBanner(`Deleted "${save.name}"`, "info");
+  document.getElementById("tbLoadModal")?.remove();
+  if(t.teamBuilder.savedVersions.length) tbOpenLoadDialog();
+  else renderTeamBuilderDashboard();
 }
 
 // ── Team Builder Drag-and-Drop ────────────────────────────────────────────────
@@ -22716,6 +22860,11 @@ function tbDrop(toTeamId, ev){
     showActionBanner("Could not save move — team not found.", "error");
     return;
   }
+
+  // Snapshot BEFORE the move so the dashboard ↩ Undo can step back through it.
+  const _movedPlayer = (t.roster||[]).find(p => p.id === pid);
+  const _movedName = (_movedPlayer ? (typeof playerDisplayName === "function" ? playerDisplayName(_movedPlayer) : "") : "") || "Player";
+  _tbPushUndo(`move ${_movedName}: ${fromTeam.name} → ${toTeam.name}`);
 
   // Move player record
   fromTeam.players = (fromTeam.players||[]).filter(id => id !== pid);
@@ -22827,7 +22976,7 @@ function closeTradeModal(){
 }
 
 function executePlayerTrade(playerId, fromTeamId){
-  const t = getTryout();
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
   if(!t?.teamBuilder?.teams) return;
   const toTeamId = document.getElementById("tradeDestTeam")?.value;
   if(!toTeamId) return;
@@ -22838,6 +22987,8 @@ function executePlayerTrade(playerId, fromTeamId){
   const player = (t.roster||[]).find(p => p.id === playerId);
   if(!player) return;
   const playerName = playerDisplayName(player) || (fromTeam.details?.[playerId]?.name) || "Player";
+  // Snapshot BEFORE the trade so the dashboard ↩ Undo can step back through it.
+  _tbPushUndo(`trade ${playerName}: ${fromTeam.name} → ${toTeam.name}`);
   const sport = getSportFromTryout(t);
   const isGoalie = isSpecialPosition(player.pos, sport);
 
