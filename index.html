@@ -11554,16 +11554,32 @@ async function pullCloudTryout(t, options = {}){
   if(cloudSyncInFlight) return;
   cloudSyncInFlight = true;
   const softRender = Boolean(options.softRender);
+  // Track that we attempted a pull regardless of outcome — renderRoster
+  // uses this to decide whether to show a skeleton or an empty-state.
+  // Without it the skeleton sticks forever when the API errors out.
+  const _markPullAttempted = () => {
+    if(!t.cloud) t.cloud = { enabled:true };
+    t.cloud.lastPullAt = Date.now();
+  };
   try{
     const res = await fetch(`/api/cloud/${encodeURIComponent(t.cloud.id)}`);
     if(!res.ok){
       t.cloud.lastError = "Cloud session unavailable.";
+      _markPullAttempted();
       saveDB();
+      // Clear any skeleton that was waiting for this pull to populate.
+      if(currentView === "roster") smartRenderAfterSync(softRender);
       return;
     }
     const data = await res.json();
     const remote = data?.tryout;
-    if(!remote) return;
+    if(!remote){
+      _markPullAttempted();
+      saveDB();
+      if(currentView === "roster") smartRenderAfterSync(softRender);
+      return;
+    }
+    _markPullAttempted();
     const remoteUpdated = Number(remote.updatedAt || 0);
     const localUpdated = Number(t.updatedAt || 0);
     const localIsClean = !t.cloud?.dirty;
@@ -11648,7 +11664,10 @@ async function pullCloudTryout(t, options = {}){
 
   } catch(err){
     t.cloud.lastError = "Cloud sync error.";
+    if(t.cloud) t.cloud.lastPullAt = Date.now();
     saveDB();
+    // Surface an empty-state instead of the spinning skeleton on network errors.
+    if(currentView === "roster") smartRenderAfterSync(softRender);
   } finally {
     cloudSyncInFlight = false;
   }
@@ -19958,8 +19977,13 @@ async function importFromSeasonRoster(options = {}){
 function renderRoster(){
   const t = getTryout();
   if(!t) return goHome();
-  // Show tile skeleton while cloud sync is in-flight on first visit
-  if(isCloudEnabled(t) && cloudSyncInFlight && (t.roster||[]).length === 0){
+  // Skeleton policy: show ONLY on the very first visit to a brand-new
+  // cloud-enabled assessment that has never been pulled successfully.
+  // Once cloud.lastPullAt is set we know the sync layer has answered
+  // (success or error) — at that point a truly-empty roster gets the
+  // proper empty-state, not a spinning skeleton.
+  const _hasEverPulled = !!(t.cloud && (t.cloud.lastPullAt || t.cloud.lastSyncAt));
+  if(isCloudEnabled(t) && cloudSyncInFlight && (t.roster||[]).length === 0 && !_hasEverPulled){
     showSkeleton(8, t.name || "Player List", "tiles");
     pullCloudTryout(t);
     return;
