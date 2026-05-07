@@ -21985,8 +21985,12 @@ let _importResultsState = null; // {rows, matches, rubricMap, tid}
 
 function openImportResultsModal(file, ev){
   if(ev){ ev.preventDefault(); ev.stopPropagation(); }
-  const t = getTryout();
+  // Resilient tryout lookup — works from inside Team Builder even if a
+  // background sync nulled currentTryoutId behind the modal.
+  const t = (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null) || getTryout();
   if(!t){ showActionBanner("Open an assessment first.", "warn"); return; }
+  // Re-anchor so any saves triggered by the import resolve to the right tryout.
+  if(typeof currentTryoutId !== "undefined") currentTryoutId = t.id;
 
   const modal = document.createElement("div");
   modal.id = "importResultsModal";
@@ -22479,6 +22483,8 @@ function _renderFreshTB(){
       <span style="font-size:18px;font-weight:900;letter-spacing:-0.02em;">🧠 Team Builder</span>
       <span style="font-size:12px;opacity:0.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">${escapeHTML(t.name||"")}</span>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <button onclick="openImportResultsModal(null,event)" title="Drop a CSV / Excel / PDF / image of completed score sheets — adds eval scores before building teams"
+          style="padding:8px 13px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:800;">📥 Import Results</button>
         <button onclick="tbOpenLoadDialog()" title="Restore a previously saved team layout"
           style="padding:8px 13px;background:rgba(255,255,255,0.10);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:8px;cursor:pointer;font-size:12px;font-weight:800;">📂 Saved Builds${(Array.isArray(t.teamBuilder?.savedVersions)&&t.teamBuilder.savedVersions.length)?' ('+t.teamBuilder.savedVersions.length+')':''}</button>
         <button onclick="ftbBuildTeams()" style="padding:8px 22px;background:#f97316;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:900;font-size:14px;letter-spacing:-0.01em;">⚡ Create Teams</button>
@@ -23149,6 +23155,7 @@ function renderTeamBuilderDashboard(){
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;">
+          <button onclick="openImportResultsModal(null,event)" title="Drop a CSV / Excel / PDF / image of completed score sheets — adds eval scores for matching players" style="padding:8px 14px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📥 Import Results</button>
           <button onclick="exportTeamBuilderCSV(event)" style="padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📊 Export CSV</button>
           <button onclick="exportTeamBuilderPDF(event)" style="padding:8px 14px;background:#ff6b2b;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">📄 Export PDF</button>
           <button onclick="shareTeamBuilderResults(event)" style="padding:8px 14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">🔗 Share Link</button>
