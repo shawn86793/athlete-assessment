@@ -15438,7 +15438,8 @@ function renderRubricReference(){
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           ${!readOnly?`<button class="ok" onclick="openRubricBuilderModal('${escapeJS(t.id)}','rubrics')" style="white-space:nowrap;padding:10px 20px;font-size:14px;font-weight:800;">🎯 Build Scoring Rubrics</button>`:""}
-          ${grandTotal>0?`<button onclick="printScoringSheets()" title="Opens the print dialog — pick 'Save as PDF' as the destination to download instead of printing" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#1e293b;color:#fff;border:none;border-radius:9px;cursor:pointer;">📥 Print or Save as PDF</button>`:""}
+          ${grandTotal>0?`<button onclick="downloadScoringSheetsPDF()" title="One-click PDF download of the blank scoring sheets" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#16a34a;color:#fff;border:none;border-radius:9px;cursor:pointer;">📄 Download PDF</button>
+          <button onclick="printScoringSheets()" title="Opens the print dialog — choose your printer or 'Save as PDF'" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#1e293b;color:#fff;border:none;border-radius:9px;cursor:pointer;">🖨️ Print</button>`:""}
           ${grandTotal>0?`<button onclick="openScanSheetModal()" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#0d9488;color:#fff;border:none;border-radius:9px;cursor:pointer;">📷 Scan &amp; Import</button>`:""}
         </div>
       </div>
@@ -15454,7 +15455,13 @@ function renderRubricReference(){
 /* ─────────────────────────────────────────────────────────────────────────────
  *  PRINT SCORING SHEETS
  * ───────────────────────────────────────────────────────────────────────────*/
-function printScoringSheets(){
+// One-click PDF download wrapper — same data + layout as the print flow,
+// but renders to a real .pdf file via html2canvas + jsPDF instead of the
+// browser print dialog.  Useful for emailing / AirDropping the blank
+// scoresheets without going through Print → Save as PDF.
+function downloadScoringSheetsPDF(){ return printScoringSheets("pdf"); }
+
+function printScoringSheets(mode){
   const t = getTryout();
   if(!t) return;
 
@@ -15646,12 +15653,95 @@ body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;font-size
 ${pagesHTML}
 </body></html>`;
 
+  if(mode === "pdf"){
+    return _renderScoringSheetsAsPdf(doc, t.name || "scoring-sheets");
+  }
+
   const w = window.open("","_blank","width=900,height=750");
   if(!w){ showActionBanner("Pop-up blocked — please allow pop-ups for this site.","warn"); return; }
   w.document.write(doc);
   w.document.close();
   w.focus();
   setTimeout(()=>w.print(),1000);
+}
+
+// Render the scoring-sheets HTML doc to a downloaded .pdf using html2canvas
+// (rasterise each .ss-page DIV) + jsPDF (assemble into a Letter-size PDF).
+async function _renderScoringSheetsAsPdf(doc, baseName){
+  // Lazy-load both libs in parallel.
+  await Promise.all([
+    new Promise(res => _loadHtml2Canvas(res)),
+    new Promise(res => _loadJsPDF(res)),
+  ]);
+  if(!window.html2canvas || !window.jspdf?.jsPDF){
+    showActionBanner("PDF generator failed to load. Try the Print → Save as PDF route instead.", "error");
+    return;
+  }
+
+  // Stage the HTML in a hidden container in the current document so
+  // html2canvas can rasterise it.  An iframe would isolate styles better
+  // but causes cross-frame canvas tainting on some browsers.
+  const stage = document.createElement("div");
+  stage.id = "ssPdfStage";
+  stage.style.cssText = "position:fixed;left:-99999px;top:0;width:216mm;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:10pt;z-index:-1;";
+  // Strip the <html>/<body>/<head> wrappers — keep only style + body content.
+  const styleMatch = doc.match(/<style>([\s\S]*?)<\/style>/);
+  const bodyMatch  = doc.match(/<body>([\s\S]*?)<\/body>/);
+  stage.innerHTML  = (styleMatch ? `<style>${styleMatch[1]}</style>` : "") +
+                     (bodyMatch  ? bodyMatch[1] : doc);
+  document.body.appendChild(stage);
+
+  // Wait for QR images (loaded over the network) to be ready.  Resolve
+  // each img on load OR error OR a 5s timeout — never let the PDF run
+  // hang because one icon failed.
+  const imgs = Array.from(stage.querySelectorAll("img"));
+  await Promise.all(imgs.map(img => new Promise(res => {
+    if(img.complete && img.naturalWidth > 0) return res();
+    const done = () => res();
+    img.addEventListener("load", done, { once:true });
+    img.addEventListener("error", done, { once:true });
+    setTimeout(done, 5000);
+  })));
+
+  const pageEls = stage.querySelectorAll(".ss-page");
+  if(!pageEls.length){
+    document.body.removeChild(stage);
+    showActionBanner("Nothing to render to PDF.", "error");
+    return;
+  }
+
+  showActionBanner(`Generating PDF (${pageEls.length} page${pageEls.length>1?"s":""})…`, "info");
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit:"mm", format:"letter", orientation:"portrait" });
+    const PAGE_W_MM = 216, PAGE_H_MM = 279;
+
+    for(let i = 0; i < pageEls.length; i++){
+      const canvas = await window.html2canvas(pageEls[i], {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+      if(i > 0) pdf.addPage();
+      // Fit the page canvas to the PDF page (keeps aspect by using full page).
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, PAGE_W_MM, PAGE_H_MM);
+    }
+
+    const safeName = String(baseName || "scoring-sheets")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "scoring-sheets";
+    pdf.save(`${safeName}-scoring-sheets.pdf`);
+    showActionBanner("✓ PDF downloaded", "success");
+  } catch(err){
+    console.error("[downloadScoringSheetsPDF]", err);
+    showActionBanner("PDF generation failed: " + (err?.message || err), "error");
+  } finally {
+    if(stage.parentNode) stage.parentNode.removeChild(stage);
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -15796,6 +15886,30 @@ function _loadPdfJs(cb){
   };
   s.onerror = ()=>{
     showActionBanner("Could not load PDF reader library (check internet connection).","error");
+  };
+  document.head.appendChild(s);
+}
+
+// Lazy-load html2canvas for one-click PDF generation of blank scoring sheets.
+function _loadHtml2Canvas(cb){
+  if(window.html2canvas){ cb(); return; }
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+  s.onload = cb;
+  s.onerror = ()=>{
+    showActionBanner("Could not load PDF generator (check internet connection).","error");
+  };
+  document.head.appendChild(s);
+}
+
+// Lazy-load jsPDF for one-click PDF generation.
+function _loadJsPDF(cb){
+  if(window.jspdf?.jsPDF){ cb(); return; }
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
+  s.onload = cb;
+  s.onerror = ()=>{
+    showActionBanner("Could not load PDF generator (check internet connection).","error");
   };
   document.head.appendChild(s);
 }
