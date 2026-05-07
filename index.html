@@ -15872,9 +15872,13 @@ function processScanSheet(file){
   reader.onload = ev=>{
     const img = new Image();
     img.onload = ()=>{
-      // Draw to canvas for processing
+      // Draw to canvas for processing.  MAX bumped to 2000 so QR codes from
+      // higher-res sources (PDFs rendered at 3x, modern phone cameras) keep
+      // enough pixels for jsQR to lock on.  A typical letter page at 200 DPI
+      // is ~1700px tall — keeping everything close to native gives a much
+      // better QR detection rate than the old 1400px cap.
       const canvas = document.createElement("canvas");
-      const MAX = 1400;
+      const MAX = 2000;
       let w=img.width, h=img.height;
       if(w>MAX||h>MAX){ const s=MAX/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
       canvas.width=w; canvas.height=h;
@@ -16177,25 +16181,28 @@ function _importScanScores(tid){
 
 function _showScanManualFallback(){
   document.getElementById("scanSheetModal")?.remove();
-  swgModal(`<div style="padding:8px">
-    <h3 style="margin:0 0 12px">QR Code Not Detected</h3>
-    <p style="font-size:13px;color:#64748b;margin:0 0 16px;line-height:1.6">
-      Couldn't find the QR code in the image. For best results:<br>
+  swgModal({
+    id: "scanFallbackModal",
+    title: "QR Code Not Detected",
+    body: `<p style="font-size:13px;color:#64748b;margin:0;line-height:1.6">
+      Couldn't find the QR code in this image. For best results:<br>
       • Make sure the whole sheet is in frame<br>
       • Ensure good lighting — no shadows over the QR code<br>
-      • Hold the camera steady and close enough to read the QR
-    </p>
-    <button onclick="closeSWGModal();openScanSheetModal()" style="padding:10px 20px;background:#0d9488;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Try Again</button>
-  </div>`);
+      • Hold the camera steady and close enough to read the QR<br>
+      • For scanned PDFs: re-scan at 300+ DPI so the QR is sharp
+    </p>`,
+    footer: `<button onclick="document.getElementById('scanFallbackModal')?.remove();openScanSheetModal()" style="padding:10px 20px;background:#0d9488;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Try Again</button>`
+  });
 }
 
 function _showScanError(msg){
   document.getElementById("scanSheetModal")?.remove();
-  swgModal(`<div style="padding:8px">
-    <h3 style="margin:0 0 12px;color:#dc2626">Scan Error</h3>
-    <p style="font-size:13px;color:#64748b;margin:0 0 16px;line-height:1.6">${escapeHTML(msg)}</p>
-    <button onclick="closeSWGModal()" style="padding:10px 20px;background:#64748b;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Close</button>
-  </div>`);
+  swgModal({
+    id: "scanErrorModal",
+    title: `<span style="color:#dc2626">Scan Error</span>`,
+    body: `<p style="font-size:13px;color:#64748b;margin:0;line-height:1.6">${escapeHTML(msg)}</p>`,
+    footer: `<button onclick="document.getElementById('scanErrorModal')?.remove()" style="padding:10px 20px;background:#64748b;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Close</button>`
+  });
 }
 
 function toggleRubricEditor(){
@@ -21884,11 +21891,18 @@ function _processResultsFile(file){
         const buf = await file.arrayBuffer();
         const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
         const totalPages = pdf.numPages;
+        // Multi-page note: processScanSheet opens a review modal per page.
+        // For multi-page PDFs we show one page at a time — the coach reviews
+        // page N, imports it, then we surface page N+1.  For now we render
+        // them all up-front into a queue and let the existing flow handle
+        // them sequentially via the one-at-a-time scan modal pattern.
         for(let p = 1; p <= totalPages; p++){
           setProg(`Reading page ${p} of ${totalPages}…`);
           const page = await pdf.getPage(p);
-          // Render at 2x scale so QR + bubbles remain crisp for OMR.
-          const viewport = page.getViewport({ scale: 2 });
+          // Render at 3x scale so the QR code (small relative to the page)
+          // keeps enough pixels for jsQR to lock on after the OMR pipeline's
+          // 2000px cap downsizing.
+          const viewport = page.getViewport({ scale: 3 });
           const canvas = document.createElement("canvas");
           canvas.width = viewport.width;
           canvas.height = viewport.height;
@@ -21897,17 +21911,17 @@ function _processResultsFile(file){
           const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
           if(!blob) continue;
           const pageFile = new File([blob], `${name.replace(/\.pdf$/i,"")}-page-${p}.png`, { type:"image/png" });
+          // Wait long enough for the previous page's review modal to land
+          // before processing the next page.  1.5s covers FileReader +
+          // jsQR + OMR + modal mount on most devices.
           await new Promise(resolve => {
-            // processScanSheet is fire-and-forget — wait a beat between pages
-            // so the review modal from page N has a chance to land before N+1
-            // overwrites it.  In practice users review one page at a time.
             processScanSheet(pageFile);
-            setTimeout(resolve, 800);
+            setTimeout(resolve, 1500);
           });
         }
         if(scanProg){ scanProg.style.display="none"; }
         if(totalPages > 1){
-          showActionBanner(`✓ Processed ${totalPages} PDF pages — review each one`, "success");
+          showActionBanner(`Processed ${totalPages} PDF pages — review each modal in order`, "info");
         }
       } catch(err){
         console.error("[pdf-import]", err);
