@@ -15438,7 +15438,7 @@ function renderRubricReference(){
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           ${!readOnly?`<button class="ok" onclick="openRubricBuilderModal('${escapeJS(t.id)}','rubrics')" style="white-space:nowrap;padding:10px 20px;font-size:14px;font-weight:800;">🎯 Build Scoring Rubrics</button>`:""}
-          ${grandTotal>0?`<button onclick="printScoringSheets()" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#1e293b;color:#fff;border:none;border-radius:9px;cursor:pointer;">🖨️ Print Score Sheets</button>`:""}
+          ${grandTotal>0?`<button onclick="printScoringSheets()" title="Opens the print dialog — pick 'Save as PDF' as the destination to download instead of printing" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#1e293b;color:#fff;border:none;border-radius:9px;cursor:pointer;">📥 Print or Save as PDF</button>`:""}
           ${grandTotal>0?`<button onclick="openScanSheetModal()" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#0d9488;color:#fff;border:none;border-radius:9px;cursor:pointer;">📷 Scan &amp; Import</button>`:""}
         </div>
       </div>
@@ -15774,6 +15774,29 @@ function _loadJsQR(cb){
   s.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   s.onload=cb;
   s.onerror=()=>{ showActionBanner("Could not load QR scanner library (check internet connection).","warn"); };
+  document.head.appendChild(s);
+}
+
+// Lazy-load Mozilla pdf.js for PDF reading in the Import Results / scan flow.
+// The worker URL must be set explicitly because pdf.js loads it as a Web Worker
+// at runtime — without this it falls back to "fake worker mode" which is much
+// slower and noisy in the console.
+function _loadPdfJs(cb){
+  if(window.pdfjsLib){ cb(); return; }
+  const s = document.createElement("script");
+  s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  s.onload = ()=>{
+    try {
+      if(window.pdfjsLib?.GlobalWorkerOptions){
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+    } catch(e){}
+    cb();
+  };
+  s.onerror = ()=>{
+    showActionBanner("Could not load PDF reader library (check internet connection).","error");
+  };
   document.head.appendChild(s);
 }
 
@@ -21609,9 +21632,10 @@ function openImportResultsModal(file, ev){
         <button onclick="document.getElementById('importResultsModal').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#888">✕</button>
       </div>
       <p style="font-size:13px;color:#555;margin:0 0 16px;line-height:1.6">
-        Three ways to import scores:
+        Four ways to import scores:
         <br>• <b>CSV / Excel</b> with player names + rubric columns
         <br>• <b>Photo or scan</b> of a printed score sheet (the QR code identifies the assessment)
+        <br>• <b>PDF</b> — single or multi-page scan of completed score sheets
       </p>
       <div id="importResultsDropZone"
         onclick="document.getElementById('importResultsFileInput').click()"
@@ -21619,16 +21643,16 @@ function openImportResultsModal(file, ev){
         ondragleave="this.style.background='#f8f7ff'"
         ondrop="event.preventDefault();_handleImportResultsDrop(event)"
         style="border:2.5px dashed #6366f1;border-radius:12px;padding:36px 20px;text-align:center;cursor:pointer;background:#f8f7ff;transition:background 0.15s">
-        <div style="font-size:36px;margin-bottom:8px">📊 📷</div>
+        <div style="font-size:36px;margin-bottom:8px">📊 📷 📄</div>
         <div style="font-size:14px;font-weight:700;color:#6366f1">Click to choose or drag &amp; drop here</div>
-        <div style="font-size:12px;color:#888;margin-top:6px">CSV · Excel (.xlsx) · JPG · PNG · HEIC</div>
+        <div style="font-size:12px;color:#888;margin-top:6px">CSV · Excel (.xlsx) · PDF · JPG · PNG · HEIC</div>
       </div>
-      <input type="file" id="importResultsFileInput" accept=".csv,.xlsx,.xls,text/csv,image/*" style="display:none"
+      <input type="file" id="importResultsFileInput" accept=".csv,.xlsx,.xls,text/csv,application/pdf,.pdf,image/*" style="display:none"
         onchange="_processResultsFile(this.files[0])">
       <div id="importResultsProgress" style="display:none;margin-top:14px;font-size:13px;color:#6366f1;text-align:center;font-weight:700"></div>
       <div style="margin-top:18px;padding:12px 14px;border-radius:10px;background:#f1f5f9;font-size:11.5px;color:#64748b;line-height:1.6">
         <b>CSV / Excel format:</b> Row 1 = headers: <code>Player, Skating, Passing, ...</code> or <code>First Name, Last Name, Skating, ...</code>. Score values 1–5 per rubric column, one player per row.<br>
-        <b>Scan format:</b> Print blank score sheets from the Rubric tab → fill in the bubbles → upload the photo here.
+        <b>Scan / PDF format:</b> Print blank score sheets from the Rubric tab (📥 Print or Save as PDF) → fill in the bubbles → upload the photo or PDF here. Multi-page PDFs are read page-by-page.
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -21648,8 +21672,59 @@ function _processResultsFile(file){
 
   const name   = (file.name||"").toLowerCase();
   const isXLSX = name.endsWith(".xlsx")||name.endsWith(".xls");
+  const isPDF  = (file.type||"").toLowerCase()==="application/pdf" || name.endsWith(".pdf");
   const isImage = (file.type||"").startsWith("image/")
                || /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?)$/i.test(name);
+
+  // ── PDF (scanned, possibly multi-page) → render each page to canvas, then
+  //    run the existing scan pipeline on each page like a stack of images.
+  if(isPDF){
+    if(prog) prog.textContent = "Loading PDF reader…";
+    document.getElementById("importResultsModal")?.remove();
+    if(typeof openScanSheetModal === "function" && !document.getElementById("scanSheetModal")){
+      openScanSheetModal();
+    }
+    _loadPdfJs(async ()=>{
+      const scanProg = document.getElementById("scanProgress");
+      const setProg = msg => { if(scanProg){ scanProg.style.display="block"; scanProg.textContent = msg; } };
+      try {
+        setProg("Reading PDF…");
+        const buf = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+        const totalPages = pdf.numPages;
+        for(let p = 1; p <= totalPages; p++){
+          setProg(`Reading page ${p} of ${totalPages}…`);
+          const page = await pdf.getPage(p);
+          // Render at 2x scale so QR + bubbles remain crisp for OMR.
+          const viewport = page.getViewport({ scale: 2 });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+          // Convert canvas → Blob → File so we can reuse processScanSheet().
+          const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+          if(!blob) continue;
+          const pageFile = new File([blob], `${name.replace(/\.pdf$/i,"")}-page-${p}.png`, { type:"image/png" });
+          await new Promise(resolve => {
+            // processScanSheet is fire-and-forget — wait a beat between pages
+            // so the review modal from page N has a chance to land before N+1
+            // overwrites it.  In practice users review one page at a time.
+            processScanSheet(pageFile);
+            setTimeout(resolve, 800);
+          });
+        }
+        if(scanProg){ scanProg.style.display="none"; }
+        if(totalPages > 1){
+          showActionBanner(`✓ Processed ${totalPages} PDF pages — review each one`, "success");
+        }
+      } catch(err){
+        console.error("[pdf-import]", err);
+        if(scanProg){ scanProg.style.display="none"; }
+        _importResultsErr("Could not read PDF: " + (err?.message || err));
+      }
+    });
+    return;
+  }
 
   // ── Image (scanned/photographed score sheet) → route to QR + bubble OMR pipeline ──
   if(isImage){
