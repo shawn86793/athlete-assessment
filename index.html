@@ -15461,7 +15461,7 @@ function renderRubricReference(){
 // scoresheets without going through Print → Save as PDF.
 function downloadScoringSheetsPDF(){ return printScoringSheets("pdf"); }
 
-function printScoringSheets(mode){
+async function printScoringSheets(mode){
   const t = getTryout();
   if(!t) return;
 
@@ -15551,10 +15551,21 @@ function printScoringSheets(mode){
   // ── Per-page HTML ──────────────────────────────────────────────────────────
   const rubricColWidth = `${Math.max(14, Math.floor((196 - LAYOUT.numW - LAYOUT.nameW) / rubrics.length))}mm`;
 
+  // Pre-generate every QR code locally before building HTML — this guarantees
+  // each printed/PDF sheet has its QR (no api.qrserver.com network dependency
+  // that could blip mid-print and leave a blank QR slot).  Width 320 is
+  // ~3x the rendered 25mm size at print resolution so it survives the
+  // html2canvas → jsQR round-trip on import.
+  const qrUrls = await Promise.all(pages.map((_pp, pi)=>{
+    const pageNum = pi+1;
+    const qrData  = JSON.stringify({...qrBase, pg:pageNum, tp:totalPages});
+    return _makeQrDataUrl(qrData, 320);
+  }));
+
   const pagesHTML = pages.map((pagePlayers, pi)=>{
     const pageNum = pi+1;
     const qrData  = JSON.stringify({...qrBase, pg:pageNum, tp:totalPages});
-    const qrSrc   = `https://api.qrserver.com/v1/create-qr-code/?size=80x80&margin=0&data=${encodeURIComponent(qrData)}`;
+    const qrSrc   = qrUrls[pi] || "";
 
     const rubHdrRow = `<tr class="ss-hdr">
       <th class="ss-th-num">#</th>
@@ -15630,7 +15641,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;font-size
 .ss-instr{font-size:7pt;font-weight:700;color:#000;margin:1mm 0 0.5mm}
 .ss-assessor{font-size:7.5pt;margin-top:1.5mm}
 .ss-hdr-right{text-align:center;flex-shrink:0}
-.ss-qr{width:20mm;height:20mm;display:block}
+.ss-qr{width:25mm;height:25mm;display:block}
 .ss-qr-lbl{font-size:5.5pt;color:#666;margin-top:0.5mm;text-align:center}
 .ss-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .ss-hdr th{border:0.5px solid #888;background:#e8e8e8;padding:0;vertical-align:bottom;text-align:center}
@@ -15949,6 +15960,44 @@ function _loadJsQR(cb){
   document.head.appendChild(s);
 }
 
+// Lazy-load qrcode.js for LOCAL QR code generation.  Replaces the previous
+// dependency on api.qrserver.com — that worked but failed silently when the
+// network blipped during print, leaving a blank QR slot on the printed sheet.
+// Local generation is offline-safe and faster.
+function _loadQrCodeJs(cb){
+  if(window.QRCode && typeof window.QRCode.toDataURL === "function"){ cb(); return; }
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
+  s.onload = cb;
+  s.onerror = ()=>{
+    showActionBanner("Could not load QR generator — check internet connection.","error");
+  };
+  document.head.appendChild(s);
+}
+
+// Synchronously-callable QR data-URL helper.  Returns a Promise so callers
+// can await it.  Larger size = more QR pixels survive html2canvas + jsQR.
+function _makeQrDataUrl(text, size){
+  return new Promise((resolve)=>{
+    _loadQrCodeJs(()=>{
+      try {
+        window.QRCode.toDataURL(String(text||""), {
+          width: Number(size) || 240,
+          margin: 1,
+          errorCorrectionLevel: "M",
+          color: { dark:"#000000", light:"#ffffff" }
+        }, (err, url) => {
+          if(err || !url){ console.warn("[qr] generate failed", err); resolve(""); return; }
+          resolve(url);
+        });
+      } catch(e){
+        console.warn("[qr] generate threw", e);
+        resolve("");
+      }
+    });
+  });
+}
+
 // Lazy-load Mozilla pdf.js for PDF reading in the Import Results / scan flow.
 // The worker URL must be set explicitly because pdf.js loads it as a Web Worker
 // at runtime — without this it falls back to "fake worker mode" which is much
@@ -16181,18 +16230,92 @@ function _importScanScores(tid){
 
 function _showScanManualFallback(){
   document.getElementById("scanSheetModal")?.remove();
+  // Build assessment picker (only Sort Outs assessments — those are the
+  // ones with rubric layouts the OMR / manual entry needs).
+  const allTryouts = Object.values(DB?.tryouts || {})
+    .filter(t => t && (typeof isTeamSortEvent !== "function" || isTeamSortEvent(t)))
+    .sort((a,b) => Number(b?.updatedAt||0) - Number(a?.updatedAt||0));
+  const tryoutOpts = allTryouts.map(t =>
+    `<option value="${escapeAttr(t.id)}">${escapeHTML(t.name||"Untitled")} · ${(t.roster||[]).length} players</option>`
+  ).join("");
+
   swgModal({
     id: "scanFallbackModal",
     title: "QR Code Not Detected",
-    body: `<p style="font-size:13px;color:#64748b;margin:0;line-height:1.6">
-      Couldn't find the QR code in this image. For best results:<br>
-      • Make sure the whole sheet is in frame<br>
-      • Ensure good lighting — no shadows over the QR code<br>
-      • Hold the camera steady and close enough to read the QR<br>
-      • For scanned PDFs: re-scan at 300+ DPI so the QR is sharp
-    </p>`,
-    footer: `<button onclick="document.getElementById('scanFallbackModal')?.remove();openScanSheetModal()" style="padding:10px 20px;background:#0d9488;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:14px">Try Again</button>`
+    body: `<p style="font-size:13px;color:#64748b;margin:0 0 14px;line-height:1.6">
+      Couldn't find the QR code on this sheet.  You can either re-scan with a
+      sharper image, or pick the assessment manually below to enter scores by
+      hand for this page.
+    </p>
+    <div style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:8px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:6px;">📋 Manual Entry Fallback</div>
+      ${tryoutOpts ? `
+        <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">Which assessment is this for?</label>
+        <select id="scanFbAssessment" style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:600;color:#0f172a;margin-bottom:10px;">
+          ${tryoutOpts}
+        </select>
+        <label style="display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:4px;">Page number on this sheet?</label>
+        <input id="scanFbPage" type="number" min="1" max="50" value="1"
+          style="width:100%;padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-weight:600;color:#0f172a;">
+      ` : `<div style="font-size:12px;color:#dc2626;font-weight:700;">No Sort Outs assessments available — create one first, then try again.</div>`}
+    </div>
+    <details style="margin-top:14px;">
+      <summary style="cursor:pointer;font-size:11px;font-weight:700;color:#64748b;">Tips for better QR detection</summary>
+      <ul style="font-size:11.5px;color:#64748b;line-height:1.6;margin:6px 0 0 18px;padding:0;">
+        <li>Make sure the whole sheet is in frame</li>
+        <li>Good lighting — no shadows over the QR code</li>
+        <li>Hold the camera steady and close enough to read the QR</li>
+        <li>For scanned PDFs: re-scan at 300+ DPI so the QR is sharp</li>
+      </ul>
+    </details>`,
+    footer: `
+      <button onclick="document.getElementById('scanFallbackModal')?.remove();openScanSheetModal()" style="padding:10px 16px;background:#0d9488;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:13px;">↻ Try Scan Again</button>
+      ${tryoutOpts ? `<button onclick="_scanFbContinueManual()" style="padding:10px 16px;background:#6366f1;color:#fff;border:none;border-radius:9px;font-weight:800;cursor:pointer;font-size:13px;margin-left:8px;">Manual Entry →</button>` : ''}`
   });
+}
+
+// Open the scan-review modal in manual-entry mode (no scores pre-filled)
+// using the rubric layout of whichever assessment the coach picked from
+// the QR-not-detected fallback dialog.
+function _scanFbContinueManual(){
+  const tid  = document.getElementById("scanFbAssessment")?.value || "";
+  const page = Math.max(1, Number(document.getElementById("scanFbPage")?.value || 1));
+  const t = DB?.tryouts?.[tid];
+  if(!t){ showActionBanner("Pick a valid assessment first.", "error"); return; }
+
+  // Reconstruct the same rubric list the print sheet would have used —
+  // selected library rubrics plus custom rubrics.  This way manual entry
+  // matches the layout of the printed sheet for that assessment.
+  const sport = (typeof getSportFromTryout === "function") ? getSportFromTryout(t) : "Hockey";
+  const skSel = [];
+  const skSelectionsRaw = t.settings?.skaterRubrics;
+  if(skSelectionsRaw && typeof skSelectionsRaw === "object"){
+    const order = (typeof getSportSkCatOrder === "function" ? getSportSkCatOrder(sport) : Object.keys(skSelectionsRaw));
+    for(const catKey of order){
+      const list = skSelectionsRaw[catKey];
+      if(!Array.isArray(list)) continue;
+      for(const r of list){
+        if(r && String(r.key||"").trim() && String(r.label||"").trim()){
+          skSel.push({ k:r.key, l:(r.label||r.key).slice(0,20) });
+        }
+      }
+    }
+  }
+  const cuRubrics = (t.settings?.customRubrics||[]).filter(r=>r && String(r.label||"").trim());
+  cuRubrics.forEach(r => skSel.push({ k:r.key, l:(r.label||r.key).slice(0,20) }));
+  if(!skSel.length){
+    showActionBanner("That assessment has no rubrics configured. Add rubrics first.", "error");
+    return;
+  }
+
+  const payload = { v:1, aid:t.id, sport, rub: skSel, pg:page };
+  // Build empty scores grid the same shape the OMR would have produced —
+  // 26 rows max (matches default ROWS in printScoringSheets).
+  const ROWS = skSel.length <= 6 ? 26 : skSel.length <= 10 ? 22 : 18;
+  const emptyScores = Array.from({length: ROWS}, () => skSel.map(()=>0));
+
+  document.getElementById("scanFallbackModal")?.remove();
+  _showScanReviewModal(payload, emptyScores, page);
 }
 
 function _showScanError(msg){
