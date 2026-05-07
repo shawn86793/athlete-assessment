@@ -15438,9 +15438,7 @@ function renderRubricReference(){
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           ${!readOnly?`<button class="ok" onclick="openRubricBuilderModal('${escapeJS(t.id)}','rubrics')" style="white-space:nowrap;padding:10px 20px;font-size:14px;font-weight:800;">🎯 Build Scoring Rubrics</button>`:""}
-          ${grandTotal>0?`<button onclick="downloadScoringSheetsPDF()" title="One-click PDF download of the blank scoring sheets" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#16a34a;color:#fff;border:none;border-radius:9px;cursor:pointer;">📄 Download PDF</button>
-          <button onclick="printScoringSheets()" title="Opens the print dialog — choose your printer or 'Save as PDF'" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#1e293b;color:#fff;border:none;border-radius:9px;cursor:pointer;">🖨️ Print</button>`:""}
-          ${grandTotal>0?`<button onclick="openScanSheetModal()" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#0d9488;color:#fff;border:none;border-radius:9px;cursor:pointer;">📷 Scan &amp; Import</button>`:""}
+          ${grandTotal>0?`<button onclick="printScoringSheets()" title="Opens the print dialog — choose your printer or 'Save as PDF' to download" style="white-space:nowrap;padding:10px 18px;font-size:13px;font-weight:800;background:#1e293b;color:#fff;border:none;border-radius:9px;cursor:pointer;">🖨️ Print or Save as PDF</button>`:""}
         </div>
       </div>
       ${grandTotal===0?`<div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:rgba(249,115,22,0.06);border:1px dashed rgba(249,115,22,0.35);font-size:13px;color:#f97316;font-weight:600;">No rubrics added yet — click Build Scoring Rubrics to get started.</div>`:`<div style="margin-top:10px;font-size:13px;color:var(--muted);"><b style="color:var(--text);">${grandTotal}</b> rubric${grandTotal!==1?"s":""} configured across all positions.</div>`}
@@ -15960,39 +15958,85 @@ function _loadJsQR(cb){
   document.head.appendChild(s);
 }
 
-// Lazy-load qrcode.js for LOCAL QR code generation.  Replaces the previous
-// dependency on api.qrserver.com — that worked but failed silently when the
-// network blipped during print, leaving a blank QR slot on the printed sheet.
-// Local generation is offline-safe and faster.
+// Lazy-load a QR generator for LOCAL QR code creation (no network round-trip
+// per print).  Tries two CDNs in sequence so a single CDN blip doesn't kill
+// the whole flow.  Caches the loaded library on window.QRCode so repeat
+// loads are instant.  Falls back to the legacy api.qrserver.com URL
+// approach if both CDNs fail (callers handle empty-string return).
+let _qrLoadAttempted = false;
+let _qrLoadPromise = null;
 function _loadQrCodeJs(cb){
-  if(window.QRCode && typeof window.QRCode.toDataURL === "function"){ cb(); return; }
-  const s = document.createElement("script");
-  s.src = "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
-  s.onload = cb;
-  s.onerror = ()=>{
-    showActionBanner("Could not load QR generator — check internet connection.","error");
-  };
-  document.head.appendChild(s);
+  if(window.QRCode){ cb(true); return; }
+  if(_qrLoadPromise){ _qrLoadPromise.then(ok => cb(ok)); return; }
+  const tryUrls = [
+    // davidshimjs/qrcodejs — battle-tested, sets window.QRCode as a class
+    "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js",
+    // backup: same library on jsDelivr via GitHub
+    "https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"
+  ];
+  _qrLoadPromise = new Promise(resolve => {
+    let i = 0;
+    const tryNext = () => {
+      if(i >= tryUrls.length){ resolve(false); return; }
+      const s = document.createElement("script");
+      s.src = tryUrls[i++];
+      s.onload = () => { resolve(!!window.QRCode); };
+      s.onerror = () => { console.warn("[qr] CDN failed:", s.src); tryNext(); };
+      document.head.appendChild(s);
+    };
+    tryNext();
+  });
+  _qrLoadPromise.then(ok => cb(ok));
 }
 
-// Synchronously-callable QR data-URL helper.  Returns a Promise so callers
-// can await it.  Larger size = more QR pixels survive html2canvas + jsQR.
+// Returns a Promise resolving to a PNG data URL of the QR.  If the local
+// generator can't load (network blocked, both CDNs down), falls back to
+// the api.qrserver.com URL — that lets the existing flow keep working
+// instead of dying with stacked error toasts.
 function _makeQrDataUrl(text, size){
-  return new Promise((resolve)=>{
-    _loadQrCodeJs(()=>{
+  const sz = Math.max(120, Number(size) || 320);
+  const txt = String(text || "");
+  return new Promise(resolve => {
+    _loadQrCodeJs((ok) => {
+      if(!ok || !window.QRCode){
+        // Network/CDN failed — fall back to the public QR API URL so the
+        // sheet still has a QR (we just can't guarantee it loads at print
+        // time).  Print code already waits on img.complete before snapshot.
+        if(!_qrLoadAttempted){
+          _qrLoadAttempted = true;
+          showActionBanner("Using online QR generator (local one unavailable).", "info");
+        }
+        resolve(`https://api.qrserver.com/v1/create-qr-code/?size=${sz}x${sz}&margin=0&data=${encodeURIComponent(txt)}`);
+        return;
+      }
       try {
-        window.QRCode.toDataURL(String(text||""), {
-          width: Number(size) || 240,
-          margin: 1,
-          errorCorrectionLevel: "M",
-          color: { dark:"#000000", light:"#ffffff" }
-        }, (err, url) => {
-          if(err || !url){ console.warn("[qr] generate failed", err); resolve(""); return; }
-          resolve(url);
+        // davidshimjs API: construct into a hidden DIV, grab the img.src
+        const holder = document.createElement("div");
+        holder.style.cssText = "position:fixed;left:-99999px;top:-99999px;width:" + sz + "px;height:" + sz + "px;";
+        document.body.appendChild(holder);
+        // eslint-disable-next-line no-new
+        new window.QRCode(holder, {
+          text: txt,
+          width: sz,
+          height: sz,
+          correctLevel: window.QRCode.CorrectLevel ? window.QRCode.CorrectLevel.M : 0
         });
+        // qrcodejs renders synchronously into either an <img> or a <canvas>.
+        const img = holder.querySelector("img");
+        const cnv = holder.querySelector("canvas");
+        let dataUrl = "";
+        if(img && img.src) dataUrl = img.src;
+        else if(cnv) dataUrl = cnv.toDataURL("image/png");
+        document.body.removeChild(holder);
+        if(!dataUrl){
+          console.warn("[qr] no output element produced");
+          resolve(`https://api.qrserver.com/v1/create-qr-code/?size=${sz}x${sz}&margin=0&data=${encodeURIComponent(txt)}`);
+          return;
+        }
+        resolve(dataUrl);
       } catch(e){
         console.warn("[qr] generate threw", e);
-        resolve("");
+        resolve(`https://api.qrserver.com/v1/create-qr-code/?size=${sz}x${sz}&margin=0&data=${encodeURIComponent(txt)}`);
       }
     });
   });
