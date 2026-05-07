@@ -15665,6 +15665,84 @@ ${pagesHTML}
   setTimeout(()=>w.print(),1000);
 }
 
+// Generic helper: rasterise each `sectionSelector` DIV in `doc` into a PDF
+// page and trigger a download.  Used by both the blank-scoresheet PDF and
+// the Team Builder Export PDF.  Adds ~700KB to first-use payload via the
+// CDN-loaded html2canvas + jsPDF (cached forever after).
+async function _downloadHtmlDocAsPdf(doc, baseName, options = {}){
+  const sectionSelector = options.sectionSelector || ".pdf-page";
+  const orientation     = options.orientation     || "portrait";
+  const format          = options.format          || "letter";
+  const pageW           = orientation === "landscape" ? 279 : 216;
+  const pageH           = orientation === "landscape" ? 216 : 279;
+  const stageWidth      = orientation === "landscape" ? "279mm" : "216mm";
+
+  // Lazy-load both libs in parallel — cached after the first PDF.
+  await Promise.all([
+    new Promise(res => _loadHtml2Canvas(res)),
+    new Promise(res => _loadJsPDF(res)),
+  ]);
+  if(!window.html2canvas || !window.jspdf?.jsPDF){
+    showActionBanner("PDF generator failed to load — check your internet connection.", "error");
+    return;
+  }
+
+  // Stage the HTML in a hidden DIV in the current document so html2canvas
+  // can rasterise it.  Iframes hit cross-frame canvas tainting on Safari.
+  const stage = document.createElement("div");
+  stage.id = "pdfRenderStage";
+  stage.style.cssText = "position:fixed;left:-99999px;top:0;width:" + stageWidth + ";background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;font-size:10pt;z-index:-1;";
+  const styleMatch = doc.match(/<style>([\s\S]*?)<\/style>/);
+  const bodyMatch  = doc.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  stage.innerHTML  = (styleMatch ? `<style>${styleMatch[1]}</style>` : "") +
+                     (bodyMatch  ? bodyMatch[1] : doc);
+  document.body.appendChild(stage);
+
+  // Wait for any embedded images (QR codes, logos) to finish loading.
+  const imgs = Array.from(stage.querySelectorAll("img"));
+  await Promise.all(imgs.map(img => new Promise(res => {
+    if(img.complete && img.naturalWidth > 0) return res();
+    const done = () => res();
+    img.addEventListener("load", done, { once:true });
+    img.addEventListener("error", done, { once:true });
+    setTimeout(done, 5000);
+  })));
+
+  // Find page sections.  If selector matches nothing, treat the whole stage
+  // as a single page so the caller still gets *some* PDF.
+  let sections = Array.from(stage.querySelectorAll(sectionSelector));
+  if(!sections.length) sections = [stage];
+
+  showActionBanner(`Generating PDF (${sections.length} page${sections.length>1?"s":""})…`, "info");
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit:"mm", format, orientation });
+    for(let i = 0; i < sections.length; i++){
+      const canvas = await window.html2canvas(sections[i], {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
+        logging: false,
+      });
+      if(i > 0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pageW, pageH);
+    }
+    const safeName = String(baseName || "export")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "export";
+    pdf.save(`${safeName}.pdf`);
+    showActionBanner("✓ PDF downloaded", "success");
+  } catch(err){
+    console.error("[_downloadHtmlDocAsPdf]", err);
+    showActionBanner("PDF generation failed: " + (err?.message || err), "error");
+  } finally {
+    if(stage.parentNode) stage.parentNode.removeChild(stage);
+  }
+}
+
 // Render the scoring-sheets HTML doc to a downloaded .pdf using html2canvas
 // (rasterise each .ss-page DIV) + jsPDF (assemble into a Letter-size PDF).
 async function _renderScoringSheetsAsPdf(doc, baseName){
@@ -23948,11 +24026,11 @@ function buildFPLookupForExport(t){
 function exportTeamBuilderPDF(ev){
   if(ev) ev.stopPropagation();
   if(!checkFeature("canExportPDF", "PDF Export Locked", "PDF export is available on Club plans and above.", "📄")) return;
-  const t = getTryout();
+  const t = getTryout() || (typeof _ftbGetTryout === "function" ? _ftbGetTryout() : null);
   const data = t?.teamBuilder;
   if(!t || !data?.teams?.length) return showActionBanner("Create teams first.", "error");
   addExportHistoryRecord("Team Builder PDF");
-  showActionBanner("PDF opening", "info");
+
   const rosterMap = new Map((t.roster || []).map(player=>[player.id, player]));
   const sport = getSportFromTryout(t);
   const customRubrics = getCustomRubricsFromTryout(t);
@@ -23964,16 +24042,45 @@ function exportTeamBuilderPDF(ev){
     `Sport: ${sportLabel(t)}`
   ].filter(Boolean).join(" • ");
 
-  const customHeaders = customRubrics.map(r=>`<th>${escapeHTML(r.label || r.key)}</th>`).join("");
+  const customHeaders     = customRubrics.map(r=>`<th>${escapeHTML(r.label || r.key)}</th>`).join("");
   const customRankHeaders = customRubrics.map(r=>`<th>R-${escapeHTML(r.label || r.key)}</th>`).join("");
 
   const fpLookup = buildFPLookupForExport(t);
   const getFPLabel = (playerId) => fpLookup.get(playerId) || "";
 
-  const teamSections = data.teams.map(team=>{
+  // Cover page (title + meta + per-team summary table) — its own PDF page.
+  const summaryRows = data.teams.map((team, idx) => {
+    const avg = calcTeamAvgScore(team);
+    return `<tr>
+      <td>${escapeHTML(team.name || ("Team "+(idx+1)))}</td>
+      <td style="text-align:right;">${(team.players||[]).length}</td>
+      <td style="text-align:right;font-weight:800;">${avg !== null ? escapeHTML(num2(avg)) : "—"}</td>
+    </tr>`;
+  }).join("");
+
+  const coverPage = `
+    <div class="pdf-page">
+      <h1>${escapeHTML(title)}</h1>
+      <div class="meta">${escapeHTML(infoLine)}</div>
+      <h2 style="margin-top:24px;">Team Summary</h2>
+      <table class="summary-table">
+        <thead><tr>
+          <th>Team</th><th style="text-align:right;">Players</th><th style="text-align:right;">Avg Score</th>
+        </tr></thead>
+        <tbody>${summaryRows}</tbody>
+      </table>
+    </div>`;
+
+  const teamSections = data.teams.map((team, idx) => {
     const teamAvg = calcTeamAvgScore(team);
     const teamAvgStr = teamAvg !== null ? num2(teamAvg) : "—";
-    const rows = team.players.map(playerId=>{
+    // Sort players within team by score desc so the printout reads top-to-bottom.
+    const sortedPids = (team.players || []).slice().sort((a,b)=>{
+      const sa = Number((team.details?.[a]?.overall) || 0);
+      const sb = Number((team.details?.[b]?.overall) || 0);
+      return sb - sa;
+    });
+    const rows = sortedPids.map(playerId => {
       const player = rosterMap.get(playerId);
       const detail = team.details[playerId] || {};
       const position = player?.pos || detail.position || "";
@@ -23996,7 +24103,7 @@ function exportTeamBuilderPDF(ev){
           <td>${escapeHTML(position)}</td>
           <td>${escapeHTML(detail.role || teamBuilderRoleLabelFromPosition(position, sport))}</td>
           <td>${escapeHTML(gender)}</td>
-          <td>${escapeHTML(num2(detail.overall) || "—")}</td>
+          <td style="font-weight:700;">${escapeHTML(num2(detail.overall) || "—")}</td>
           <td>${escapeHTML(String(data.ranks?.[playerId] || "—"))}</td>
           <td>${escapeHTML(String(evalCount))}</td>
           ${customCells}
@@ -24005,9 +24112,13 @@ function exportTeamBuilderPDF(ev){
       `;
     }).join("");
     return `
-      <section class="teamSection">
-        <h2>${escapeHTML(team.name)}<span class="team-avg-badge">Avg&nbsp;${escapeHTML(teamAvgStr)}</span></h2>
-        <table>
+      <div class="pdf-page">
+        <div class="team-header">
+          <h2>${escapeHTML(team.name || ("Team "+(idx+1)))}</h2>
+          <span class="team-avg-badge">Avg&nbsp;${escapeHTML(teamAvgStr)}</span>
+          <span class="team-count-badge">${(team.players||[]).length} players</span>
+        </div>
+        <table class="player-table">
           <thead>
             <tr>
               <th>Player</th>
@@ -24024,48 +24135,35 @@ function exportTeamBuilderPDF(ev){
           </thead>
           <tbody>${rows || `<tr><td colspan="${8 + customRubrics.length * 2}">No players assigned.</td></tr>`}</tbody>
         </table>
-      </section>
+      </div>
     `;
   }).join("");
 
-  const win = window.open("", "_blank");
-  if(!win) return showActionBanner("Popup blocked. Please allow popups to export PDF.", "error");
-  try { win.opener = null; } catch(e){}
-  if(typeof win.focus === "function") win.focus();
+  const doc = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${escapeHTML(title)}</title>
+<style>
+  *{box-sizing:border-box;}
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:0;color:#0a1e3d;background:#fff;}
+  .pdf-page{width:216mm;min-height:279mm;padding:14mm 12mm;box-sizing:border-box;background:#fff;}
+  h1{font-size:22px;margin:0 0 6px;color:#0a1e3d;}
+  h2{font-size:17px;margin:0;color:#0a1e3d;}
+  .meta{font-size:12px;color:#5b6b67;margin:2px 0;}
+  .team-header{display:flex;align-items:center;gap:10px;border-bottom:2px solid #ff6b2b;padding-bottom:8px;margin-bottom:12px;}
+  .team-avg-badge{font-size:12px;font-weight:700;color:#ff6b2b;background:#fff3ed;border:1px solid #ffd0b5;border-radius:6px;padding:3px 10px;letter-spacing:0.02em;}
+  .team-count-badge{font-size:11px;font-weight:700;color:#475569;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:3px 10px;letter-spacing:0.02em;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th,td{border:1px solid #d5d9d7;padding:5px 7px;text-align:left;vertical-align:top;}
+  th{background:#eef2f0;font-weight:800;}
+  .summary-table th, .summary-table td{padding:7px 10px;font-size:13px;}
+  .player-table{margin-top:0;}
+</style></head><body>
+${coverPage}
+${teamSections || `<div class="pdf-page"><div class="meta">No teams available.</div></div>`}
+</body></html>`;
 
-  win.document.open();
-  win.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <title>${escapeHTML(title)}</title>
-  <style>
-    body{font-family: "Manrope", Arial, sans-serif; margin:20px; color:#0a1e3d;}
-    h1{font-family: "Space Grotesk", Arial, sans-serif; font-size:24px; margin:0 0 6px;}
-    .meta{font-size:13px; color:#5b6b67; margin:2px 0;}
-    .teamSection{margin-top:16px; break-inside:avoid;}
-    h2{font-size:18px; margin:0 0 8px; display:flex; align-items:center; gap:10px;}
-    .team-avg-badge{font-size:12px; font-weight:700; color:#ff6b2b; background:#fff3ed; border:1px solid #ffd0b5; border-radius:6px; padding:2px 9px; letter-spacing:0.02em;}
-    table{width:100%; border-collapse:collapse; font-size:12px;}
-    th,td{border:1px solid #d5d9d7; padding:6px; text-align:left; vertical-align:top;}
-    th{background:#eef2f0;}
-    @media print{
-      @page{size: Letter portrait; margin:10mm;}
-      body{margin:0;}
-      .teamSection{page-break-inside:avoid; break-inside:avoid;}
-    }
-  </style>
-</head>
-<body>
-  <h1>${escapeHTML(title)}</h1>
-  <div class="meta">${escapeHTML(infoLine)}</div>
-  ${teamSections || `<div class="meta">No teams available.</div>`}
-  <script>
-    window.onload = function(){ window.print(); };
-  <\/script>
-</body>
-</html>`);
-  win.document.close();
+  // One-click PDF download via html2canvas + jsPDF (lazy-loaded, cached).
+  // Each .pdf-page DIV becomes its own PDF page.
+  const fileName = `${(t.name || "team-builder")}-teams`;
+  _downloadHtmlDocAsPdf(doc, fileName, { sectionSelector: ".pdf-page", orientation: "portrait", format: "letter" });
 }
 
 function exportTeamBuilderCSV(ev){
