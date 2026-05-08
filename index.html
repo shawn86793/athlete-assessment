@@ -15540,11 +15540,13 @@ async function printScoringSheets(mode){
     bubD:4.2, bubGap:1.2,
   };
 
-  const qrBase = {
-    v:1, aid:t.id, sport,
-    rub: rubrics.map(r=>({k:r.key,l:(r.label||r.key).slice(0,20)})),
-    ly: LAYOUT,
-  };
+  // Minimal QR payload — just enough to identify the assessment + page.
+  // Rubric labels and layout coords are reconstructed on the scan side
+  // from t.settings (the assessment must be on the device anyway, since
+  // the OMR renders it).  Keeping the QR data short means a much lower
+  // QR version (v1-3 instead of v8-10) → bigger modules at the same
+  // physical size → far better detection from photos/scans.
+  const qrBase = { v:1, aid:t.id };
 
   // ── Per-page HTML ──────────────────────────────────────────────────────────
   const rubricColWidth = `${Math.max(14, Math.floor((196 - LAYOUT.numW - LAYOUT.nameW) / rubrics.length))}mm`;
@@ -15919,11 +15921,55 @@ function processScanSheet(file){
           return;
         }
 
-        if(payload.v!==1||!payload.aid||!Array.isArray(payload.rub)){
+        if(payload.v!==1||!payload.aid){
           if(prog) prog.style.display="none";
           _showScanError("This QR code doesn't look like an AAS score sheet (version mismatch).");
           return;
         }
+
+        // Reconstruct rubrics + layout from local assessment if not in payload.
+        // Slim QRs (v54+) only carry {v, aid, pg} so the QR pattern is much
+        // easier to detect; the rest comes from t.settings on the device.
+        const _scanT = DB?.tryouts?.[payload.aid];
+        if(!_scanT){
+          if(prog) prog.style.display="none";
+          _showScanError(`Assessment ID "${payload.aid}" not found on this device. Make sure you're logged into the same account that created this sheet.`);
+          return;
+        }
+        let rubs = Array.isArray(payload.rub) ? payload.rub : null;
+        if(!rubs){
+          // Rebuild rubrics list in the same order printScoringSheets used.
+          const _scanSport = (typeof getSportFromTryout === "function") ? getSportFromTryout(_scanT) : "Hockey";
+          const _scanSelections = _scanT.settings?.skaterRubrics;
+          const _scanSel = [];
+          if(_scanSelections && typeof _scanSelections === "object"){
+            const order = (typeof getSportSkCatOrder === "function" ? getSportSkCatOrder(_scanSport) : Object.keys(_scanSelections));
+            for(const catKey of order){
+              const list = _scanSelections[catKey];
+              if(!Array.isArray(list)) continue;
+              for(const r of list){
+                if(r && String(r.key||"").trim() && String(r.label||"").trim()){
+                  _scanSel.push({ k:r.key, l:(r.label||r.key).slice(0,20) });
+                }
+              }
+            }
+          }
+          const _cuRub = (_scanT.settings?.customRubrics||[]).filter(r=>r && String(r.label||"").trim());
+          _cuRub.forEach(r => _scanSel.push({ k:r.key, l:(r.label||r.key).slice(0,20) }));
+          rubs = _scanSel;
+        }
+        if(!rubs.length){
+          if(prog) prog.style.display="none";
+          _showScanError("That assessment has no rubrics configured. Open the Rubric tab to set them up first.");
+          return;
+        }
+        // Reconstruct print layout from rubric count (matches printScoringSheets)
+        const ly = payload.ly || {
+          pw:216, ph:279, mg:10, hdrH:34,
+          rowH: rubs.length<=6 ? 8.5 : 7.5,
+          numW:8, nameW:44, bubD:4.2, bubGap:1.2
+        };
+        const pg   = payload.pg||1;
 
         if(prog) prog.textContent="🔍 Detecting filled bubbles…";
 
@@ -15933,10 +15979,9 @@ function processScanSheet(file){
         const corrW     = corrected.width;
         const corrH     = corrected.height;
 
-        // Use layout from QR payload
-        const ly   = payload.ly || {pw:216,ph:279,mg:10,hdrH:34,rowH:8.5,numW:8,nameW:44,bubD:4.2,bubGap:1.2};
-        const rubs = payload.rub;
-        const pg   = payload.pg||1;
+        // Reattach reconstructed rub/ly to payload so downstream review modal sees them.
+        payload.rub = rubs;
+        payload.ly = ly;
 
         const scores = _sampleBubbles(corrCtx, corrW, corrH, ly, rubs);
 
