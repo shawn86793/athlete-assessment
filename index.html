@@ -15551,14 +15551,14 @@ async function printScoringSheets(mode){
 
   // Pre-generate every QR code locally before building HTML — this guarantees
   // each printed/PDF sheet has its QR (no api.qrserver.com network dependency
-  // that could blip mid-print and leave a blank QR slot).  Width 720 gives
-  // plenty of pixels at the rendered 35mm size (~150 DPI on screen, ~600 DPI
-  // when sent to a real printer) so the QR stays sharp through the
-  // print → scan → jsQR round-trip even from low-res phone photos.
+  // that could blip mid-print and leave a blank QR slot).  1024px source at
+  // a 45mm rendered size = ~580 DPI even on the highest-quality printer, so
+  // the QR survives the print → photograph/scan → jsQR round-trip from any
+  // device.  image-rendering:pixelated (in CSS) preserves crisp module edges.
   const qrUrls = await Promise.all(pages.map((_pp, pi)=>{
     const pageNum = pi+1;
     const qrData  = JSON.stringify({...qrBase, pg:pageNum, tp:totalPages});
-    return _makeQrDataUrl(qrData, 720);
+    return _makeQrDataUrl(qrData, 1024);
   }));
 
   const pagesHTML = pages.map((pagePlayers, pi)=>{
@@ -15640,8 +15640,8 @@ body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#000;font-size
 .ss-instr{font-size:7pt;font-weight:700;color:#000;margin:1mm 0 0.5mm}
 .ss-assessor{font-size:7.5pt;margin-top:1.5mm}
 .ss-hdr-right{text-align:center;flex-shrink:0}
-.ss-qr{width:35mm;height:35mm;display:block;background:#fff;padding:2mm;box-sizing:content-box;border:0.5px solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.ss-qr-lbl{font-size:5.5pt;color:#666;margin-top:0.5mm;text-align:center}
+.ss-qr{width:45mm;height:45mm;display:block;background:#fff;padding:3mm;box-sizing:content-box;border:0.5px solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact;image-rendering:pixelated;image-rendering:-moz-crisp-edges;image-rendering:crisp-edges}
+.ss-qr-lbl{font-size:7pt;color:#000;font-weight:700;margin-top:1mm;text-align:center;letter-spacing:0.04em}
 .ss-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .ss-hdr th{border:0.5px solid #888;background:#e8e8e8;padding:0;vertical-align:bottom;text-align:center}
 .ss-th-num{text-align:left;padding:1mm 1mm 1mm 1.5mm;font-size:7pt;font-weight:800}
