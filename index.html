@@ -15973,7 +15973,9 @@ function processScanSheet(file){
 
         if(prog) prog.textContent="🔍 Detecting filled bubbles…";
 
-        // Find corner marks and correct perspective
+        // Find corner marks and correct perspective.  The returned object
+        // carries the QR-anchored mm→px transform that _sampleBubbles uses
+        // for every bubble position.
         const corrected = _correctPerspective(canvas, ctx, qrResult);
         const corrCtx   = corrected.ctx;
         const corrW     = corrected.width;
@@ -15983,7 +15985,7 @@ function processScanSheet(file){
         payload.rub = rubs;
         payload.ly = ly;
 
-        const scores = _sampleBubbles(corrCtx, corrW, corrH, ly, rubs);
+        const scores = _sampleBubbles(corrCtx, corrW, corrH, ly, rubs, corrected);
 
         if(prog) prog.style.display="none";
         _showScanReviewModal(payload, scores, pg);
@@ -16135,71 +16137,163 @@ function _loadJsPDF(cb){
   document.head.appendChild(s);
 }
 
+// Anchor the layout grid to the actual QR position in the scanned image.
+// jsQR returns the 4 corners of the detected QR in pixel coords.  We know
+// where the QR was printed on the original page (top-right, fixed position
+// in the header), so its detected size + position give us:
+//   • pixels-per-mm scale (from QR width / 45mm)
+//   • page origin (top-left of page in image coords)
+//   • rotation angle (from QR's top edge)
+// This means scans that are slightly cropped, rotated, or scaled still
+// have bubble positions correctly calculated rather than drifting.
 function _correctPerspective(canvas, ctx, qrResult){
-  // Use QR code location to estimate rotation/scale, then return a re-drawn canvas
-  // For now, return the same canvas (QR location hints give us enough for basic correction)
-  // Full homography would require 4-point corner detection — simplified here
-  return {ctx, width:canvas.width, height:canvas.height};
+  const out = { ctx, width: canvas.width, height: canvas.height };
+  if(!qrResult?.location) return out;
+
+  const loc = qrResult.location;
+  const tl = loc.topLeftCorner, tr = loc.topRightCorner;
+  const bl = loc.bottomLeftCorner;
+  const qrPxW = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+  const qrPxH = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+  const qrPxCx = (tl.x + loc.bottomRightCorner.x) / 2;
+  const qrPxCy = (tl.y + loc.bottomRightCorner.y) / 2;
+  if(qrPxW < 30 || qrPxH < 30) return out;
+
+  // Print-time QR geometry (mm) — must match printScoringSheets layout.
+  // Header padding is 1mm 8mm 2.5mm.  .ss-hdr-right contains the QR with
+  // 3mm white padding; .ss-qr is 45mm wide.  Right-edge anchored:
+  //   QR right edge mm  = pw - hdrPadRight - qrPad = 216 - 8 - 3 = 205
+  //   QR top  edge mm   = hdrPadTop + qrPad         = 1 + 3 = 4
+  //   QR center mm      = (205 - 22.5, 4 + 22.5)    = (182.5, 26.5)
+  const QR_SIZE_MM = 45;
+  const QR_CENTER_MM_X = 182.5;
+  const QR_CENTER_MM_Y = 26.5;
+
+  const pxPerMm = (qrPxW / QR_SIZE_MM + qrPxH / QR_SIZE_MM) / 2;
+  // Rotation in radians (positive = QR's top edge tilts down-right)
+  const rotation = Math.atan2(tr.y - tl.y, tr.x - tl.x);
+
+  out.pxPerMm = pxPerMm;
+  out.rotation = rotation;
+  out.qrCenterPx = { x: qrPxCx, y: qrPxCy };
+  // Convert a (mmX, mmY) point relative to the page top-left into image pixels.
+  out.mmToPx = (mmX, mmY) => {
+    const dx = (mmX - QR_CENTER_MM_X) * pxPerMm;
+    const dy = (mmY - QR_CENTER_MM_Y) * pxPerMm;
+    const cosR = Math.cos(rotation), sinR = Math.sin(rotation);
+    return {
+      x: qrPxCx + dx * cosR - dy * sinR,
+      y: qrPxCy + dx * sinR + dy * cosR
+    };
+  };
+  return out;
 }
 
-function _sampleBubbles(ctx, W, H, ly, rubs){
-  // Convert mm layout to pixels
-  // Assuming the image covers the full letter page
-  const mmToPixX = W / ly.pw;
-  const mmToPixY = H / ly.ph;
+function _sampleBubbles(ctx, W, H, ly, rubs, transform){
+  // Pre-load the entire image into a Uint8ClampedArray ONCE.  The previous
+  // code called ctx.getImageData(x,y,1,1) per pixel — thousands of calls,
+  // each forcing the canvas to rasterise a sub-rect.  This is ~1000x faster
+  // and lets us afford to sample more pixels per bubble.
+  const imgData = ctx.getImageData(0, 0, W, H).data;
+  const lumAt = (x, y) => {
+    if(x < 0 || y < 0 || x >= W || y >= H) return 255;
+    const idx = (Math.round(y) * W + Math.round(x)) * 4;
+    return (imgData[idx] + imgData[idx+1] + imgData[idx+2]) / 3;
+  };
 
-  const marginX = ly.mg * mmToPixX;
-  const marginY = ly.mg * mmToPixY;
-  const hdrH    = ly.hdrH * mmToPixY;
-  const rowH    = ly.rowH * mmToPixY;
-  const numW    = ly.numW * mmToPixX;
-  const nameW   = ly.nameW * mmToPixX;
-  const rubW    = (W - marginX*2 - numW - nameW) / rubs.length;
-  const bubR    = (ly.bubD/2) * mmToPixX;
-  const bubGap  = ly.bubGap * mmToPixX;
-  const bubStep = bubR*2 + bubGap;
+  // Use the QR-anchored transform if we have one; fall back to "image fills
+  // the page exactly" (the old, fragile assumption) only if perspective
+  // correction couldn't be computed.
+  const useTransform = transform && typeof transform.mmToPx === "function";
+  const mmToPxFn = useTransform ? transform.mmToPx : (mmX, mmY) => ({
+    x: (mmX / ly.pw) * W,
+    y: (mmY / ly.ph) * H
+  });
+  const pxPerMm = useTransform
+    ? transform.pxPerMm
+    : Math.min(W / ly.pw, H / ly.ph);
 
-  const firstRowY = marginY + hdrH + rowH*0.5; // center of row 1
-  const colHdrH   = 22 * mmToPixY; // rotated header height
+  const bubR    = (ly.bubD/2) * pxPerMm;
+  const bubStep = (ly.bubD + ly.bubGap) * pxPerMm;
 
-  const scores = []; // [{row, rubIdx, val}]
+  // Print layout geometry (mm) — re-derived from rubric count to match
+  // printScoringSheets exactly.
+  const COL_HDR_MM = 22;          // rotated header height
+  const TABLE_TOP_MM = ly.mg + ly.hdrH + COL_HDR_MM;
+  const TABLE_LEFT_MM = ly.mg;
+  // Width available for rubric columns (page width - L/R margins - num/name cols)
+  const tableInnerW = ly.pw - ly.mg*2;
+  const rubW_mm = (tableInnerW - ly.numW - ly.nameW) / rubs.length;
 
-  // Max rows to sample: fit within page height
-  const maxRows = Math.floor((H - marginY - hdrH - colHdrH - marginY) / rowH);
+  // Max rows to sample within the printable area.
+  const PAGE_BOTTOM_FOOTER_MM = 12;
+  const usableRowsMm = ly.ph - TABLE_TOP_MM - PAGE_BOTTOM_FOOTER_MM - ly.mg;
+  const maxRows = Math.max(1, Math.floor(usableRowsMm / ly.rowH));
 
-  for(let row=0; row<maxRows; row++){
-    const cy = marginY + hdrH + colHdrH + rowH*row + rowH*0.5;
+  const scores = [];
+  for(let row = 0; row < maxRows; row++){
+    const cyMm = TABLE_TOP_MM + ly.rowH * (row + 0.5);
     const rowScores = [];
-    for(let ri=0; ri<rubs.length; ri++){
-      const cellX = marginX + numW + nameW + rubW*ri;
-      const cellCX = cellX + rubW*0.5;
-      // 5 bubbles centered in the cell
-      const totalBubsW = bubStep*5 - bubGap;
-      const startX = cellCX - totalBubsW*0.5 + bubR;
+    for(let ri = 0; ri < rubs.length; ri++){
+      const cellLeftMm = TABLE_LEFT_MM + ly.numW + ly.nameW + rubW_mm * ri;
+      const cellCenterMm = cellLeftMm + rubW_mm * 0.5;
+      // 5 bubbles centered horizontally in the cell
+      const totalBubsW_mm = (ly.bubD * 5) + (ly.bubGap * 4);
+      const firstBubMm = cellCenterMm - totalBubsW_mm/2 + ly.bubD/2;
 
-      let minDark=255, bestVal=0;
-      for(let v=1;v<=5;v++){
-        const bx = Math.round(startX + bubStep*(v-1));
-        const by = Math.round(cy);
-        const dark = _measureBubbleDarkness(ctx, bx, by, bubR*0.7);
-        if(dark < minDark){ minDark=dark; bestVal=v; }
+      const cellLums = [];
+      for(let v = 1; v <= 5; v++){
+        const bxMm = firstBubMm + (ly.bubD + ly.bubGap) * (v-1);
+        const p = mmToPxFn(bxMm, cyMm);
+        cellLums.push({
+          val: v,
+          lum: _measureBubbleDarknessFromArray(lumAt, p.x, p.y, bubR * 0.6)
+        });
       }
-      // Only count as filled if meaningfully darker than typical (threshold ~140)
-      rowScores.push(minDark < 140 ? bestVal : 0);
+      // Adaptive threshold: a bubble is "filled" if it is BOTH
+      //   (a) significantly darker than the row's median, AND
+      //   (b) under an absolute brightness ceiling (so an entirely-bright
+      //       row of empty bubbles doesn't spuriously pick the slightly
+      //       darker one).
+      const sortedLums = cellLums.map(c=>c.lum).sort((a,b)=>a-b);
+      const minLum = sortedLums[0];
+      const medianLum = sortedLums[2];
+      const minEntry = cellLums.find(c => c.lum === minLum);
+      const isFilled =
+        minLum < 170 &&                       // not just slightly grey
+        (medianLum - minLum) > 30;            // distinctly darker than its peers
+      rowScores.push(isFilled ? minEntry.val : 0);
     }
     scores.push(rowScores);
   }
   return scores;
 }
 
+function _measureBubbleDarknessFromArray(lumAt, cx, cy, r){
+  // Sample pixels in a circle of radius r around (cx, cy).  Returns the
+  // MEAN luminance — averaging is more robust than min/max because a
+  // single noisy pixel shouldn't dominate.
+  const r2 = Math.floor(r);
+  let sum = 0, n = 0;
+  for(let dy = -r2; dy <= r2; dy++){
+    for(let dx = -r2; dx <= r2; dx++){
+      if(dx*dx + dy*dy <= r2*r2){
+        sum += lumAt(cx + dx, cy + dy);
+        n++;
+      }
+    }
+  }
+  return n ? sum / n : 255;
+}
+
+// Kept for backwards compatibility in case anything else references it.
 function _measureBubbleDarkness(ctx, cx, cy, r){
-  // Sample pixels in a circle of radius r, return average brightness
   const r2=Math.floor(r), samples=[];
   for(let dy=-r2;dy<=r2;dy++){
     for(let dx=-r2;dx<=r2;dx++){
       if(dx*dx+dy*dy<=r2*r2){
         const d=ctx.getImageData(Math.round(cx+dx),Math.round(cy+dy),1,1).data;
-        samples.push((d[0]+d[1]+d[2])/3); // average RGB = brightness
+        samples.push((d[0]+d[1]+d[2])/3);
       }
     }
   }
