@@ -1,7 +1,7 @@
 {
-  "name": "Athlete Assessment Systems",
-  "short_name": "AAS Tryout",
-  "description": "The all-in-one platform for athlete tryouts and player evaluation — QR registration, custom rubrics, team builder, and cloud sync.",
+  "name": "TryoutHQ — Athlete Assessment Systems",
+  "short_name": "TryoutHQ",
+  "description": "TryoutHQ — the all-in-one platform for athlete tryouts and player evaluation. QR registration, custom rubrics, team builder, and cloud sync.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
